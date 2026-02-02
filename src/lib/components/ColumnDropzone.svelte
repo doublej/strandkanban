@@ -19,6 +19,7 @@
 		isFilterPreviewing: boolean;
 		flyingCards: Map<string, any>;
 		placeholders: Array<{id: string; targetColumn: string; height: number}>;
+		shrinkingSourceIds: Set<string>;
 		showAddButton?: boolean;
 		registerCard: (node: HTMLElement, id: string) => void;
 		registerPlaceholder: (node: HTMLElement, id: string) => void;
@@ -46,6 +47,7 @@
 		isFilterPreviewing,
 		flyingCards,
 		placeholders,
+		shrinkingSourceIds,
 		showAddButton = false,
 		registerCard,
 		registerPlaceholder,
@@ -77,6 +79,7 @@
 		{@const isBlocked = hasOpenBlockers(issue)}
 		{@const matchesFilter = issueMatchesFilters(issue)}
 		{@const isFlying = flyingCards.has(issue.id)}
+		{@const isShrinking = shrinkingSourceIds.has(issue.id)}
 		{@const shouldHide = hasActiveFilters && !isFilterPreviewing && !matchesFilter}
 		{#if !shouldHide}
 			<IssueCard
@@ -89,6 +92,7 @@
 				editing={editingIssue?.id === issue.id}
 				filterDimmed={hasActiveFilters && isFilterPreviewing && !matchesFilter}
 				flyingHidden={isFlying}
+				shrinkingSource={isShrinking}
 				{registerCard}
 				onclick={() => oncardclick(issue)}
 				ondragstart={(e) => oncarddragstart(e, issue.id)}

@@ -23,6 +23,7 @@
 		isFilterPreviewing: boolean;
 		flyingCards: Map<string, any>;
 		placeholders: Array<{id: string; targetColumn: string; height: number}>;
+		shrinkingSourceIds: Set<string>;
 		activeColumnIndex: number;
 		showAddButton?: boolean;
 		registerCard: (node: HTMLElement, id: string) => void;
@@ -63,6 +64,7 @@
 		isFilterPreviewing,
 		flyingCards,
 		placeholders,
+		shrinkingSourceIds,
 		activeColumnIndex,
 		showAddButton = false,
 		registerCard,
@@ -90,6 +92,7 @@
 	class:drag-over={draggedOverColumn === column.key}
 	class:collapsed={isCollapsed}
 	style="--accent: {column.accent}"
+	data-column-key={column.key}
 	ondragover={(e) => ondragover(e, column.key)}
 	ondragleave={(e) => ondragleave(e, column.key)}
 	ondrop={(e) => ondrop(e, column.key)}
@@ -125,6 +128,7 @@
 			{isFilterPreviewing}
 			{flyingCards}
 			{placeholders}
+			{shrinkingSourceIds}
 			{showAddButton}
 			{registerCard}
 			{registerPlaceholder}

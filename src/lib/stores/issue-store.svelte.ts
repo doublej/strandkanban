@@ -6,9 +6,11 @@ export interface IssueStoreCallbacks {
 	onStatusChange: (issue: Issue, oldStatus: string) => void;
 	getCardPosition: (id: string) => { x: number; y: number; w: number; h: number } | null;
 	getPlaceholderPosition: (id: string) => { x: number; y: number; w: number; h: number } | null;
+	measureTargetPosition: (targetColumn: string, height: number) => { x: number; y: number; w: number; h: number } | null;
 	addPlaceholder: (id: string, targetColumn: string, height: number) => void;
 	addFlyingCard: (id: string, from: { x: number; y: number; w: number; h: number }, to: { x: number; y: number; w: number; h: number }, issue: Issue) => void;
 	addTeleport: (id: string, from: { x: number; y: number; w: number; h: number }, to: { x: number; y: number; w: number; h: number }) => void;
+	addShrinkingSource: (id: string) => void;
 	cleanupAnimation: (id: string) => void;
 	notifyTicket: (id: string, message: string, type: 'status' | 'priority' | 'assignee', context: { ticketTitle: string; sender: string }) => void;
 	onEditingIssueClosedExternally: () => void;
@@ -68,17 +70,14 @@ export function createIssueStore(callbacks: IssueStoreCallbacks) {
 	}
 
 	function handleStatusChanges(data: { issues: Issue[] }, oldIssuesMap: Map<string, Issue>) {
-		const statusChanges: { id: string; fromPos: { x: number; y: number; w: number; h: number }; newStatus: string; height: number }[] = [];
+		const statusChanges: { id: string; newStatus: string }[] = [];
 
 		for (const issue of data.issues) {
 			const oldIssue = oldIssuesMap.get(issue.id);
 			if (!oldIssue) {
 				callbacks.onNewIssue(issue);
 			} else if (oldIssue.status !== issue.status) {
-				const fromPos = callbacks.getCardPosition(issue.id);
-				if (fromPos) {
-					statusChanges.push({ id: issue.id, fromPos, newStatus: issue.status, height: fromPos.h });
-				}
+				statusChanges.push({ id: issue.id, newStatus: issue.status });
 				callbacks.onStatusChange(issue, oldIssue.status);
 			}
 		}
@@ -88,33 +87,41 @@ export function createIssueStore(callbacks: IssueStoreCallbacks) {
 			return;
 		}
 
-		// Create placeholders first
-		for (const { id, newStatus, height } of statusChanges) {
+		// PRE-FLIGHT: Measure positions before any DOM changes
+		const measurements = statusChanges.map(({ id, newStatus }) => {
+			const fromPos = callbacks.getCardPosition(id);
+			const cardEl = document.querySelector(`[data-card-id="${id}"]`);
+			const height = cardEl?.getBoundingClientRect().height ?? 80;
+			const toPos = callbacks.measureTargetPosition(newStatus, height);
+			return { id, fromPos, toPos, newStatus, height };
+		});
+
+		// START ANIMATIONS: Source shrink + target expand
+		for (const { id, newStatus, height } of measurements) {
+			callbacks.addShrinkingSource(id);
 			callbacks.addPlaceholder(id, newStatus, height);
 		}
 
-		// Wait for placeholder expansion, then animate
+		// Update state immediately (cards will shrink, not hide)
+		issues = mergeWithPendingUpdates(data.issues);
+
+		// FLYING CARD: Delay 150ms for visual overlap
 		setTimeout(() => {
-			const targets = statusChanges
-				.map(({ id, fromPos }) => ({
-					id,
-					fromPos,
-					toPos: callbacks.getPlaceholderPosition(id),
-					issue: oldIssuesMap.get(id)
-				}))
-				.filter(t => t.toPos !== null && t.issue);
-
-			for (const { id, fromPos, toPos, issue } of targets) {
-				callbacks.addFlyingCard(id, fromPos, toPos!, issue!);
+			for (const { id, fromPos, toPos } of measurements) {
+				if (toPos && fromPos) {
+					const issue = issues.find(i => i.id === id);
+					callbacks.addFlyingCard(id, fromPos, toPos, issue!);
+					callbacks.addTeleport(id, fromPos, toPos);
+				}
 			}
+		}, 150);
 
-			issues = mergeWithPendingUpdates(data.issues);
-
-			for (const { id, fromPos, toPos } of targets) {
-				callbacks.addTeleport(id, fromPos, toPos!);
-				setTimeout(() => callbacks.cleanupAnimation(id), 600);
+		// CLEANUP: Remove all animation artifacts
+		setTimeout(() => {
+			for (const { id } of measurements) {
+				callbacks.cleanupAnimation(id);
 			}
-		}, 350);
+		}, 750);
 	}
 
 	function checkEditingIssueClosed(data: { issues: Issue[] }) {

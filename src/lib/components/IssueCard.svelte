@@ -14,6 +14,7 @@
 		editing?: boolean;
 		filterDimmed?: boolean;
 		flyingHidden?: boolean;
+		shrinkingSource?: boolean;
 		showImpact?: boolean;
 		registerCard: (node: HTMLElement, id: string) => void;
 		onclick: () => void;
@@ -33,6 +34,7 @@
 		editing = false,
 		filterDimmed = false,
 		flyingHidden = false,
+		shrinkingSource = false,
 		showImpact = true,
 		registerCard,
 		onclick,
@@ -60,6 +62,7 @@
 	class:has-blockers={hasOpenBlockers}
 	class:filter-dimmed={filterDimmed}
 	class:flying-hidden={flyingHidden}
+	class:shrinking-source={shrinkingSource}
 	style="--priority-color: {priorityConfig.color}"
 	draggable="true"
 	ondragstart={ondragstart}
@@ -67,6 +70,7 @@
 	onclick={onclick}
 	oncontextmenu={oncontextmenu}
 	use:registerCard={issue.id}
+	data-card-id={issue.id}
 >
 	<div class="card-content">
 		<IssueCardBadges {issue} {copiedId} {hasOpenBlockers} {showImpact} {isAgentAssignee} {oncopyid} />
@@ -161,6 +165,26 @@
 	}
 
 	.card.flying-hidden {
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.card.shrinking-source {
+		height: 0;
+		min-height: 0;
+		margin-top: 0;
+		margin-bottom: 0;
+		padding-top: 0;
+		padding-bottom: 0;
+		border-top-width: 0;
+		border-bottom-width: 0;
+		overflow: hidden;
+		transition:
+			height 300ms cubic-bezier(0.22, 1, 0.36, 1),
+			margin 300ms cubic-bezier(0.22, 1, 0.36, 1),
+			padding 300ms cubic-bezier(0.22, 1, 0.36, 1),
+			border-width 300ms cubic-bezier(0.22, 1, 0.36, 1),
+			opacity 150ms linear 300ms;
 		opacity: 0;
 		pointer-events: none;
 	}

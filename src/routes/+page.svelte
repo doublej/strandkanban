@@ -95,6 +95,7 @@
 	let cardRefs = $state<Map<string, HTMLElement>>(new Map());
 	let placeholderRefs = $state<Map<string, HTMLElement>>(new Map());
 	let flyingCards = $state<Map<string, {from: {x: number; y: number; w: number; h: number}; to: {x: number; y: number; w: number; h: number}; issue: Issue}>>(new Map());
+	let shrinkingSourceIds = $state<Set<string>>(new Set());
 	let viewMode = $state<ViewMode>('kanban');
 	let showMutationLog = $state(false);
 	let projects = $state<Project[]>([]);
@@ -122,6 +123,24 @@
 			const rect = el.getBoundingClientRect();
 			return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
 		},
+		measureTargetPosition: (targetColumn, height) => {
+			// Find the column element
+			const columnEl = document.querySelector(`[data-column-key="${targetColumn}"] .cards`);
+			if (!columnEl) return null;
+
+			// Create temporary hidden placeholder
+			const tempPlaceholder = document.createElement('div');
+			tempPlaceholder.style.height = `${height}px`;
+			tempPlaceholder.style.visibility = 'hidden';
+			tempPlaceholder.style.position = 'relative';
+
+			// Inject, measure, remove
+			columnEl.insertBefore(tempPlaceholder, columnEl.firstChild);
+			const rect = tempPlaceholder.getBoundingClientRect();
+			const pos = { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
+			columnEl.removeChild(tempPlaceholder);
+			return pos;
+		},
 		addPlaceholder: (id, targetColumn, height) => {
 			if (!placeholders.some(p => p.id === id)) {
 				placeholders = [...placeholders, { id, targetColumn, height }];
@@ -134,11 +153,17 @@
 		addTeleport: (id, from, to) => {
 			teleports = [...teleports, { id, from, to, startTime: Date.now() }];
 		},
+		addShrinkingSource: (id) => {
+			shrinkingSourceIds.add(id);
+			shrinkingSourceIds = new Set(shrinkingSourceIds);
+		},
 		cleanupAnimation: (id) => {
 			teleports = teleports.filter(t => t.id !== id);
 			placeholders = placeholders.filter(p => p.id !== id);
 			flyingCards.delete(id);
 			flyingCards = new Map(flyingCards);
+			shrinkingSourceIds.delete(id);
+			shrinkingSourceIds = new Set(shrinkingSourceIds);
 		},
 		notifyTicket: (id, message, type, context) => ops.notifyTicket(id, message, type, context),
 		onEditingIssueClosedExternally: () => { ops.issueClosedExternally = true; },
@@ -622,6 +647,7 @@
 					{isFilterPreviewing}
 					{flyingCards}
 					{placeholders}
+					{shrinkingSourceIds}
 					{activeColumnIndex}
 					{registerCard}
 					{registerPlaceholder}
