@@ -12,8 +12,8 @@ import { formatTicketDelivery as formatTicketDeliveryFn } from '$lib/agent/ticke
 import type { TicketDeliveryData } from '$lib/agent/ticket-delivery';
 import { settings } from '$lib/stores/settings.svelte';
 import type { IssueStore } from '$lib/stores/issue-store.svelte';
-import { notifyAgentOfTicketUpdate, addPane, getRunningSessionsForCwd, sendToPane, type Pane } from '$lib/wsStore.svelte';
-import { updateSession, addSystemMessage, setSessionError } from '$lib/stores/agent-sessions.svelte';
+import { notifyAgentOfTicketUpdate, addPane, getRunningSessionsForCwd, sendToPane, type Pane, type AgentSession } from '$lib/wsStore.svelte';
+import { updateSession, addSystemMessage, setSessionError, getSessions, setSessions } from '$lib/stores/agent-sessions.svelte';
 import { createWorktreeApi } from '$lib/stores/worktree-api';
 
 export interface PageOpsContext {
@@ -297,8 +297,21 @@ export function createPageOps(ctx: PageOpsContext) {
 		const { agentName, cwd, issue, briefing, ticketId } = cwdConflict;
 		cwdConflict = null;
 
-		// STEP 1: Create pane IMMEDIATELY (before any async work)
-		addPane(agentName, cwd, '', settings.combinedSystemPrompt, undefined, ticketId);
+		// STEP 1: Create empty pane IMMEDIATELY (show UI without starting agent)
+		const sessions = getSessions();
+		const newSession: AgentSession = {
+			id: crypto.randomUUID(),
+			name: agentName,
+			cwd,
+			streaming: false,
+			messages: [],
+			currentDelta: '',
+			pane_type: 'agent',
+			backend: 'claude',
+			ticketId
+		};
+		sessions.set(agentName, newSession);
+		setSessions(new Map(sessions));
 
 		// STEP 2: Expand pane so user sees it
 		const expanded = ctx.getExpandedPanes();
@@ -329,12 +342,10 @@ export function createPageOps(ctx: PageOpsContext) {
 			// STEP 7: Update session with actual cwd
 			updateSession(agentName, { cwd: effectiveCwd });
 
-			// STEP 8: Send initial briefing to start agent
-			if (briefing) {
-				setTimeout(() => {
-					sendToPane(agentName, briefing, effectiveCwd);
-				}, 100);
-			}
+			// STEP 8: Start agent with actual briefing (this sends the initial message)
+			setTimeout(() => {
+				sendToPane(agentName, briefing, effectiveCwd);
+			}, 100);
 
 		} catch (err: any) {
 			// STEP 9: Handle errors gracefully
