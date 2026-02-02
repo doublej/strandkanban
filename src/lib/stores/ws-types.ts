@@ -2,7 +2,7 @@
 
 export type NotificationType = 'comment' | 'dependency' | 'attachment' | 'status' | 'priority' | 'assignee' | 'label';
 
-export type SystemMessageSubtype = 'init' | 'compact_start' | 'compact_done' | 'subagent_start' | 'subagent_end' | 'info';
+export type SystemMessageSubtype = 'init' | 'compact_start' | 'compact_done' | 'subagent_start' | 'subagent_end' | 'info' | 'worktree_progress' | 'error';
 
 export interface ChatMessage {
 	role: 'user' | 'assistant' | 'tool' | 'notification' | 'system';
@@ -46,6 +46,9 @@ export interface AgentSession {
 	backend: string;
 	lastReadCount?: number;
 	ticketId?: string;
+	worktreePath?: string;
+	error?: boolean;
+	errorMessage?: string;
 }
 
 export interface FileDiff {

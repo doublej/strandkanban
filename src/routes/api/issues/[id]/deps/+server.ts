@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { RequestHandler } from './$types';
-import { getBdDbFlag } from '$lib/db';
+import { getStoredCwd } from '$lib/db';
 
 const execAsync = promisify(exec);
 
@@ -13,10 +13,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		return json({ error: 'depends_on is required' }, { status: 400 });
 	}
 
-	const cmd = `bd ${getBdDbFlag()} dep add ${params.id} ${depends_on} --type ${dep_type}`;
+	const cmd = `bd dep add ${params.id} ${depends_on} --type ${dep_type}`;
 
 	try {
-		const { stdout } = await execAsync(cmd);
+		const { stdout } = await execAsync(cmd, { cwd: getStoredCwd() });
 		return json({ success: true, message: stdout.trim() });
 	} catch (err: unknown) {
 		const error = err as { stderr?: string; message?: string };
@@ -31,10 +31,10 @@ export const DELETE: RequestHandler = async ({ params, request }) => {
 		return json({ error: 'depends_on is required' }, { status: 400 });
 	}
 
-	const cmd = `bd ${getBdDbFlag()} dep remove ${params.id} ${depends_on}`;
+	const cmd = `bd dep remove ${params.id} ${depends_on}`;
 
 	try {
-		const { stdout } = await execAsync(cmd);
+		const { stdout } = await execAsync(cmd, { cwd: getStoredCwd() });
 		return json({ success: true, message: stdout.trim() });
 	} catch (err: unknown) {
 		const error = err as { stderr?: string; message?: string };

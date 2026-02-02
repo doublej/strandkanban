@@ -1,5 +1,5 @@
 // Session persistence to localStorage for beads-kanban agent sessions
-import type { AgentSession } from './stores/ws-types';
+import type { AgentSession, ChatMessage } from './stores/ws-types';
 
 const STORAGE_KEY = 'beads-kanban-sessions';
 const SDK_SESSION_KEY = 'beads-kanban-sdk-sessions';
@@ -72,6 +72,19 @@ export interface SdkSessionInfo {
 	timestamp: string;
 	summary?: string;
 	preview: string[];
+}
+
+export async function fetchSessionHistory(cwd: string, sessionId: string): Promise<ChatMessage[]> {
+	if (typeof window === 'undefined') return [];
+	try {
+		const host = window.location.hostname;
+		const res = await fetch(`http://${host}:9347/sessions/${sessionId}/history?cwd=${encodeURIComponent(cwd)}`);
+		if (!res.ok) return [];
+		const data = await res.json();
+		return data.messages || [];
+	} catch {
+		return [];
+	}
 }
 
 export async function fetchSdkSessions(cwd: string): Promise<SdkSessionInfo[]> {

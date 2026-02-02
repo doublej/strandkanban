@@ -2,6 +2,7 @@
 	import type { Attachment } from '$lib/types';
 	import { formatTimestamp } from '$lib/utils';
 	import Icon from './Icon.svelte';
+	import TheatreViewer from './TheatreViewer.svelte';
 
 	interface Props {
 		issueId: string;
@@ -18,6 +19,9 @@
 		onuploadattachment,
 		ondeleteattachment,
 	}: Props = $props();
+
+	let theatreOpen = $state(false);
+	let theatreIndex = $state(0);
 
 	function formatFileSize(bytes: number): string {
 		if (bytes < 1024) return bytes + ' B';
@@ -53,7 +57,16 @@
 				{@const ts = formatTimestamp(a.created_at)}
 				<div class="attachment">
 					{#if isImageMimetype(a.mimetype)}
-						<img src="/api/issues/{issueId}/attachments/{a.filename}" alt={a.filename} class="att-thumb" />
+						<img
+							src="/api/issues/{issueId}/attachments/{a.filename}"
+							alt={a.filename}
+							class="att-thumb clickable"
+							onclick={() => {
+								const imageAttachments = attachments.filter(att => isImageMimetype(att.mimetype));
+								theatreIndex = imageAttachments.findIndex(att => att.filename === a.filename);
+								theatreOpen = true;
+							}}
+						/>
 					{:else}
 						<div class="att-icon"><Icon name="file" size={14} /></div>
 					{/if}
@@ -73,6 +86,15 @@
 		<label for="att-input" class="dropzone-label"><Icon name="plus" size={14} /><span>Drop or click</span></label>
 	</div>
 </section>
+
+{#if theatreOpen}
+	<TheatreViewer
+		{issueId}
+		{attachments}
+		initialIndex={theatreIndex}
+		onclose={() => theatreOpen = false}
+	/>
+{/if}
 
 <style>
 	.section { margin-bottom: 1.25rem; }
@@ -112,6 +134,16 @@
 		object-fit: cover;
 		border-radius: 6px;
 		flex-shrink: 0;
+	}
+
+	.att-thumb.clickable {
+		cursor: pointer;
+		transition: all 150ms ease;
+	}
+
+	.att-thumb.clickable:hover {
+		opacity: 0.8;
+		transform: scale(1.05);
 	}
 
 	.att-icon {

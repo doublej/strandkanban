@@ -91,9 +91,10 @@
 			oninput={(e) => handleChange(e.currentTarget.value)}
 			onkeydown={handleKeydown}
 			onblur={() => setTimeout(() => { slashMenuOpen = false; }, 150)}
-			placeholder={disabled ? "connecting..." : pane.slashCommands?.length ? "/ for commands" : ">"}
+			placeholder={pane.error ? "Session error - cannot send messages" : disabled ? "connecting..." : pane.slashCommands?.length ? "/ for commands" : ">"}
 			class="msg-input"
-			{disabled}
+			class:error={pane.error}
+			disabled={disabled || pane.error}
 		/>
 		{#if slashMenuOpen}
 			{@const filtered = getFilteredSlashCommands()}
@@ -119,7 +120,7 @@
 			{/if}
 		{/if}
 	</div>
-	<button type="submit" class="send-btn" disabled={disabled || !messageInput?.trim()}>
+	<button type="submit" class="send-btn" class:error={pane.error} disabled={disabled || !messageInput?.trim() || pane.error}>
 		{#if disabled}
 			<span class="spinner"></span>
 		{:else}
@@ -206,6 +207,16 @@
 	.msg-input::placeholder { color: var(--text-tertiary); opacity: 0.6; }
 	.msg-input:disabled { opacity: 0.5; cursor: not-allowed; }
 
+	.msg-input.error {
+		background: rgba(239, 68, 68, 0.05);
+		border-color: rgba(239, 68, 68, 0.3);
+		cursor: not-allowed;
+	}
+
+	.msg-input.error::placeholder {
+		color: rgba(239, 68, 68, 0.6);
+	}
+
 	:global(.app.light) .msg-input { background: rgba(0, 0, 0, 0.04); }
 	:global(.app.light) .msg-input:focus { background: rgba(0, 0, 0, 0.06); }
 
@@ -221,6 +232,12 @@
 	.send-btn:hover:not(:disabled) { background: #6366f1; }
 	.send-btn:active:not(:disabled) { transform: scale(0.95); }
 	.send-btn:disabled { background: rgba(255, 255, 255, 0.08); color: var(--text-tertiary); cursor: default; }
+
+	.send-btn.error {
+		background: rgba(239, 68, 68, 0.1);
+		color: rgba(239, 68, 68, 0.5);
+		cursor: not-allowed;
+	}
 
 	:global(.app.light) .send-btn:disabled { background: rgba(0, 0, 0, 0.06); }
 

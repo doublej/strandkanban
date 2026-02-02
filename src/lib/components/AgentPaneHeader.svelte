@@ -76,6 +76,9 @@
 				{pane.sdkSessionId.slice(0, 6)}
 			</span>
 		{/if}
+		{#if pane.worktreePath}
+			<span class="worktree-badge" title="Running in worktree: {pane.worktreePath}">worktree</span>
+		{/if}
 		{#if pane.usage}
 			{@const total = pane.usage.inputTokens + pane.usage.outputTokens}
 			{@const cached = pane.usage.cacheRead}
@@ -248,6 +251,17 @@
 	}
 
 	.session-id.compacted { background: rgba(16, 185, 129, 0.12); color: rgba(16, 185, 129, 0.8); }
+
+	.worktree-badge {
+		font: 600 8px/1 'IBM Plex Mono', monospace;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		padding: 2px 5px;
+		border-radius: 3px;
+		background: rgba(251, 146, 60, 0.15);
+		color: rgba(251, 146, 60, 0.9);
+	}
+	:global(.app.light) .worktree-badge { background: rgba(234, 88, 12, 0.1); color: rgb(194, 65, 12); }
 
 	/* Context meter */
 	.context-meter {

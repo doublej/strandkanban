@@ -5,6 +5,7 @@
 import Database from 'better-sqlite3';
 import { join, resolve } from 'path';
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
+import { execSync } from 'child_process';
 import type { Issue, Dependency, MutationEntry, MutationType, Attachment, Comment } from './types';
 import { getMimetype } from './attachments';
 
@@ -15,25 +16,41 @@ export function getStoredCwd(): string {
 		const stored = readFileSync(CONFIG_FILE, 'utf-8').trim();
 		if (stored && existsSync(stored)) return stored;
 	}
-	// Fallback: BD_DB env var (extract dir from db path) or process.cwd()
-	if (process.env.BD_DB) {
-		const dir = process.env.BD_DB.replace(/\/.beads\/beads\.db$/, '');
-		if (existsSync(dir)) return dir;
-	}
 	return process.cwd();
-}
-
-/** Returns --db flag to ensure bd targets the correct project database */
-export function getBdDbFlag(): string {
-	return `--db "${join(getStoredCwd(), '.beads', 'beads.db')}"`;
 }
 
 export function setStoredCwd(path: string): void {
 	writeFileSync(CONFIG_FILE, path, 'utf-8');
 }
 
+/** Cached database path from `bd where --json` */
+let cachedDbPath: string | null = null;
+let cachedDbCwd: string | null = null;
+
 function getDbPath(): string {
-	return join(getStoredCwd(), '.beads', 'beads.db');
+	const cwd = getStoredCwd();
+	// Return cache if cwd hasn't changed
+	if (cachedDbPath && cachedDbCwd === cwd) return cachedDbPath;
+
+	// Try `bd where --json` for dynamic discovery
+	try {
+		const output = execSync('bd where --json', { cwd, encoding: 'utf-8', timeout: 5000 }).trim();
+		const info = JSON.parse(output);
+		const dbPath = info.database_path as string | undefined;
+		if (dbPath && existsSync(dbPath)) {
+			cachedDbPath = dbPath;
+			cachedDbCwd = cwd;
+			return dbPath;
+		}
+	} catch {
+		// bd where failed — fall through to default
+	}
+
+	// Fallback: classic SQLite path
+	const fallback = join(cwd, '.beads', 'beads.db');
+	cachedDbPath = fallback;
+	cachedDbCwd = cwd;
+	return fallback;
 }
 
 interface DbIssue {

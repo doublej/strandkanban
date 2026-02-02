@@ -56,6 +56,127 @@
 		}
 	];
 
+	const screenshots = [
+		{ file: 'kanban-wide-light.png', label: 'Kanban Board' },
+		{ file: 'detail-panel-light.png', label: 'Detail Panel' },
+		{ file: 'agent-kanban-light.png', label: 'Agent Pane' },
+		{ file: 'keyboard-hints-light.png', label: 'Keyboard Nav' },
+		{ file: 'graph-view-light.png', label: 'Dependency Graph' },
+		{ file: 'stats-view-light.png', label: 'Stats Dashboard' },
+		{ file: 'tree-expanded-light.png', label: 'Tree View' },
+		{ file: 'tree-view-light.png', label: 'Tree Collapsed' }
+	];
+
+	// Filmroll gallery state
+	let scrollContainer = $state<HTMLDivElement | undefined>(undefined);
+	let isDragging = $state(false);
+	let isHovering = $state(false);
+	let hoverPreview = $state<{ file: string; label: string } | null>(null);
+	let dragStartX = 0;
+	let dragScrollLeft = 0;
+	let scrollLeft = $state(0);
+	let hasDragged = false;
+
+	// Theater mode state
+	let theaterOpen = $state(false);
+	let theaterShot = $state(screenshots[0]);
+
+	function curveY(idx: number, total: number): number {
+		const c = (total - 1) / 2;
+		const n = (idx - c) / (c || 1);
+		return n * -12;
+	}
+
+	function curveZ(idx: number, total: number): number {
+		const c = (total - 1) / 2;
+		const n = (idx - c) / (c || 1);
+		return (1 - n * n) * 60;
+	}
+
+	function onPointerDown(e: PointerEvent) {
+		if (!scrollContainer) return;
+		isDragging = true;
+		hasDragged = false;
+		dragStartX = e.clientX;
+		dragScrollLeft = scrollContainer.scrollLeft;
+	}
+
+	function onPointerMove(e: PointerEvent) {
+		if (!isDragging || !scrollContainer) return;
+		const dx = e.clientX - dragStartX;
+		if (Math.abs(dx) > 5) hasDragged = true;
+		scrollContainer.scrollLeft = dragScrollLeft - dx;
+	}
+
+	function onPointerUp() {
+		isDragging = false;
+	}
+
+	function onTrackScroll() {
+		if (!scrollContainer) return;
+		scrollLeft = scrollContainer.scrollLeft;
+	}
+
+	const centerLabel = $derived.by(() => {
+		if (!scrollContainer) return screenshots[0].label;
+		const center = scrollLeft + (scrollContainer?.clientWidth ?? 0) / 2;
+		const frameW = 280 + 12; // width + gap
+		const idx = Math.round(center / frameW) % screenshots.length;
+		return screenshots[Math.abs(idx) % screenshots.length]?.label ?? '';
+	});
+
+	function setHoverPreview(shot: { file: string; label: string } | null) {
+		hoverPreview = shot;
+	}
+
+	let stageEl = $state<HTMLDivElement | undefined>(undefined);
+	let theaterAnimating = $state(false);
+
+	function openTheater(shot: { file: string; label: string }) {
+		if (hasDragged) return;
+		theaterShot = shot;
+		hoverPreview = null;
+		if (!stageEl) return;
+		// Clip to current position BEFORE going fixed, preventing full-screen black flash
+		const r = stageEl.getBoundingClientRect();
+		const top = (r.top / window.innerHeight) * 100;
+		const right = ((window.innerWidth - r.right) / window.innerWidth) * 100;
+		const bottom = ((window.innerHeight - r.bottom) / window.innerHeight) * 100;
+		const left = (r.left / window.innerWidth) * 100;
+		stageEl.style.clipPath = `inset(${top}% ${right}% ${bottom}% ${left}% round 8px)`;
+		theaterAnimating = true;
+		theaterOpen = true;
+		document.body.style.overflow = 'hidden';
+		// Next frame: transition clip-path to full screen
+		requestAnimationFrame(() => {
+			if (stageEl) stageEl.style.clipPath = 'inset(0 0 0 0 round 0)';
+		});
+		setTimeout(() => {
+			theaterAnimating = false;
+			if (stageEl) stageEl.style.clipPath = '';
+		}, 550);
+	}
+
+	function closeTheater() {
+		if (!stageEl) return;
+		theaterAnimating = true;
+		// Animate clip-path back to the original inset before removing theater mode
+		const r = stageEl.getBoundingClientRect();
+		// Use the filmroll-stage's non-theater position (approximate: re-read from CSS vars or use center)
+		stageEl.style.clipPath = '';
+		theaterOpen = false;
+		document.body.style.overflow = '';
+		setTimeout(() => { theaterAnimating = false; }, 500);
+	}
+
+	function onTheaterKey(e: KeyboardEvent) {
+		if (!theaterOpen) return;
+		if (e.key === 'Escape') return closeTheater();
+		const idx = screenshots.findIndex((s) => s.file === theaterShot.file);
+		if (e.key === 'ArrowRight') theaterShot = screenshots[(idx + 1) % screenshots.length];
+		if (e.key === 'ArrowLeft') theaterShot = screenshots[(idx - 1 + screenshots.length) % screenshots.length];
+	}
+
 	const architecture = [
 		{ layer: 'SQLite DB', desc: '.beads/ directory with issues.db', direction: 'down' },
 		{ layer: 'db.ts', desc: 'Direct SQLite reads for fast queries', direction: 'down' },
@@ -64,6 +185,8 @@
 		{ layer: 'Kanban Board', desc: 'Drag-and-drop UI with keyboard navigation', direction: '' }
 	];
 </script>
+
+<svelte:window onkeydown={onTheaterKey} />
 
 <svelte:head>
 	<title>beads-kanban</title>
@@ -91,6 +214,77 @@
 			A SvelteKit web app that wraps the <a href="https://github.com/steveyegge/beads" target="_blank" rel="noopener">Beads</a> CLI
 			with a drag-and-drop Kanban interface. Manage issues visually while keeping <code>.beads/</code> as the source of truth.
 		</p>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div
+			class="filmroll-stage animate-in"
+			class:theater={theaterOpen}
+			class:theater-animating={theaterAnimating}
+			style="animation-delay: 350ms;"
+			bind:this={stageEl}
+			onpointerenter={() => isHovering = true}
+			onpointerleave={() => { isHovering = false; isDragging = false; }}
+		>
+			{#if theaterOpen}
+				<button class="theater-close" onclick={closeTheater} aria-label="Close theater">&times;</button>
+				<div class="theater-hero">
+					{#key theaterShot.file}
+						<img src="{base}/screenshots/{theaterShot.file}" alt={theaterShot.label} class="theater-hero-img" />
+					{/key}
+					<span class="theater-label">{theaterShot.label}</span>
+				</div>
+			{:else}
+				<span class="frame-label">{centerLabel}</span>
+			{/if}
+			<div class="filmroll-arc" class:theater-strip={theaterOpen}>
+				{#if theaterOpen}
+					<div
+						class="filmroll-track theater-thumbs"
+						role="region"
+						aria-label="Screenshot thumbnails"
+					>
+						{#each screenshots as shot}
+							<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+							<div
+								class="filmroll-frame"
+								class:active-thumb={shot.file === theaterShot.file}
+								onclick={() => { theaterShot = shot; }}
+							>
+								<img src="{base}/screenshots/{shot.file}" alt={shot.label} loading="lazy" draggable="false" />
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<div
+						class="filmroll-track"
+						class:grabbing={isDragging}
+						bind:this={scrollContainer}
+						onpointerdown={onPointerDown}
+						onpointermove={onPointerMove}
+						onpointerup={onPointerUp}
+						onscroll={onTrackScroll}
+						role="region"
+						aria-label="Screenshot gallery"
+					>
+						{#each [...screenshots, ...screenshots] as shot, i}
+							{@const idx = i % screenshots.length}
+							<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+							<div
+								class="filmroll-frame"
+								style="--ry: {curveY(idx, screenshots.length)}deg; --tz: {curveZ(idx, screenshots.length)}px"
+								onclick={() => openTheater(shot)}
+							>
+								<img src="{base}/screenshots/{shot.file}" alt={shot.label} loading="lazy" draggable="false" />
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</div>
+		{#if hoverPreview && !theaterOpen}
+			<div class="hover-preview">
+				<img src="{base}/screenshots/{hoverPreview.file}" alt={hoverPreview.label} />
+			</div>
+		{/if}
 		<div class="install-block animate-in" style="animation-delay: 400ms;">
 			<div class="code-line">
 				<code>{cloneCommand}</code>
@@ -286,6 +480,7 @@
 		min-height: 100vh;
 		line-height: 1.6;
 		-webkit-font-smoothing: antialiased;
+		overflow-x: hidden;
 	}
 
 	main {
@@ -433,6 +628,267 @@
 
 	.install-note a:hover {
 		color: #1a1a1a;
+	}
+
+	/* Film-roll gallery */
+	.filmroll-stage {
+		margin: 0 calc(-50vw + 50%) 48px;
+		width: 100vw;
+		position: relative;
+		left: 0;
+		background: #141414;
+		padding: 80px 0 70px;
+		overflow: clip;
+		display: flex;
+		flex-direction: column;
+		transition: padding 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+	}
+
+	/* Top arc: page-bg ellipse carves convex curve into the top edge */
+	.filmroll-stage::before {
+		content: '';
+		position: absolute;
+		top: -50px;
+		left: -5%;
+		right: -5%;
+		height: 80px;
+		background: #fafafa;
+		border-radius: 0 0 50% 50%;
+		z-index: 2;
+		transition: opacity 0.4s ease;
+	}
+
+	/* Bottom arc: mirrored */
+	.filmroll-stage::after {
+		content: '';
+		position: absolute;
+		bottom: -50px;
+		left: -5%;
+		right: -5%;
+		height: 80px;
+		background: #fafafa;
+		border-radius: 50% 50% 0 0;
+		z-index: 2;
+		transition: opacity 0.4s ease;
+	}
+
+	/* Theater mode: expand to fullscreen */
+	.filmroll-stage.theater {
+		position: fixed;
+		inset: 0;
+		z-index: 100;
+		margin: 0;
+		width: 100vw;
+		height: 100vh;
+		height: 100dvh;
+		padding: 0;
+		overflow: hidden;
+		display: flex;
+		flex-direction: column;
+		transition: clip-path 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+	}
+
+	.filmroll-stage.theater::before,
+	.filmroll-stage.theater::after {
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.filmroll-arc {
+		position: relative;
+		perspective: 2000px;
+	}
+
+	.filmroll-arc.theater-strip {
+		perspective: none;
+		flex-shrink: 0;
+		border-top: 1px solid rgba(255, 255, 255, 0.08);
+	}
+
+	/* Noise texture + radial glow */
+	.filmroll-arc::before {
+		content: '';
+		position: absolute;
+		inset: -40px -60px;
+		background:
+			radial-gradient(ellipse 80% 60% at 50% 40%, rgba(255, 255, 255, 0.04) 0%, transparent 70%),
+			url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+		pointer-events: none;
+	}
+
+	.filmroll-track {
+		display: flex;
+		gap: 12px;
+		overflow-x: auto;
+		scrollbar-width: none;
+		cursor: grab;
+		padding: 12px 60px;
+		scroll-behavior: auto;
+		transform: rotateX(4deg);
+		transform-origin: center bottom;
+		user-select: none;
+		-webkit-user-select: none;
+		transition: padding 0.4s ease, gap 0.4s ease;
+	}
+
+	.filmroll-track::-webkit-scrollbar {
+		display: none;
+	}
+
+	.filmroll-track.grabbing {
+		cursor: grabbing;
+	}
+
+	/* Theater thumbnail strip */
+	.filmroll-track.theater-thumbs {
+		transform: none;
+		padding: 12px 24px;
+		gap: 8px;
+		justify-content: center;
+		cursor: default;
+		overflow-x: auto;
+	}
+
+	.frame-label {
+		display: block;
+		text-align: center;
+		padding: 0 10px 16px;
+		font-family: 'DM Mono', monospace;
+		font-size: 0.85rem;
+		color: rgba(255, 255, 255, 0.7);
+		pointer-events: none;
+		position: relative;
+		z-index: 3;
+	}
+
+	.filmroll-frame {
+		flex: 0 0 auto;
+		width: 280px;
+		overflow: hidden;
+		position: relative;
+		box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+		transform: rotateY(var(--ry)) translateZ(var(--tz));
+		transition: width 0.4s cubic-bezier(0.32, 0.72, 0, 1),
+			box-shadow 0.25s,
+			opacity 0.3s;
+	}
+
+	.filmroll-frame:hover {
+		box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
+	}
+
+	/* Theater thumbnail frames */
+	.theater-thumbs .filmroll-frame {
+		width: 100px;
+		flex: 0 0 100px;
+		box-shadow: none;
+		transform: none;
+		cursor: pointer;
+		opacity: 0.4;
+		border: 2px solid transparent;
+		border-radius: 4px;
+		transition: opacity 0.2s ease, border-color 0.25s ease, transform 0.2s ease;
+	}
+
+	.theater-thumbs .filmroll-frame:hover {
+		opacity: 0.7;
+		box-shadow: none;
+		transform: translateY(-2px);
+	}
+
+	.theater-thumbs .filmroll-frame.active-thumb {
+		opacity: 1;
+		border-color: rgba(255, 255, 255, 0.6);
+	}
+
+	.filmroll-frame img {
+		width: 100%;
+		display: block;
+		border: 1px solid rgba(255, 255, 255, 0.08);
+	}
+
+	/* Theater hero */
+	.theater-close {
+		position: absolute;
+		top: 12px;
+		right: 16px;
+		background: none;
+		border: none;
+		color: rgba(255, 255, 255, 0.5);
+		font-size: 2rem;
+		cursor: pointer;
+		z-index: 101;
+		line-height: 1;
+		padding: 4px 10px;
+		transition: color 0.15s;
+	}
+
+	.theater-close:hover {
+		color: #fff;
+	}
+
+	.theater-hero {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		padding: 48px 32px 12px;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	/* Hero image entrance -- {#key} re-mounts so animation replays on thumbnail switch */
+	.theater-hero-img {
+		max-width: min(1200px, 92vw);
+		max-height: calc(100vh - 180px);
+		max-height: calc(100dvh - 180px);
+		object-fit: contain;
+		box-shadow: 0 20px 80px rgba(0, 0, 0, 0.55);
+		border-radius: 8px;
+		animation: heroImageIn 0.38s cubic-bezier(0.32, 0.72, 0, 1) both;
+	}
+
+	@keyframes heroImageIn {
+		from {
+			opacity: 0;
+			transform: scale(0.94) translateY(8px);
+		}
+		to {
+			opacity: 1;
+			transform: scale(1) translateY(0);
+		}
+	}
+
+	.theater-label {
+		display: block;
+		margin-top: 10px;
+		font-family: 'DM Mono', monospace;
+		font-size: 0.8rem;
+		color: rgba(255, 255, 255, 0.55);
+		letter-spacing: 0.02em;
+	}
+
+	/* Hover preview (non-theater) */
+	.hover-preview {
+		display: flex;
+		justify-content: center;
+		padding: 32px 24px 0;
+		pointer-events: none;
+		animation: previewFadeIn 0.2s ease-out;
+	}
+
+	.hover-preview img {
+		display: block;
+		max-width: 900px;
+		width: 100%;
+		box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
+		border: 1px solid #e0e0e0;
+	}
+
+	@keyframes previewFadeIn {
+		from { opacity: 0; transform: scale(0.97); }
+		to { opacity: 1; transform: scale(1); }
 	}
 
 	/* Sections */
@@ -809,6 +1265,21 @@
 			font-size: 1rem;
 		}
 
+		.filmroll-stage {
+			padding: 70px 0 60px;
+			margin: 0 calc(-50vw + 50%) 32px;
+		}
+
+		.filmroll-track {
+			gap: 12px;
+			padding: 12px 20px;
+			transform: none;
+		}
+
+		.filmroll-frame {
+			width: 60vw;
+		}
+
 		.features-grid {
 			grid-template-columns: 1fr;
 		}
@@ -842,6 +1313,25 @@
 
 		.copy-btn {
 			align-self: flex-start;
+		}
+
+		.theater-hero {
+			padding: 48px 8px 8px;
+		}
+
+		.theater-hero-img {
+			max-height: calc(100vh - 140px);
+			max-height: calc(100dvh - 140px);
+		}
+
+		.theater-thumbs .filmroll-frame {
+			width: 56px;
+			flex: 0 0 56px;
+		}
+
+		.filmroll-track.theater-thumbs {
+			padding: 8px 12px;
+			gap: 6px;
 		}
 	}
 </style>

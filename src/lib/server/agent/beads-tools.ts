@@ -5,7 +5,6 @@
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { spawn } from "child_process";
-import { join } from "path";
 
 // Beads MCP tools to block (we replace these with our wrappers)
 export const BLOCKED_BEADS_TOOLS = [
@@ -15,14 +14,13 @@ export const BLOCKED_BEADS_TOOLS = [
 
 async function runBd(cwd: string, args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
-    // Pass BD_CWD and BD_DB env vars like the main beads MCP does
+    // Pass BD_CWD so bd auto-discovers the database from cwd
     const proc = spawn("bd", args, {
       cwd,
       shell: false,
       env: {
         ...process.env,
         BD_CWD: cwd,
-        BD_DB: join(cwd, ".beads", "beads.db"),
       },
     });
     let stdout = "";

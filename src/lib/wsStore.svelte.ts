@@ -38,6 +38,7 @@ export {
 	continueSession,
 	compactSession,
 	injectNotification,
+	getRunningSessionsForCwd,
 } from './stores/ws-connection.svelte';
 
 // Message tracking and notifications
@@ -54,5 +55,6 @@ export {
 	getAllPersistedSessions,
 	deletePersistedSession,
 	fetchSdkSessions,
+	fetchSessionHistory,
 	type SdkSessionInfo,
 } from './session-persistence';

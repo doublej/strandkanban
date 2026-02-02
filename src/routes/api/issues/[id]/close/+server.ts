@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { RequestHandler } from './$types';
-import { getBdDbFlag } from '$lib/db';
+import { getStoredCwd } from '$lib/db';
 
 const execAsync = promisify(exec);
 
@@ -12,7 +12,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
 	try {
 		const { stdout, stderr } = await execAsync(
-			`bd ${getBdDbFlag()} close ${params.id} --reason "${reasonText.replace(/"/g, '\\"')}"`
+			`bd close ${params.id} --reason "${reasonText.replace(/"/g, '\\"')}"`,
+			{ cwd: getStoredCwd() }
 		);
 		return json({ success: true, message: stdout.trim(), warning: stderr || undefined });
 	} catch (err: unknown) {

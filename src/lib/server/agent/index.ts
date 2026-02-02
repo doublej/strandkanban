@@ -4,7 +4,7 @@ import { join } from "path";
 import type { AgentSession } from "./session-types";
 import { createHttpHandler, type WSData } from "./http-server";
 import { createWebSocketHandlers } from "./websocket-handler";
-import { listSdkSessions } from "./sdk-sessions";
+import { listSdkSessions, getSessionHistory } from "./sdk-sessions";
 
 const PORT = parseInt(process.env.AGENT_PORT || "9347", 10);
 
@@ -43,6 +43,7 @@ const server = Bun.serve<WSData>({
     beadsMcpEnabled: !!BEADS_MCP_PATH,
     getSessionsCount: () => sessions.size,
     listSdkSessions,
+    getSessionHistory,
     handleUpgrade: (req, server) => server.upgrade(req, { data: {} }),
   }),
   websocket: wsHandlers,

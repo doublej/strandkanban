@@ -4,7 +4,7 @@
  */
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { getBdDbFlag } from './db'
+import { getStoredCwd } from './db'
 
 const execAsync = promisify(exec)
 
@@ -50,7 +50,7 @@ function escapeArg(val: string): string {
 
 async function run(cmd: string): Promise<BdResult> {
 	try {
-		const { stdout, stderr } = await execAsync(cmd)
+		const { stdout, stderr } = await execAsync(cmd, { cwd: getStoredCwd() })
 		return { success: true, stdout: stdout.trim(), warning: stderr || undefined }
 	} catch (err: unknown) {
 		const e = err as { stderr?: string; message?: string }
@@ -62,7 +62,7 @@ export async function createIssue(
 	title: string,
 	opts?: { description?: string; priority?: number; issue_type?: string; deps?: string[] }
 ): Promise<BdResult & { id?: string; issue?: unknown }> {
-	let cmd = `bd ${getBdDbFlag()} create "${escapeArg(title)}" --json`
+	let cmd = `bd create "${escapeArg(title)}" --json`
 	if (opts?.description) cmd += ` --description "${escapeArg(opts.description)}"`
 	if (opts?.priority !== undefined) cmd += ` --priority ${opts.priority}`
 	if (opts?.issue_type) cmd += ` --type ${opts.issue_type}`
@@ -92,7 +92,7 @@ export async function updateIssue(
 		pinned?: boolean
 	}
 ): Promise<BdResult> {
-	let cmd = `bd ${getBdDbFlag()} update ${id}`
+	let cmd = `bd update ${id}`
 	let hasUpdates = false
 
 	if (updates.status) { cmd += ` --status ${updates.status}`; hasUpdates = true }
@@ -114,41 +114,41 @@ export async function updateIssue(
 }
 
 export async function deleteIssue(id: string): Promise<BdResult> {
-	return run(`bd ${getBdDbFlag()} delete ${id}`)
+	return run(`bd delete ${id}`)
 }
 
 export async function closeIssue(id: string, reason = 'Completed'): Promise<BdResult> {
-	return run(`bd ${getBdDbFlag()} close ${id} --reason "${escapeArg(reason)}"`)
+	return run(`bd close ${id} --reason "${escapeArg(reason)}"`)
 }
 
 export async function addDependency(issueId: string, dependsOn: string, depType = 'blocks'): Promise<BdResult> {
-	return run(`bd ${getBdDbFlag()} dep add ${issueId} ${dependsOn} --type ${depType}`)
+	return run(`bd dep add ${issueId} ${dependsOn} --type ${depType}`)
 }
 
 export async function removeDependency(issueId: string, dependsOn: string): Promise<BdResult> {
-	return run(`bd ${getBdDbFlag()} dep remove ${issueId} ${dependsOn}`)
+	return run(`bd dep remove ${issueId} ${dependsOn}`)
 }
 
 export async function addComment(issueId: string, text: string): Promise<BdResult> {
-	return run(`bd ${getBdDbFlag()} comment ${issueId} "${escapeArg(text)}"`)
+	return run(`bd comment ${issueId} "${escapeArg(text)}"`)
 }
 
 export async function addLabel(issueId: string, label: string): Promise<BdResult> {
-	return run(`bd ${getBdDbFlag()} label add ${issueId} ${label}`)
+	return run(`bd label add ${issueId} ${label}`)
 }
 
 export async function removeLabel(issueId: string, label: string): Promise<BdResult> {
-	return run(`bd ${getBdDbFlag()} label remove ${issueId} ${label}`)
+	return run(`bd label remove ${issueId} ${label}`)
 }
 
 export async function renameIssue(oldId: string, newId: string): Promise<BdResult> {
-	return run(`bd ${getBdDbFlag()} rename ${oldId} ${newId}`)
+	return run(`bd rename ${oldId} ${newId}`)
 }
 
 export async function getChildren(id: string): Promise<BdResult> {
-	return run(`bd ${getBdDbFlag()} children ${id} --json`)
+	return run(`bd children ${id} --json`)
 }
 
 export async function getTypes(): Promise<BdResult> {
-	return run(`bd ${getBdDbFlag()} types --json`)
+	return run(`bd types --json`)
 }

@@ -325,4 +325,23 @@
 		color: var(--text-tertiary);
 		font-size: 0.8125rem;
 	}
+
+	/* Light theme */
+	:global(.app.light) .graph-header {
+		border-bottom-color: rgba(0, 0, 0, 0.08);
+	}
+	:global(.app.light) .graph-content {
+		background: rgba(0, 0, 0, 0.03);
+		border-color: rgba(0, 0, 0, 0.08);
+	}
+	:global(.app.light) .graph-legend {
+		border-top-color: rgba(0, 0, 0, 0.08);
+	}
+	:global(.app.light) .dep-node {
+		background: rgba(0, 0, 0, 0.03);
+		border-color: rgba(0, 0, 0, 0.08);
+	}
+	:global(.app.light) .dep-node:hover {
+		background: rgba(0, 0, 0, 0.06);
+	}
 </style>

@@ -4,6 +4,7 @@
 	"version": "1.0.0",
 	"type": "module",
 	"scripts": {
+		"prebuild": "bash scripts/compress-screenshots.sh",
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview",

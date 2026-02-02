@@ -131,4 +131,9 @@
 		font-size: 0.75rem;
 		color: var(--text-tertiary);
 	}
+
+	/* Light theme */
+	:global(.app.light) .stats-header {
+		border-bottom-color: rgba(0, 0, 0, 0.08);
+	}
 </style>

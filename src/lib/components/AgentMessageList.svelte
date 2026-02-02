@@ -69,7 +69,19 @@
 				</span>
 			{:else if msg.role === 'system'}
 				<span class="system-icon {msg.systemSubtype || ''}">
-					{#if msg.systemSubtype === 'compact_start' || msg.systemSubtype === 'compact_done'}
+					{#if msg.systemSubtype === 'worktree_progress'}
+						<!-- Spinning loader for progress -->
+						<svg viewBox="0 0 16 16" width="10" height="10" class="spinner">
+							<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor"
+									stroke-width="2" stroke-dasharray="30 8" stroke-linecap="round"/>
+						</svg>
+					{:else if msg.systemSubtype === 'error'}
+						<!-- Error icon -->
+						<svg viewBox="0 0 16 16" width="10" height="10">
+							<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+							<path d="M8 4v5M8 11v1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+						</svg>
+					{:else if msg.systemSubtype === 'compact_start' || msg.systemSubtype === 'compact_done'}
 						<svg viewBox="0 0 16 16" width="10" height="10"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 3a5 5 0 010 10" fill="currentColor"/></svg>
 					{:else if msg.systemSubtype === 'subagent_start'}
 						<svg viewBox="0 0 16 16" width="10" height="10"><circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 8l2 2 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -267,6 +279,55 @@
 	:global(.app.light) .msg.system.compact_done { background: rgba(16, 185, 129, 0.06); }
 	:global(.app.light) .msg.system.subagent_start { background: rgba(99, 102, 241, 0.06); }
 	:global(.app.light) .msg.system.subagent_end { background: rgba(99, 102, 241, 0.04); }
+
+	/* Spinner animation */
+	@keyframes spin {
+		from { transform: rotate(0deg); }
+		to { transform: rotate(360deg); }
+	}
+
+	.system-icon.worktree_progress .spinner {
+		animation: spin 1s linear infinite;
+	}
+
+	/* Progress message styling - subtle */
+	.msg.system.worktree_progress {
+		background: rgba(99, 102, 241, 0.05);
+		border-left: 2px solid rgba(99, 102, 241, 0.3);
+	}
+
+	.system-content.worktree_progress {
+		color: var(--text-secondary);
+		font-style: italic;
+	}
+
+	.system-icon.worktree_progress {
+		color: rgba(99, 102, 241, 0.7);
+	}
+
+	/* Error message styling */
+	.msg.system.error {
+		background: rgba(239, 68, 68, 0.08);
+		border-left: 2px solid rgba(239, 68, 68, 0.5);
+	}
+
+	.system-content.error {
+		color: #ef4444;
+		font-weight: 500;
+	}
+
+	.system-icon.error {
+		color: #ef4444;
+	}
+
+	/* Light mode */
+	:global(.app.light) .msg.system.error {
+		background: rgba(239, 68, 68, 0.06);
+	}
+
+	:global(.app.light) .msg.system.worktree_progress {
+		background: rgba(99, 102, 241, 0.04);
+	}
 
 	.system-icon {
 		display: flex; align-items: center; justify-content: center;

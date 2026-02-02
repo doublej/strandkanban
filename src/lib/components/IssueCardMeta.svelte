@@ -292,4 +292,8 @@
 	:global(.app.light) .label {
 		background: rgba(0, 0, 0, 0.04);
 	}
+	:global(.app.light) .link-id {
+		background: rgba(0, 0, 0, 0.06);
+		color: var(--text-secondary);
+	}
 </style>

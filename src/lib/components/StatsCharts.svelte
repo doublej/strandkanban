@@ -334,4 +334,13 @@
 		width: 24px;
 		text-align: right;
 	}
+
+	/* Light theme */
+	:global(.app.light) .stat-card {
+		background: rgba(0, 0, 0, 0.02);
+		border-color: rgba(0, 0, 0, 0.08);
+	}
+	:global(.app.light) .h-bar-track {
+		background: rgba(0, 0, 0, 0.06);
+	}
 </style>

@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "A SvelteKit application",
   "type": "module",
+  "bin": {
+    "beads-kanban": "./bin/beads-kanban.ts"
+  },
   "scripts": {
     "dev": "vite dev --host",
     "dev:agent": "(cd src/lib/server/agent && bun run index.ts) & vite dev --host",

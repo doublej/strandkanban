@@ -12,7 +12,9 @@ import { formatTicketDelivery as formatTicketDeliveryFn } from '$lib/agent/ticke
 import type { TicketDeliveryData } from '$lib/agent/ticket-delivery';
 import { settings } from '$lib/stores/settings.svelte';
 import type { IssueStore } from '$lib/stores/issue-store.svelte';
-import { notifyAgentOfTicketUpdate, addPane, type Pane } from '$lib/wsStore.svelte';
+import { notifyAgentOfTicketUpdate, addPane, getRunningSessionsForCwd, sendToPane, type Pane } from '$lib/wsStore.svelte';
+import { updateSession, addSystemMessage, setSessionError } from '$lib/stores/agent-sessions.svelte';
+import { createWorktreeApi } from '$lib/stores/worktree-api';
 
 export interface PageOpsContext {
 	issueStore: IssueStore;
@@ -43,6 +45,14 @@ export function createPageOps(ctx: PageOpsContext) {
 	let pendingDep = $state<{ fromId: string; toId: string } | null>(null);
 	let contextMenu = $state<{ x: number; y: number; issue: Issue } | null>(null);
 	let sortMenuOpen = $state<string | null>(null);
+	let cwdConflict = $state<{
+		ticketId: string;
+		agentName: string;
+		conflicts: string[];
+		cwd: string;
+		issue: Issue;
+		briefing: string;
+	} | null>(null);
 
 	function getIssueTitle(id: string): string {
 		return ctx.getIssues().find(i => i.id === id)?.title ?? id;
@@ -224,6 +234,7 @@ export function createPageOps(ctx: PageOpsContext) {
 		const newId = await ctx.issueStore.createIssueAndGetId(savedForm);
 		if (newId) {
 			const agentName = `${newId}-agent`;
+			const cwd = ctx.getCurrentProjectPath();
 			const newIssue: Issue = {
 				id: newId,
 				title: savedForm.title,
@@ -233,7 +244,14 @@ export function createPageOps(ctx: PageOpsContext) {
 				issue_type: savedForm.issue_type || 'task'
 			};
 			const briefing = formatTicketDelivery(agentName, { issue: newIssue });
-			addPane(agentName, ctx.getCurrentProjectPath(), briefing, settings.combinedSystemPrompt, undefined, newId);
+
+			const conflicts = getRunningSessionsForCwd(cwd);
+			if (conflicts.length > 0) {
+				cwdConflict = { ticketId: newId, agentName, conflicts, cwd, issue: newIssue, briefing };
+				return;
+			}
+
+			addPane(agentName, cwd, briefing, settings.combinedSystemPrompt, undefined, newId);
 			const expanded = ctx.getExpandedPanes();
 			expanded.add(agentName);
 			ctx.setExpandedPanes(new Set(expanded));
@@ -253,17 +271,84 @@ export function createPageOps(ctx: PageOpsContext) {
 
 	async function startAgentForIssue(issue: Issue) {
 		const agentName = `${issue.id}-agent`;
+		const cwd = ctx.getCurrentProjectPath();
 		const [issueComments, issueAttachments] = await Promise.all([
 			loadCommentsApi(issue.id),
 			loadAttachmentsApi(issue.id)
 		]);
 		const briefing = formatTicketDelivery(agentName, { issue, comments: issueComments, attachments: issueAttachments });
-		addPane(agentName, ctx.getCurrentProjectPath(), briefing, settings.combinedSystemPrompt, undefined, issue.id);
+
+		const conflicts = getRunningSessionsForCwd(cwd);
+		if (conflicts.length > 0) {
+			cwdConflict = { ticketId: issue.id, agentName, conflicts, cwd, issue, briefing };
+			return;
+		}
+
+		addPane(agentName, cwd, briefing, settings.combinedSystemPrompt, undefined, issue.id);
 		const expanded = ctx.getExpandedPanes();
 		expanded.add(agentName);
 		ctx.setExpandedPanes(new Set(expanded));
 		editingIssue = null;
 		isCreating = false;
+	}
+
+	async function resolveConflict(useWorktree: boolean) {
+		if (!cwdConflict) return;
+		const { agentName, cwd, issue, briefing, ticketId } = cwdConflict;
+		cwdConflict = null;
+
+		// STEP 1: Create pane IMMEDIATELY (before any async work)
+		addPane(agentName, cwd, '', settings.combinedSystemPrompt, undefined, ticketId);
+
+		// STEP 2: Expand pane so user sees it
+		const expanded = ctx.getExpandedPanes();
+		expanded.add(agentName);
+		ctx.setExpandedPanes(new Set(expanded));
+
+		let effectiveCwd = cwd;
+
+		try {
+			if (useWorktree) {
+				// STEP 3: Show worktree creation progress
+				addSystemMessage(agentName, 'Creating isolated worktree...', 'worktree_progress');
+
+				// STEP 4: Create worktree (1-5 seconds)
+				effectiveCwd = await createWorktreeApi(cwd, ticketId);
+
+				// STEP 5: Confirm success
+				const relPath = effectiveCwd.split('/').slice(-2).join('/');
+				addSystemMessage(agentName, `Worktree created at .git/${relPath}`, 'worktree_progress');
+
+				// Tag session with worktreePath
+				setTimeout(() => updateSession(agentName, { worktreePath: effectiveCwd }), 100);
+			}
+
+			// STEP 6: Show agent initialization
+			addSystemMessage(agentName, 'Initializing agent...', 'worktree_progress');
+
+			// STEP 7: Update session with actual cwd
+			updateSession(agentName, { cwd: effectiveCwd });
+
+			// STEP 8: Send initial briefing to start agent
+			if (briefing) {
+				setTimeout(() => {
+					sendToPane(agentName, briefing, effectiveCwd);
+				}, 100);
+			}
+
+		} catch (err: any) {
+			// STEP 9: Handle errors gracefully
+			const errorMsg = err.message || 'Unknown error during startup';
+			setSessionError(agentName, errorMsg);
+			console.error(`[agent:${agentName}] startup error:`, err);
+		}
+
+		editingIssue = null;
+		isCreating = false;
+	}
+
+	function dismissConflict() {
+		cwdConflict = null;
 	}
 
 	function openAgentPane(paneName: string) {
@@ -437,6 +522,7 @@ export function createPageOps(ctx: PageOpsContext) {
 		set contextMenu(v) { contextMenu = v; },
 		get sortMenuOpen() { return sortMenuOpen; },
 		set sortMenuOpen(v) { sortMenuOpen = v; },
+		get cwdConflict() { return cwdConflict; },
 		get panelOpen() { return editingIssue !== null || isCreating; },
 
 		// Functions
@@ -455,6 +541,8 @@ export function createPageOps(ctx: PageOpsContext) {
 		createIssue,
 		createIssueAndStartAgent,
 		startAgentForIssue,
+		resolveConflict,
+		dismissConflict,
 		openAgentPane,
 		openTicketFromPane,
 		extractTicketIdFromName,

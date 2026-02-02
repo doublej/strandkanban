@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { RequestHandler } from './$types';
-import { getAllIssues, getBdDbFlag } from '$lib/db';
+import { getAllIssues, getStoredCwd } from '$lib/db';
 import { notificationStore } from '$lib/notifications/notification-store.svelte';
 
 const execAsync = promisify(exec);
@@ -19,7 +19,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		return json({ error: 'Title required' }, { status: 400 });
 	}
 
-	let cmd = `bd ${getBdDbFlag()} create "${title.replace(/"/g, '\\"')}" --json`;
+	let cmd = `bd create "${title.replace(/"/g, '\\"')}" --json`;
 	if (description) cmd += ` --description "${description.replace(/"/g, '\\"')}"`;
 	if (priority !== undefined) cmd += ` --priority ${priority}`;
 	if (issue_type) cmd += ` --type ${issue_type}`;
@@ -28,7 +28,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 
 	try {
-		const { stdout, stderr } = await execAsync(cmd);
+		const { stdout, stderr } = await execAsync(cmd, { cwd: getStoredCwd() });
 		// Parse JSON output to get the new issue ID
 		const created = JSON.parse(stdout.trim());
 

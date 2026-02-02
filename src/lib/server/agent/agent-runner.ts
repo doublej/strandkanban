@@ -1,5 +1,4 @@
 import { query, type Options, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
-import { join } from "path";
 import type { AgentSession } from "./session-types";
 import { BLOCKED_BEADS_TOOLS, createBeadsToolsServer } from "./beads-tools";
 import { extractFilePath, snapshotFile, computeDiffs } from "./file-diff";
@@ -123,7 +122,6 @@ export async function runAgent(session: AgentSession, briefing: string, opts: Ru
             PATH: process.env.PATH || "",
             HOME: process.env.HOME || "",
             BD_CWD: session.cwd,
-            BD_DB: join(session.cwd, ".beads", "beads.db"),
             ...(session.agentName && { BD_AGENT_NAME: session.agentName }),
           },
         },

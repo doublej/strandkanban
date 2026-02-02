@@ -1,3 +1,6 @@
+# Local-only assets
+local/
+
 node_modules/
 .svelte-kit/
 build/

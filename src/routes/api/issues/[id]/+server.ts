@@ -2,7 +2,7 @@ import { json } from '@sveltejs/kit';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { RequestHandler } from './$types';
-import { getBdDbFlag, getIssueById } from '$lib/db';
+import { getStoredCwd, getIssueById } from '$lib/db';
 import { notificationStore } from '$lib/notifications/notification-store.svelte';
 
 const execAsync = promisify(exec);
@@ -18,11 +18,11 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 	// Read issue before update to detect changes
 	const beforeIssue = getIssueById(params.id);
 
-	const dbFlag = getBdDbFlag();
+	const cwd = getStoredCwd();
 	const commands: string[] = [];
 
 	// Build update command if there are field updates
-	let updateCmd = `bd ${dbFlag} update ${params.id}`;
+	let updateCmd = `bd update ${params.id}`;
 	let hasUpdates = false;
 	if (status) { updateCmd += ` --status ${status}`; hasUpdates = true; }
 	if (title !== undefined) { updateCmd += ` --title "${title.replace(/"/g, '\\"')}"`; hasUpdates = true; }
@@ -37,18 +37,18 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 	// Add label commands
 	if (removeLabels?.length) {
 		for (const label of removeLabels) {
-			commands.push(`bd ${dbFlag} label remove ${params.id} ${label}`);
+			commands.push(`bd label remove ${params.id} ${label}`);
 		}
 	}
 	if (addLabels?.length) {
 		for (const label of addLabels) {
-			commands.push(`bd ${dbFlag} label add ${params.id} ${label}`);
+			commands.push(`bd label add ${params.id} ${label}`);
 		}
 	}
 
 	try {
 		// Run all commands in parallel for better performance
-		await Promise.all(commands.map(cmd => execAsync(cmd)));
+		await Promise.all(commands.map(cmd => execAsync(cmd, { cwd })));
 
 		// Read updated issue
 		const afterIssue = getIssueById(params.id);
@@ -96,7 +96,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
 		// Read issue before deletion for notification
 		const issue = getIssueById(params.id);
 
-		await execAsync(`bd ${getBdDbFlag()} delete ${params.id}`);
+		await execAsync(`bd delete ${params.id}`, { cwd: getStoredCwd() });
 
 		// Emit notification event
 		if (issue) {

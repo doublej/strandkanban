@@ -13,6 +13,7 @@ import {
 	updateSession,
 	createMessageHandler,
 } from './agent-sessions.svelte';
+import { fetchSessionHistory } from '../session-persistence';
 import { initTabCoordinator } from './tab-coordinator.svelte';
 
 let checkTimer: ReturnType<typeof setTimeout> | null = null;
@@ -124,6 +125,16 @@ function startSessionInternal(name: string, cwd: string, briefing: string, syste
 	};
 	sessions.set(name, session);
 	setSessions(new Map(sessions));
+
+	// Populate history from SDK session JSONL when resuming with no existing messages
+	if (resumeSessionId && session.messages.length === 0) {
+		fetchSessionHistory(cwd, resumeSessionId).then((messages) => {
+			if (messages.length === 0) return;
+			const current = getSessions().get(name);
+			if (!current || current.messages.length > 0) return; // Don't overwrite if streaming already added messages
+			updateSession(name, { messages });
+		});
+	}
 
 	const ws = getOrCreateSocket(name);
 	if (!ws) return;
@@ -370,6 +381,16 @@ export function compactSession(name: string) {
 	} else {
 		tabCoordinator.requestAction({ action: 'compactSession', sessionName: name, args: [] });
 	}
+}
+
+export function getRunningSessionsForCwd(cwd: string): string[] {
+	const results: string[] = [];
+	for (const [name, session] of getSessions()) {
+		if (session.streaming && session.cwd === cwd) {
+			results.push(name);
+		}
+	}
+	return results;
 }
 
 export function injectNotification(name: string, content: string, notificationType: NotificationType) {

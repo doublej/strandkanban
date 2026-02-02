@@ -399,15 +399,27 @@
 		gap: 0.375rem;
 		margin: 0 8px 8px;
 		padding: 0.25rem 0.5rem;
-		background: var(--bg-secondary, rgba(20, 20, 24, 0.98));
-		border: 1px solid rgba(255, 255, 255, 0.04);
+		background: var(--bg-primary);
+		border: 1px solid rgba(255, 255, 255, 0.08);
 		border-radius: 6px;
 		pointer-events: auto;
+		box-shadow:
+			0 0 0 0.5px rgba(0, 0, 0, 0.4),
+			0 2px 8px rgba(0, 0, 0, 0.3);
+		animation: expandLeft 250ms ease-out;
+	}
+
+	@keyframes expandLeft {
+		from { clip-path: inset(0 0 0 100%); opacity: 0; }
+		to { clip-path: inset(0 0 0 0); opacity: 1; }
 	}
 
 	:global(.app.light) .agent-bar-inner {
-		background: rgba(255, 255, 255, 0.98);
-		border-color: rgba(0, 0, 0, 0.06);
+		background: var(--bg-primary);
+		border-color: rgba(0, 0, 0, 0.1);
+		box-shadow:
+			0 0 0 0.5px rgba(0, 0, 0, 0.06),
+			0 2px 8px rgba(0, 0, 0, 0.08);
 	}
 
 	.agent-bar-spacer {

@@ -14,6 +14,7 @@ import type {
 	ToolResult,
 	ToolCallEvent,
 	ToolResultEvent,
+	SystemMessageSubtype,
 } from './ws-types';
 
 // --- Shared state ---
@@ -62,6 +63,49 @@ export function updateSession(name: string, updates: Partial<AgentSession>) {
 	if (isTabLeader && broadcastCallback) {
 		broadcastCallback();
 	}
+}
+
+/**
+ * Adds a system message to an existing session.
+ * Used for progress updates and status messages.
+ */
+export function addSystemMessage(
+	sessionName: string,
+	content: string,
+	subtype: SystemMessageSubtype = 'info'
+) {
+	const session = sessions.get(sessionName);
+	if (!session) return;
+
+	updateSession(sessionName, {
+		messages: [...session.messages, {
+			role: 'system',
+			content,
+			systemSubtype: subtype,
+			timestamp: new Date().toISOString()
+		}]
+	});
+}
+
+/**
+ * Marks session as errored and adds error message.
+ * Disables streaming to prevent further input.
+ */
+export function setSessionError(sessionName: string, errorMessage: string) {
+	const session = sessions.get(sessionName);
+	if (!session) return;
+
+	updateSession(sessionName, {
+		streaming: false,
+		error: true,
+		errorMessage,
+		messages: [...session.messages, {
+			role: 'system',
+			content: `Error: ${errorMessage}`,
+			systemSubtype: 'error',
+			timestamp: new Date().toISOString()
+		}]
+	});
 }
 
 // --- Message handler factory ---

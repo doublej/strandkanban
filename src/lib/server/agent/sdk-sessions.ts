@@ -3,9 +3,22 @@ import { homedir } from "os";
 import { join } from "path";
 import type { SdkSessionInfo } from "./session-types";
 
-export function calculateSessionUsage(cwd: string, sessionId: string): { inputTokens: number; outputTokens: number; cacheRead: number; cacheCreation: number } | null {
+type ChatMessage = {
+  role: "user" | "assistant" | "tool";
+  content: string;
+  toolName?: string;
+  toolInput?: Record<string, unknown>;
+  toolResult?: string;
+  timestamp?: string;
+};
+
+function getProjectDir(cwd: string): string {
   const projectPath = cwd.replace(/[/_]/g, "-");
-  const sessionFile = join(homedir(), ".claude/projects", projectPath, `${sessionId}.jsonl`);
+  return join(homedir(), ".claude/projects", projectPath);
+}
+
+export function calculateSessionUsage(cwd: string, sessionId: string): { inputTokens: number; outputTokens: number; cacheRead: number; cacheCreation: number } | null {
+  const sessionFile = join(getProjectDir(cwd), `${sessionId}.jsonl`);
 
   if (!existsSync(sessionFile)) return null;
 
@@ -35,8 +48,7 @@ export function calculateSessionUsage(cwd: string, sessionId: string): { inputTo
 }
 
 export function listSdkSessions(cwd: string): SdkSessionInfo[] {
-  const projectPath = cwd.replace(/[/_]/g, "-");
-  const sessionsDir = join(homedir(), ".claude/projects", projectPath);
+  const sessionsDir = getProjectDir(cwd);
 
   console.log(`[sessions] Searching: ${sessionsDir}`);
 
@@ -118,4 +130,59 @@ export function listSdkSessions(cwd: string): SdkSessionInfo[] {
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
   return files.slice(0, 30);
+}
+
+export function getSessionHistory(cwd: string, sessionId: string): ChatMessage[] {
+  const sessionFile = join(getProjectDir(cwd), `${sessionId}.jsonl`);
+  if (!existsSync(sessionFile)) return [];
+
+  try {
+    const content = readFileSync(sessionFile, "utf8");
+    const lines = content.split("\n").filter((l: string) => l.trim());
+    const messages: ChatMessage[] = [];
+
+    for (const line of lines) {
+      try {
+        const data = JSON.parse(line);
+        if (data.type === "user" && data.message?.content) {
+          const raw = data.message.content;
+          const text = typeof raw === "string"
+            ? raw
+            : Array.isArray(raw)
+              ? raw.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n")
+              : null;
+          if (!text || text.startsWith("<system-reminder>")) continue;
+          messages.push({ role: "user", content: text, timestamp: data.timestamp });
+        } else if (data.type === "assistant" && data.message?.content) {
+          const blocks = Array.isArray(data.message.content) ? data.message.content : [];
+          for (const block of blocks) {
+            if (block.type === "text" && block.text) {
+              messages.push({ role: "assistant", content: block.text, timestamp: data.timestamp });
+            } else if (block.type === "tool_use" && block.name) {
+              messages.push({
+                role: "tool",
+                content: `Using ${block.name}`,
+                toolName: block.name,
+                toolInput: block.input,
+                timestamp: data.timestamp,
+              });
+            }
+          }
+        } else if (data.type === "result" && data.subtype === "tool_result") {
+          // Attach tool result to the last pending tool message
+          for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === "tool" && !messages[i].toolResult) {
+              const resultText = typeof data.result === "string" ? data.result : JSON.stringify(data.result);
+              messages[i] = { ...messages[i], toolResult: resultText };
+              break;
+            }
+          }
+        }
+      } catch { /* skip malformed line */ }
+    }
+
+    return messages;
+  } catch {
+    return [];
+  }
 }

@@ -292,4 +292,12 @@
 		text-align: center;
 		color: var(--text-tertiary);
 	}
+
+	/* Light theme */
+	:global(.app.light) .tree-header {
+		border-bottom-color: rgba(0, 0, 0, 0.08);
+	}
+	:global(.app.light) .children {
+		border-left-color: rgba(0, 0, 0, 0.08);
+	}
 </style>
