@@ -12,14 +12,14 @@ Optional (agent panes)
 - `uv` + beads-mcp plugin (auto-detected) or set `BEADS_MCP_PATH`
 
 ## Quickstart
-1. `git clone https://github.com/doublej/beads-kanban`
-2. `cd beads-kanban`
-3. `bun install`
-4. Ensure your target repo has `.beads` (run `bd init` in that repo)
-5. Point the app to your repo:
-   - Use Project Switcher in the UI, or
-   - Put an absolute path in `.beads-cwd` (see Configuration)
-6. `bun run dev`
+1. `git clone https://github.com/doublej/beads-kanban && cd beads-kanban && bun install`
+2. Add a shell function to `~/.zshrc`:
+   ```bash
+   beads-kanban() { bun /path/to/beads-kanban/bin/beads-kanban.ts "$@"; }
+   ```
+3. `beads-kanban /path/to/your/project`
+
+The `bin/beads-kanban.ts` entry point handles `bd` version checks, `.beads/` init, `bd doctor --fix`, and starting the dev server.
 
 ## Notifications (optional)
 Two notification modes are available:

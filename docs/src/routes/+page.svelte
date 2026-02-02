@@ -2,7 +2,7 @@
 	import { base } from '$app/paths';
 
 	let copied = $state(false);
-	const cloneCommand = 'git clone https://github.com/doublej/beads-kanban && cd beads-kanban && bun install && bun run dev';
+	const cloneCommand = 'beads-kanban /path/to/your/project';
 
 	function copyCommand() {
 		navigator.clipboard.writeText(cloneCommand);
@@ -205,29 +205,29 @@
 				<li>
 					<span class="step-num">1</span>
 					<div class="step-content">
-						<strong>Install the Beads CLI</strong>
-						<p>Follow the <a href="https://github.com/steveyegge/beads" target="_blank" rel="noopener">Beads README</a> to install <code>bd</code> on your system.</p>
+						<strong>Install prerequisites</strong>
+						<p>Install <a href="https://bun.sh" target="_blank" rel="noopener">Bun</a> and the <a href="https://github.com/steveyegge/beads" target="_blank" rel="noopener">Beads CLI</a> (<code>bd</code> v0.49.0+).</p>
 					</div>
 				</li>
 				<li>
 					<span class="step-num">2</span>
 					<div class="step-content">
 						<strong>Clone and install</strong>
-						<p>Clone this repo and run <code>bun install</code> to set up dependencies.</p>
+						<p>Run <code>git clone https://github.com/doublej/beads-kanban && cd beads-kanban && bun install</code>.</p>
 					</div>
 				</li>
 				<li>
 					<span class="step-num">3</span>
 					<div class="step-content">
-						<strong>Point to your project</strong>
-						<p>The app reads from the <code>.beads/</code> directory. Make sure your Beads project is initialized.</p>
+						<strong>Add the shell function</strong>
+						<p>Add this to your <code>~/.zshrc</code>: <code>beads-kanban() &#123; bun /path/to/beads-kanban/bin/beads-kanban.ts "$@"; &#125;</code></p>
 					</div>
 				</li>
 				<li>
 					<span class="step-num">4</span>
 					<div class="step-content">
-						<strong>Start the dev server</strong>
-						<p>Run <code>bun run dev</code> and open the board in your browser.</p>
+						<strong>Launch</strong>
+						<p>Run <code>beads-kanban /path/to/your/project</code>. It handles <code>.beads/</code> init automatically if needed.</p>
 					</div>
 				</li>
 			</ol>
