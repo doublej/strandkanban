@@ -192,6 +192,25 @@ export function createPageOps(ctx: PageOpsContext) {
 		}
 	}
 
+	function cancelQueueItem(ticketId: string) {
+		agentQueue = agentQueue.filter(item => item.ticketId !== ticketId);
+		toastQueue.show({
+			type: 'info',
+			title: 'Agent cancelled',
+			message: `${ticketId} removed from queue.`,
+			duration: 3000
+		});
+	}
+
+	function reorderQueue(fromIndex: number, toIndex: number) {
+		if (fromIndex === toIndex) return;
+		const newQueue = [...agentQueue];
+		const [moved] = newQueue.splice(fromIndex, 1);
+		newQueue.splice(toIndex, 0, moved);
+		agentQueue = newQueue;
+		void maybeStartQueuedAgent();
+	}
+
 	// --- Panel operations ---
 
 	function hasUnsavedCreate(): boolean {
@@ -668,6 +687,8 @@ export function createPageOps(ctx: PageOpsContext) {
 		startAgentForIssue,
 		resolveConflict,
 		maybeStartQueuedAgent,
+		cancelQueueItem,
+		reorderQueue,
 		dismissConflict,
 		openAgentPane,
 		openTicketFromPane,

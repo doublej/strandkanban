@@ -30,6 +30,7 @@
 	import GraphView from '$lib/components/GraphView.svelte';
 	import MutationLog from '$lib/components/MutationLog.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
+	import AgentQueueDrawer from '$lib/components/AgentQueueDrawer.svelte';
 	import PwaInstallPrompt from '$lib/components/PwaInstallPrompt.svelte';
 	import SettingsPane from '$lib/components/SettingsPane.svelte';
 	import SetupWizard from '$lib/components/SetupWizard.svelte';
@@ -106,6 +107,12 @@
 	let collapsedColumns = $derived(settings.collapsedColumns);
 	let currentRecipeId = $state<string | null>(null);
 	let lastAppliedRecipeSnapshot = $state<string | null>(null);
+
+	// Agent queue drawer state
+	let runningAgents = $derived.by(() => {
+		const sessions = Array.from(getSessions().values());
+		return sessions.filter(s => s.ticketId && !s.ended);
+	});
 
 	// --- Issue Store ---
 	const issueStore = createIssueStore({
@@ -795,6 +802,16 @@
 {/snippet}
 
 <ToastContainer />
+
+{#if (ops.agentQueue.length > 0 || runningAgents.length > 0)}
+	<AgentQueueDrawer
+		queue={ops.agentQueue}
+		runningSessions={runningAgents}
+		onCancel={(ticketId) => ops.cancelQueueItem(ticketId)}
+		onReorder={(from, to) => ops.reorderQueue(from, to)}
+	/>
+{/if}
+
 <PwaInstallPrompt />
 
 <style>
