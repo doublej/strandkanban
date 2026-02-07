@@ -41,9 +41,17 @@ Two notification modes are available:
 No setup is required — both modes work out of the box.
 
 ## Agent server (optional)
-- Agent dependencies are included in the root install
-- Run UI + agent server: `bun run dev:agent` (WebSocket on port 9347)
-- Set Anthropic credentials for the SDK (see Anthropic docs)
+
+### Setup
+1. Get an API key from [Anthropic Console](https://console.anthropic.com/)
+2. Create `.env` file:
+   ```bash
+   cp .env.example .env
+   # Edit .env and set ANTHROPIC_API_KEY=sk-ant-api03-...
+   ```
+3. Run: `bun run dev:agent` (WebSocket on port 9347)
+
+Agent dependencies are included in the root install. The `.env` file takes precedence over user-level `~/.claude/` auth, ensuring project-specific API usage.
 
 ## Configuration
 - `.beads-cwd`: absolute path to the active Beads project (local-only; keep it untracked)
