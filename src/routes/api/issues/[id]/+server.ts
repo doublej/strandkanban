@@ -2,23 +2,23 @@ import { json } from '@sveltejs/kit';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { RequestHandler } from './$types';
-import { getStoredCwd, getIssueById } from '$lib/db';
+import { resolveProjectCwd, getIssueById } from '$lib/db';
 import { notificationStore } from '$lib/notifications/notification-store.svelte';
 
 const execAsync = promisify(exec);
 const VALID_STATUSES = ['open', 'in_progress', 'hooked', 'blocked', 'closed'];
 
-export const PATCH: RequestHandler = async ({ params, request }) => {
+export const PATCH: RequestHandler = async ({ params, request, url }) => {
 	const { status, title, description, priority, issue_type, design, acceptance_criteria, notes, assignee, addLabels, removeLabels } = await request.json();
 
 	if (status && !VALID_STATUSES.includes(status)) {
 		return json({ error: 'Invalid status' }, { status: 400 });
 	}
 
-	// Read issue before update to detect changes
-	const beforeIssue = getIssueById(params.id);
+	const cwd = resolveProjectCwd(url);
 
-	const cwd = getStoredCwd();
+	// Read issue before update to detect changes
+	const beforeIssue = getIssueById(params.id, cwd);
 	const commands: string[] = [];
 
 	// Build update command if there are field updates
@@ -51,7 +51,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 		await Promise.all(commands.map(cmd => execAsync(cmd, { cwd })));
 
 		// Read updated issue
-		const afterIssue = getIssueById(params.id);
+		const afterIssue = getIssueById(params.id, cwd);
 
 		// Emit notification events based on changes
 		if (beforeIssue && afterIssue) {
@@ -91,12 +91,13 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 	}
 };
 
-export const DELETE: RequestHandler = async ({ params }) => {
+export const DELETE: RequestHandler = async ({ params, url }) => {
+	const cwd = resolveProjectCwd(url);
 	try {
 		// Read issue before deletion for notification
-		const issue = getIssueById(params.id);
+		const issue = getIssueById(params.id, cwd);
 
-		await execAsync(`bd delete ${params.id}`, { cwd: getStoredCwd() });
+		await execAsync(`bd delete ${params.id}`, { cwd });
 
 		// Emit notification event
 		if (issue) {

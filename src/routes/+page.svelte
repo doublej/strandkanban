@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { untrack } from 'svelte';
+	import { pushState as svelteKitPushState } from '$app/navigation';
+	import { setCurrentProject, appendProjectParam } from '$lib/project';
 	import { connect, disconnect, getPanes, getSessions, isConnected, addPane, removePane, sendToPane, killSession, clearAllSessions, endSession, clearSession, continueSession, compactSession, getPersistedSdkSessionId, getAllPersistedSessions, deletePersistedSession, fetchSdkSessions, markPaneAsRead, getTotalUnreadCount, getUnreadCount, notifyAgentOfTicketUpdate, type Pane, type SdkSessionInfo } from '$lib/wsStore.svelte';
 	import type { Issue, Attachment, CardPosition, FlyingCard, SortBy, PaneSize, ViewMode, Project, ViewRecipe } from '$lib/types';
 	import {
@@ -108,6 +110,15 @@
 	let collapsedColumns = $derived(settings.collapsedColumns);
 	let currentRecipeId = $state<string | null>(null);
 	let lastAppliedRecipeSnapshot = $state<string | null>(null);
+
+	// --- Read project from URL before any effects fire ---
+	if (browser) {
+		const urlProject = new URL(window.location.href).searchParams.get('project');
+		if (urlProject) {
+			setCurrentProject(urlProject);
+			currentProjectPath = urlProject;
+		}
+	}
 
 	// Agent queue drawer state
 	let queueDrawerOpen = $state(false);
@@ -396,7 +407,7 @@
 
 	$effect(() => {
 		if (!browser) return;
-		fetch('/api/issues').then(r => r.json()).then(data => {
+		fetch(appendProjectParam('/api/issues')).then(r => r.json()).then(data => {
 			if (data.bdVersion) bdVersion = data.bdVersion;
 		}).catch(() => {});
 	});
@@ -416,21 +427,51 @@
 
 	$effect(() => {
 		if (!browser) return;
-		fetch('/api/cwd').then(r => r.json()).then(({ cwd, name }) => {
-			projectName = name || cwd.split('/').pop() || 'project';
+		const urlProject = new URL(window.location.href).searchParams.get('project');
+
+		const initProject = async () => {
+			let cwd: string;
+			let name: string;
+
+			if (urlProject) {
+				// URL specifies the project — switch server default to match
+				const res = await fetch('/api/cwd', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ path: urlProject })
+				});
+				const data = await res.json();
+				cwd = data.cwd || urlProject;
+				name = data.name || cwd.split('/').pop() || 'project';
+			} else {
+				// No URL param — get current from server
+				const res = await fetch('/api/cwd');
+				const data = await res.json();
+				cwd = data.cwd;
+				name = data.name || cwd.split('/').pop() || 'project';
+				setCurrentProject(cwd);
+			}
+
+			projectName = name;
 			currentProjectPath = cwd;
-			fetch('/api/projects', {
+
+			const projRes = await fetch('/api/projects', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ path: cwd, name })
-			}).then(r => r.json()).then(data => {
-				if (data.projects) {
-					projects = data.projects;
-					const current = projects.find(p => p.path === cwd);
-					if (current) projectColor = current.color;
-				}
 			});
-		});
+			const projData = await projRes.json();
+			if (projData.projects) {
+				projects = projData.projects;
+				const current = projects.find((p: Project) => p.path === cwd);
+				if (current) {
+					projectColor = current.color;
+					projectName = current.name || name;
+				}
+			}
+		};
+
+		initProject();
 	});
 
 	async function switchProject(project: Project) {
@@ -438,15 +479,19 @@
 		const WIPE_DURATION = 350;
 		projectTransition = 'wipe-out';
 		issueStore.closeSse();
+
+		// Update frontend project context BEFORE API calls so appendProjectParam works
+		setCurrentProject(project.path);
+		currentProjectPath = project.path;
+
 		const [cwdRes] = await Promise.all([
 			fetch('/api/cwd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: project.path }) }),
 			new Promise(r => setTimeout(r, WIPE_DURATION))
 		]);
 		if (!cwdRes.ok) { projectTransition = 'idle'; return; }
-		const issuesRes = await fetch('/api/issues');
+		const issuesRes = await fetch(appendProjectParam('/api/issues'));
 		const issuesData = await issuesRes.json();
 		issueStore.setIssues(issuesData.issues || []);
-		currentProjectPath = project.path;
 		projectName = project.name;
 		projectColor = project.color;
 		issueStore.initialLoaded = true;
@@ -455,8 +500,26 @@
 		ops.isCreating = false;
 		projectTransition = 'wipe-in';
 		issueStore.connectSSE();
+
+		// Update URL to include project param
+		const url = new URL(window.location.href);
+		url.searchParams.set('project', project.path);
+		url.searchParams.delete('issue');
+		svelteKitPushState(url.pathname + url.search, { project: project.path });
+
 		await new Promise(r => setTimeout(r, WIPE_DURATION));
 		projectTransition = 'idle';
+	}
+
+	function handlePopState(e: PopStateEvent) {
+		const url = new URL(window.location.href);
+		const urlProject = url.searchParams.get('project');
+		if (urlProject && urlProject !== currentProjectPath) {
+			const project = projects.find(p => p.path === urlProject);
+			if (project) switchProject(project);
+			return;
+		}
+		ops.handlePopState(e);
 	}
 
 	function captureCurrentViewState(): ViewRecipe['filters'] & { columnSort: ViewRecipe['columnSort']; collapsedColumns: ViewRecipe['collapsedColumns']; viewMode: ViewMode } {
@@ -540,7 +603,7 @@
 	});
 </script>
 
-<svelte:window onkeydown={handleKeydown} onkeyup={handleKeyup} onpopstate={ops.handlePopState} onclick={ops.closeContextMenu} onmousemove={ops.handleMouseMove} onmouseup={ops.handleMouseUp} onblur={handleWindowBlur} />
+<svelte:window onkeydown={handleKeydown} onkeyup={handleKeyup} onpopstate={handlePopState} onclick={ops.closeContextMenu} onmousemove={ops.handleMouseMove} onmouseup={ops.handleMouseUp} onblur={handleWindowBlur} />
 
 <div class="app scheme-{colorScheme}" class:light={!isDarkMode} class:panel-open={ops.panelOpen} class:show-hotkeys={showHotkeys || settings.alwaysShowHotkeys} class:has-chat-bar={wsConnected && showActivityBar} style="--project-color: {projectColor}">
 

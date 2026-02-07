@@ -1,7 +1,7 @@
 import type { LayoutServerLoad } from './$types';
 import { join } from 'path';
 import { readFileSync } from 'fs';
-import { getStoredCwd } from '$lib/db';
+import { resolveProjectCwd } from '$lib/db';
 
 function getProjectName(projectDir: string): string {
 	const fallback = projectDir.split('/').pop() || projectDir;
@@ -12,8 +12,8 @@ function getProjectName(projectDir: string): string {
 	return match ? match[1] : fallback;
 }
 
-export const load: LayoutServerLoad = async () => {
-	const cwd = getStoredCwd();
+export const load: LayoutServerLoad = async ({ url }) => {
+	const cwd = resolveProjectCwd(url);
 	const folderName = getProjectName(cwd);
 	return { cwd, folderName };
 };

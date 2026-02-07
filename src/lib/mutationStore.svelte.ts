@@ -1,4 +1,5 @@
 import type { MutationEntry } from './types';
+import { appendProjectParam } from './project';
 
 let mutations = $state<MutationEntry[]>([]);
 let loading = $state(false);
@@ -7,7 +8,7 @@ export async function fetchMutations(limit = 100): Promise<void> {
 	if (loading) return;
 	loading = true;
 	try {
-		const res = await fetch(`/api/events?limit=${limit}`);
+		const res = await fetch(appendProjectParam(`/api/events?limit=${limit}`));
 		if (res.ok) {
 			const data = await res.json();
 			mutations = data.events;

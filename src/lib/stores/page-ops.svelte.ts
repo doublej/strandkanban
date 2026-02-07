@@ -1,6 +1,7 @@
 import { browser } from '$app/environment';
 import { pushState as svelteKitPushState } from '$app/navigation';
 import { fetchMutations } from '$lib/mutationStore.svelte';
+import { appendProjectParam } from '$lib/project';
 import type { Issue, Comment, Attachment } from '$lib/types';
 import { getIssueColumn, columns, getColumnMoveUpdates } from '$lib/utils';
 import {
@@ -307,7 +308,7 @@ export function createPageOps(ctx: PageOpsContext) {
 
 	async function loadComments(issueId: string) {
 		loadingComments = true;
-		const res = await fetch(`/api/issues/${issueId}/comments`);
+		const res = await fetch(appendProjectParam(`/api/issues/${issueId}/comments`));
 		const data = await res.json();
 		comments = data.comments || [];
 		loadingComments = false;
@@ -316,7 +317,7 @@ export function createPageOps(ctx: PageOpsContext) {
 	async function addComment() {
 		if (!editingIssue || !newComment.trim()) return;
 		const commentText = newComment.trim();
-		await fetch(`/api/issues/${editingIssue.id}/comments`, {
+		await fetch(appendProjectParam(`/api/issues/${editingIssue.id}/comments`), {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ text: commentText })
@@ -597,7 +598,7 @@ export function createPageOps(ctx: PageOpsContext) {
 	}
 
 	async function createDependency(fromId: string, toId: string) {
-		const res = await fetch(`/api/issues/${fromId}/deps`, {
+		const res = await fetch(appendProjectParam(`/api/issues/${fromId}/deps`), {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ depends_on: toId, dep_type: 'blocks' })
@@ -613,7 +614,7 @@ export function createPageOps(ctx: PageOpsContext) {
 	}
 
 	async function removeDependency(issueId: string, dependsOnId: string) {
-		const res = await fetch(`/api/issues/${issueId}/deps`, {
+		const res = await fetch(appendProjectParam(`/api/issues/${issueId}/deps`), {
 			method: 'DELETE',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ depends_on: dependsOnId })

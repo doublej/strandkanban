@@ -1,12 +1,14 @@
+import { appendProjectParam } from './project';
+
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 
 export async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
-	const res = await fetch(url, init);
+	const res = await fetch(appendProjectParam(url), init);
 	return res.json();
 }
 
 export async function postJSON<T>(url: string, body: unknown): Promise<T> {
-	const res = await fetch(url, {
+	const res = await fetch(appendProjectParam(url), {
 		method: 'POST',
 		headers: JSON_HEADERS,
 		body: JSON.stringify(body)
@@ -15,7 +17,7 @@ export async function postJSON<T>(url: string, body: unknown): Promise<T> {
 }
 
 export async function patchJSON<T>(url: string, body: unknown): Promise<T> {
-	const res = await fetch(url, {
+	const res = await fetch(appendProjectParam(url), {
 		method: 'PATCH',
 		headers: JSON_HEADERS,
 		body: JSON.stringify(body)
@@ -29,7 +31,7 @@ export async function deleteJSON<T = void>(url: string, body?: unknown): Promise
 		init.headers = JSON_HEADERS;
 		init.body = JSON.stringify(body);
 	}
-	const res = await fetch(url, init);
+	const res = await fetch(appendProjectParam(url), init);
 	if (res.headers.get('content-type')?.includes('json')) {
 		return res.json();
 	}
@@ -37,6 +39,6 @@ export async function deleteJSON<T = void>(url: string, body?: unknown): Promise
 }
 
 export async function postFormData<T>(url: string, formData: FormData): Promise<T> {
-	const res = await fetch(url, { method: 'POST', body: formData });
+	const res = await fetch(appendProjectParam(url), { method: 'POST', body: formData });
 	return res.json();
 }

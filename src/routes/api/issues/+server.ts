@@ -2,17 +2,18 @@ import { json } from '@sveltejs/kit';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import type { RequestHandler } from './$types';
-import { getAllIssues, getStoredCwd } from '$lib/db';
+import { getAllIssues, resolveProjectCwd } from '$lib/db';
 import { notificationStore } from '$lib/notifications/notification-store.svelte';
 
 const execAsync = promisify(exec);
 
-export const GET: RequestHandler = async () => {
-	const issues = getAllIssues();
+export const GET: RequestHandler = async ({ url }) => {
+	const cwd = resolveProjectCwd(url);
+	const issues = getAllIssues(cwd);
 	return json({ issues });
 };
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, url }) => {
 	const { title, description, priority, issue_type, deps } = await request.json();
 
 	if (!title) {
@@ -27,8 +28,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		cmd += ` --deps ${deps.join(',')}`;
 	}
 
+	const cwd = resolveProjectCwd(url);
 	try {
-		const { stdout, stderr } = await execAsync(cmd, { cwd: getStoredCwd() });
+		const { stdout, stderr } = await execAsync(cmd, { cwd });
 		// Parse JSON output to get the new issue ID
 		const created = JSON.parse(stdout.trim());
 

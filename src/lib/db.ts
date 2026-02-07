@@ -23,23 +23,32 @@ export function setStoredCwd(path: string): void {
 	writeFileSync(CONFIG_FILE, path, 'utf-8');
 }
 
+/** Resolve the project cwd from a request URL's ?project= param, falling back to getStoredCwd(). */
+export function resolveProjectCwd(url: URL): string {
+	const project = url.searchParams.get('project');
+	if (project) {
+		const resolved = resolve(project);
+		if (existsSync(resolved)) return resolved;
+	}
+	return getStoredCwd();
+}
+
 /** Cached database path from `bd where --json` */
 let cachedDbPath: string | null = null;
 let cachedDbCwd: string | null = null;
 
-function getDbPath(): string {
-	const cwd = getStoredCwd();
-	// Return cache if cwd hasn't changed
-	if (cachedDbPath && cachedDbCwd === cwd) return cachedDbPath;
+function getDbPath(cwd?: string): string {
+	const effectiveCwd = cwd ?? getStoredCwd();
+	if (cachedDbPath && cachedDbCwd === effectiveCwd) return cachedDbPath;
 
 	// Try `bd where --json` for dynamic discovery
 	try {
-		const output = execSync('bd where --json', { cwd, encoding: 'utf-8', timeout: 5000 }).trim();
+		const output = execSync('bd where --json', { cwd: effectiveCwd, encoding: 'utf-8', timeout: 5000 }).trim();
 		const info = JSON.parse(output);
 		const dbPath = info.database_path as string | undefined;
 		if (dbPath && existsSync(dbPath)) {
 			cachedDbPath = dbPath;
-			cachedDbCwd = cwd;
+			cachedDbCwd = effectiveCwd;
 			return dbPath;
 		}
 	} catch {
@@ -47,9 +56,9 @@ function getDbPath(): string {
 	}
 
 	// Fallback: classic SQLite path
-	const fallback = join(cwd, '.beads', 'beads.db');
+	const fallback = join(effectiveCwd, '.beads', 'beads.db');
 	cachedDbPath = fallback;
-	cachedDbCwd = cwd;
+	cachedDbCwd = effectiveCwd;
 	return fallback;
 }
 
@@ -82,12 +91,12 @@ interface DbLabel {
 	label: string;
 }
 
-function openReadonly(): Database.Database {
-	return new Database(getDbPath(), { readonly: true, fileMustExist: true });
+function openReadonly(cwd?: string): Database.Database {
+	return new Database(getDbPath(cwd), { readonly: true, fileMustExist: true });
 }
 
-export function getAllIssues(): Issue[] {
-	const db = openReadonly();
+export function getAllIssues(cwd?: string): Issue[] {
+	const db = openReadonly(cwd);
 
 	const issues = db.prepare(`
 		SELECT id, title, description, design, acceptance_criteria, notes,
@@ -136,8 +145,8 @@ export function getAllIssues(): Issue[] {
 	}
 
 	// Get all attachments and comments in one pass
-	const attachmentsMap = getAllAttachments();
-	const commentsMap = getAllComments();
+	const attachmentsMap = getAllAttachments(cwd);
+	const commentsMap = getAllComments(cwd);
 
 	return issues.map((row) => ({
 		id: row.id,
@@ -163,8 +172,8 @@ export function getAllIssues(): Issue[] {
 	}));
 }
 
-export function getIssueById(id: string): Issue | null {
-	const db = openReadonly();
+export function getIssueById(id: string, cwd?: string): Issue | null {
+	const db = openReadonly(cwd);
 
 	const issue = db.prepare(`
 		SELECT id, title, description, design, acceptance_criteria, notes,
@@ -199,8 +208,8 @@ export function getIssueById(id: string): Issue | null {
 	db.close();
 
 	// Get attachments and comments
-	const attachmentsMap = getAllAttachments();
-	const commentsMap = getAllComments();
+	const attachmentsMap = getAllAttachments(cwd);
+	const commentsMap = getAllComments(cwd);
 
 	return {
 		id: issue.id,
@@ -299,8 +308,8 @@ function parseEventToMutation(ev: DbEvent): MutationEntry | null {
 	}
 }
 
-export function getRecentEvents(limit = 100): MutationEntry[] {
-	const db = openReadonly();
+export function getRecentEvents(limit = 100, cwd?: string): MutationEntry[] {
+	const db = openReadonly(cwd);
 	const rows = db.prepare(`
 		SELECT id, issue_id, event_type, actor, old_value, new_value, comment, created_at
 		FROM events ORDER BY created_at DESC LIMIT ?
@@ -318,8 +327,8 @@ interface DbComment {
 	created_at: string;
 }
 
-export function getComments(issueId: string): Comment[] {
-	const db = openReadonly();
+export function getComments(issueId: string, cwd?: string): Comment[] {
+	const db = openReadonly(cwd);
 	const rows = db.prepare(`
 		SELECT id, issue_id, author, text, created_at
 		FROM comments WHERE issue_id = ? ORDER BY created_at ASC
@@ -329,8 +338,8 @@ export function getComments(issueId: string): Comment[] {
 	return rows.map(c => ({ id: c.id, author: c.author, text: c.text, created_at: c.created_at }));
 }
 
-export function getAllComments(): Map<string, Comment[]> {
-	const db = openReadonly();
+export function getAllComments(cwd?: string): Map<string, Comment[]> {
+	const db = openReadonly(cwd);
 	const rows = db.prepare(`
 		SELECT id, issue_id, author, text, created_at
 		FROM comments ORDER BY created_at ASC
@@ -346,8 +355,8 @@ export function getAllComments(): Map<string, Comment[]> {
 	return result;
 }
 
-export function getAttachmentsForIssue(issueId: string): Attachment[] {
-	const dir = join(getStoredCwd(), '.beads', 'attachments', issueId);
+export function getAttachmentsForIssue(issueId: string, cwd?: string): Attachment[] {
+	const dir = join(cwd ?? getStoredCwd(), '.beads', 'attachments', issueId);
 	if (!existsSync(dir)) return [];
 
 	return readdirSync(dir).map((filename) => {
@@ -362,8 +371,8 @@ export function getAttachmentsForIssue(issueId: string): Attachment[] {
 	});
 }
 
-export function getAllAttachments(): Map<string, Attachment[]> {
-	const attachmentsDir = join(getStoredCwd(), '.beads', 'attachments');
+export function getAllAttachments(cwd?: string): Map<string, Attachment[]> {
+	const attachmentsDir = join(cwd ?? getStoredCwd(), '.beads', 'attachments');
 	if (!existsSync(attachmentsDir)) return new Map();
 
 	const result = new Map<string, Attachment[]>();
@@ -372,7 +381,7 @@ export function getAllAttachments(): Map<string, Attachment[]> {
 		const stat = statSync(issueDir);
 		if (!stat.isDirectory()) continue;
 
-		const attachments = getAttachmentsForIssue(issueId);
+		const attachments = getAttachmentsForIssue(issueId, cwd);
 		if (attachments.length > 0) result.set(issueId, attachments);
 	}
 	return result;

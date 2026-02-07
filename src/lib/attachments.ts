@@ -1,8 +1,8 @@
 import { join } from 'path';
 import { getStoredCwd } from '$lib/db';
 
-export function getAttachmentsDir(issueId: string): string {
-	return join(getStoredCwd(), '.beads', 'attachments', issueId);
+export function getAttachmentsDir(issueId: string, cwd?: string): string {
+	return join(cwd ?? getStoredCwd(), '.beads', 'attachments', issueId);
 }
 
 export function sanitizeFilename(filename: string): string {

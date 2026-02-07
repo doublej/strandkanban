@@ -1,5 +1,6 @@
 import type { Issue, LoadingStatus } from '$lib/types';
 import { fetchMutations } from '$lib/mutationStore.svelte';
+import { appendProjectParam } from '$lib/project';
 
 export interface IssueStoreCallbacks {
 	onNewIssue: (issue: Issue) => void;
@@ -135,7 +136,7 @@ export function createIssueStore(callbacks: IssueStoreCallbacks) {
 	}
 
 	function connectSSE(): EventSource {
-		const eventSource = new EventSource('/api/issues/stream');
+		const eventSource = new EventSource(appendProjectParam('/api/issues/stream'));
 		sseSource = eventSource;
 
 		eventSource.onmessage = (event) => {
@@ -198,7 +199,7 @@ export function createIssueStore(callbacks: IssueStoreCallbacks) {
 		}
 		addAnimatingId(id);
 
-		await fetch(`/api/issues/${id}`, {
+		await fetch(appendProjectParam(`/api/issues/${id}`), {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(updates)
@@ -225,7 +226,7 @@ export function createIssueStore(callbacks: IssueStoreCallbacks) {
 		pendingDeletes = new Set(pendingDeletes);
 		issues = issues.filter(i => i.id !== id);
 
-		await fetch(`/api/issues/${id}`, { method: 'DELETE' });
+		await fetch(appendProjectParam(`/api/issues/${id}`), { method: 'DELETE' });
 		fetchMutations();
 		return true;
 	}
@@ -250,7 +251,7 @@ export function createIssueStore(callbacks: IssueStoreCallbacks) {
 		issues = [tempIssue, ...issues];
 		addAnimatingId(tempId);
 
-		const res = await fetch('/api/issues', {
+		const res = await fetch(appendProjectParam('/api/issues'), {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(form)
@@ -279,7 +280,7 @@ export function createIssueStore(callbacks: IssueStoreCallbacks) {
 		issues = [tempIssue, ...issues];
 		addAnimatingId(tempId);
 
-		const res = await fetch('/api/issues', {
+		const res = await fetch(appendProjectParam('/api/issues'), {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(form)

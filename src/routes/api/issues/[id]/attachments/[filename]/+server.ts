@@ -3,9 +3,11 @@ import { join } from 'path';
 import { existsSync, unlinkSync, readFileSync, readdirSync, rmdirSync } from 'fs';
 import type { RequestHandler } from './$types';
 import { getAttachmentsDir, getMimetype } from '$lib/attachments';
+import { resolveProjectCwd } from '$lib/db';
 
-export const GET: RequestHandler = async ({ params }) => {
-	const dir = getAttachmentsDir(params.id);
+export const GET: RequestHandler = async ({ params, url }) => {
+	const cwd = resolveProjectCwd(url);
+	const dir = getAttachmentsDir(params.id, cwd);
 	const filePath = join(dir, params.filename);
 
 	if (!existsSync(filePath)) {
@@ -23,8 +25,9 @@ export const GET: RequestHandler = async ({ params }) => {
 	});
 };
 
-export const DELETE: RequestHandler = async ({ params }) => {
-	const dir = getAttachmentsDir(params.id);
+export const DELETE: RequestHandler = async ({ params, url }) => {
+	const cwd = resolveProjectCwd(url);
+	const dir = getAttachmentsDir(params.id, cwd);
 	const filePath = join(dir, params.filename);
 
 	if (!existsSync(filePath)) {

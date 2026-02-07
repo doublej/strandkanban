@@ -36,8 +36,8 @@ function versionAtLeast(current: string, minimum: string): boolean {
 	return true
 }
 
-export async function checkVersion(): Promise<BdVersion> {
-	const result = await run('bd --version')
+export async function checkVersion(cwd?: string): Promise<BdVersion> {
+	const result = await run('bd --version', cwd)
 	if (!result.success) return { version: 'unknown', compatible: false }
 	const match = result.stdout?.match(/(\d+\.\d+\.\d+)/)
 	const version = match?.[1] ?? 'unknown'
@@ -48,9 +48,9 @@ function escapeArg(val: string): string {
 	return val.replace(/"/g, '\\"')
 }
 
-async function run(cmd: string): Promise<BdResult> {
+async function run(cmd: string, cwd?: string): Promise<BdResult> {
 	try {
-		const { stdout, stderr } = await execAsync(cmd, { cwd: getStoredCwd() })
+		const { stdout, stderr } = await execAsync(cmd, { cwd: cwd ?? getStoredCwd() })
 		return { success: true, stdout: stdout.trim(), warning: stderr || undefined }
 	} catch (err: unknown) {
 		const e = err as { stderr?: string; message?: string }
@@ -60,7 +60,8 @@ async function run(cmd: string): Promise<BdResult> {
 
 export async function createIssue(
 	title: string,
-	opts?: { description?: string; priority?: number; issue_type?: string; deps?: string[] }
+	opts?: { description?: string; priority?: number; issue_type?: string; deps?: string[] },
+	cwd?: string
 ): Promise<BdResult & { id?: string; issue?: unknown }> {
 	let cmd = `bd create "${escapeArg(title)}" --json`
 	if (opts?.description) cmd += ` --description "${escapeArg(opts.description)}"`
@@ -68,7 +69,7 @@ export async function createIssue(
 	if (opts?.issue_type) cmd += ` --type ${opts.issue_type}`
 	if (opts?.deps?.length) cmd += ` --deps ${opts.deps.join(',')}`
 
-	const result = await run(cmd)
+	const result = await run(cmd, cwd)
 	if (result.success && result.stdout) {
 		const parsed = JSON.parse(result.stdout)
 		return { ...result, id: parsed.id, issue: parsed }
@@ -90,7 +91,8 @@ export async function updateIssue(
 		appendNotes?: string
 		ephemeral?: boolean
 		pinned?: boolean
-	}
+	},
+	cwd?: string
 ): Promise<BdResult> {
 	let cmd = `bd update ${id}`
 	let hasUpdates = false
@@ -110,45 +112,45 @@ export async function updateIssue(
 	if (updates.pinned === false) { cmd += ' --unpinned'; hasUpdates = true }
 
 	if (!hasUpdates) return { success: true }
-	return run(cmd)
+	return run(cmd, cwd)
 }
 
-export async function deleteIssue(id: string): Promise<BdResult> {
-	return run(`bd delete ${id}`)
+export async function deleteIssue(id: string, cwd?: string): Promise<BdResult> {
+	return run(`bd delete ${id}`, cwd)
 }
 
-export async function closeIssue(id: string, reason = 'Completed'): Promise<BdResult> {
-	return run(`bd close ${id} --reason "${escapeArg(reason)}"`)
+export async function closeIssue(id: string, reason = 'Completed', cwd?: string): Promise<BdResult> {
+	return run(`bd close ${id} --reason "${escapeArg(reason)}"`, cwd)
 }
 
-export async function addDependency(issueId: string, dependsOn: string, depType = 'blocks'): Promise<BdResult> {
-	return run(`bd dep add ${issueId} ${dependsOn} --type ${depType}`)
+export async function addDependency(issueId: string, dependsOn: string, depType = 'blocks', cwd?: string): Promise<BdResult> {
+	return run(`bd dep add ${issueId} ${dependsOn} --type ${depType}`, cwd)
 }
 
-export async function removeDependency(issueId: string, dependsOn: string): Promise<BdResult> {
-	return run(`bd dep remove ${issueId} ${dependsOn}`)
+export async function removeDependency(issueId: string, dependsOn: string, cwd?: string): Promise<BdResult> {
+	return run(`bd dep remove ${issueId} ${dependsOn}`, cwd)
 }
 
-export async function addComment(issueId: string, text: string): Promise<BdResult> {
-	return run(`bd comment ${issueId} "${escapeArg(text)}"`)
+export async function addComment(issueId: string, text: string, cwd?: string): Promise<BdResult> {
+	return run(`bd comment ${issueId} "${escapeArg(text)}"`, cwd)
 }
 
-export async function addLabel(issueId: string, label: string): Promise<BdResult> {
-	return run(`bd label add ${issueId} ${label}`)
+export async function addLabel(issueId: string, label: string, cwd?: string): Promise<BdResult> {
+	return run(`bd label add ${issueId} ${label}`, cwd)
 }
 
-export async function removeLabel(issueId: string, label: string): Promise<BdResult> {
-	return run(`bd label remove ${issueId} ${label}`)
+export async function removeLabel(issueId: string, label: string, cwd?: string): Promise<BdResult> {
+	return run(`bd label remove ${issueId} ${label}`, cwd)
 }
 
-export async function renameIssue(oldId: string, newId: string): Promise<BdResult> {
-	return run(`bd rename ${oldId} ${newId}`)
+export async function renameIssue(oldId: string, newId: string, cwd?: string): Promise<BdResult> {
+	return run(`bd rename ${oldId} ${newId}`, cwd)
 }
 
-export async function getChildren(id: string): Promise<BdResult> {
-	return run(`bd children ${id} --json`)
+export async function getChildren(id: string, cwd?: string): Promise<BdResult> {
+	return run(`bd children ${id} --json`, cwd)
 }
 
-export async function getTypes(): Promise<BdResult> {
-	return run(`bd types --json`)
+export async function getTypes(cwd?: string): Promise<BdResult> {
+	return run(`bd types --json`, cwd)
 }

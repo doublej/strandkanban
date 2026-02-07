@@ -1,9 +1,10 @@
 import { json } from '@sveltejs/kit'
 import type { RequestHandler } from './$types'
-import { getAllIssues } from '$lib/db'
+import { getAllIssues, resolveProjectCwd } from '$lib/db'
 
-export const GET: RequestHandler = async ({ params }) => {
-	const issues = getAllIssues()
+export const GET: RequestHandler = async ({ params, url }) => {
+	const cwd = resolveProjectCwd(url)
+	const issues = getAllIssues(cwd)
 	const children = issues.filter(issue =>
 		issue.dependencies?.some(d => d.id === params.id && d.dependency_type === 'parent-child')
 	)

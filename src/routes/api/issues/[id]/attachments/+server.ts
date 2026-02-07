@@ -10,9 +10,11 @@ import {
 	MAX_FILE_SIZE_MB,
 	MAX_FILE_SIZE_BYTES,
 } from '$lib/attachments';
+import { resolveProjectCwd } from '$lib/db';
 
-export const GET: RequestHandler = async ({ params }) => {
-	const dir = getAttachmentsDir(params.id);
+export const GET: RequestHandler = async ({ params, url }) => {
+	const cwd = resolveProjectCwd(url);
+	const dir = getAttachmentsDir(params.id, cwd);
 
 	if (!existsSync(dir)) {
 		return json({ attachments: [] });
@@ -33,7 +35,7 @@ export const GET: RequestHandler = async ({ params }) => {
 	return json({ attachments });
 };
 
-export const POST: RequestHandler = async ({ params, request }) => {
+export const POST: RequestHandler = async ({ params, request, url }) => {
 	const formData = await request.formData();
 	const file = formData.get('file') as File | null;
 
@@ -45,7 +47,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		return json({ error: `File too large. Maximum size is ${MAX_FILE_SIZE_MB}MB` }, { status: 400 });
 	}
 
-	const dir = getAttachmentsDir(params.id);
+	const cwd = resolveProjectCwd(url);
+	const dir = getAttachmentsDir(params.id, cwd);
 	if (!existsSync(dir)) {
 		mkdirSync(dir, { recursive: true });
 	}

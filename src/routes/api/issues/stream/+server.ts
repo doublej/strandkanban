@@ -1,8 +1,9 @@
 import type { RequestHandler } from './$types';
-import { getAllIssues } from '$lib/db';
+import { getAllIssues, resolveProjectCwd } from '$lib/db';
 import type { Issue } from '$lib/types';
 
-export const GET: RequestHandler = async () => {
+export const GET: RequestHandler = async ({ url }) => {
+	const cwd = resolveProjectCwd(url);
 	let interval: ReturnType<typeof setInterval> | null = null;
 	let closed = false;
 	let pollCount = 0;
@@ -22,7 +23,7 @@ export const GET: RequestHandler = async () => {
 
 				let issues: Issue[];
 				try {
-					issues = getAllIssues();
+					issues = getAllIssues(cwd);
 				} catch (e) {
 					const msg = e instanceof Error ? e.message : String(e);
 					send({ type: 'error', errorType: 'db-read', message: msg });
