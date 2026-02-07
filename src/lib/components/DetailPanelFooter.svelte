@@ -90,7 +90,7 @@
 		align-items: center;
 	}
 
-	.btn-secondary, .btn-primary, .btn-danger {
+	.btn-secondary, .btn-primary, .btn-danger, .btn-agent {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
@@ -128,21 +128,9 @@
 	.btn-danger:hover { background: rgba(239,68,68,0.18); border-color: rgba(239,68,68,0.35); }
 
 	.btn-agent {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.25rem;
-		height: 2rem;
-		padding: 0 0.75rem;
 		background: rgba(16, 185, 129, 0.1);
-		border: 1px solid rgba(16, 185, 129, 0.25);
-		border-radius: var(--radius-sm);
-		font-family: var(--font-sans);
-		font-size: 0.75rem;
-		font-weight: 500;
+		border-color: rgba(16, 185, 129, 0.25);
 		color: var(--state-done);
-		cursor: pointer;
-		transition: all var(--transition-fast);
 	}
 	.btn-agent:hover {
 		background: rgba(16, 185, 129, 0.18);
@@ -167,7 +155,7 @@
 			gap: 0.375rem;
 		}
 
-		.btn-secondary, .btn-primary, .btn-danger {
+		.btn-secondary, .btn-primary, .btn-danger, .btn-agent {
 			width: 100%;
 			justify-content: center;
 			height: 2.25rem;
