@@ -7,6 +7,23 @@ import type { RequestHandler } from './$types';
 const AGENT_DIR = join(process.cwd(), 'src/lib/server/agent');
 let agentProcess: ReturnType<typeof spawn> | null = null;
 
+function spawnAgent(): ReturnType<typeof spawn> {
+	const proc = spawn('bun', ['run', 'index.ts'], {
+		cwd: AGENT_DIR,
+		stdio: 'ignore',
+		detached: true
+	});
+	proc.unref();
+	proc.on('error', (err) => {
+		console.error('Agent process error:', err);
+		agentProcess = null;
+	});
+	proc.on('exit', () => {
+		agentProcess = null;
+	});
+	return proc;
+}
+
 export const POST: RequestHandler = async ({ request }) => {
 	const { action } = await request.json();
 
@@ -15,20 +32,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			return json({ success: true, message: 'Agent already running' });
 		}
 
-		agentProcess = spawn('bun', ['run', 'index.ts'], {
-			cwd: AGENT_DIR,
-			stdio: 'ignore',
-			detached: true
-		});
-
-		agentProcess.unref();
-		agentProcess.on('error', (err) => {
-			console.error('Agent process error:', err);
-			agentProcess = null;
-		});
-		agentProcess.on('exit', () => {
-			agentProcess = null;
-		});
+		agentProcess = spawnAgent();
 
 		// Give it a moment to start
 		await new Promise(r => setTimeout(r, 500));
@@ -51,20 +55,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 		await new Promise(r => setTimeout(r, 300));
 
-		agentProcess = spawn('bun', ['run', 'index.ts'], {
-			cwd: AGENT_DIR,
-			stdio: 'ignore',
-			detached: true
-		});
-
-		agentProcess.unref();
-		agentProcess.on('error', (err) => {
-			console.error('Agent process error:', err);
-			agentProcess = null;
-		});
-		agentProcess.on('exit', () => {
-			agentProcess = null;
-		});
+		agentProcess = spawnAgent();
 
 		await new Promise(r => setTimeout(r, 500));
 		return json({ success: true, message: 'Agent restarted' });

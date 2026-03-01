@@ -4,6 +4,7 @@ import { promisify } from 'util';
 import type { RequestHandler } from './$types';
 import { resolveProjectCwd, getIssueById } from '$lib/db';
 import { notificationStore } from '$lib/notifications/notification-store.svelte';
+import { extractErrorMessage } from '$lib/server-utils';
 
 const execAsync = promisify(exec);
 const VALID_STATUSES = ['open', 'in_progress', 'hooked', 'blocked', 'closed'];
@@ -25,13 +26,22 @@ export const PATCH: RequestHandler = async ({ params, request, url }) => {
 	let updateCmd = `bd update ${params.id}`;
 	let hasUpdates = false;
 	if (status) { updateCmd += ` --status ${status}`; hasUpdates = true; }
-	if (title !== undefined) { updateCmd += ` --title "${title.replace(/"/g, '\\"')}"`; hasUpdates = true; }
-	if (description !== undefined) { updateCmd += ` --description "${description.replace(/"/g, '\\"')}"`; hasUpdates = true; }
 	if (priority !== undefined) { updateCmd += ` --priority ${priority}`; hasUpdates = true; }
-	if (design !== undefined) { updateCmd += ` --design "${(design || '').replace(/"/g, '\\"')}"`; hasUpdates = true; }
-	if (acceptance_criteria !== undefined) { updateCmd += ` --acceptance "${(acceptance_criteria || '').replace(/"/g, '\\"')}"`; hasUpdates = true; }
-	if (notes !== undefined) { updateCmd += ` --notes "${(notes || '').replace(/"/g, '\\"')}"`; hasUpdates = true; }
-	if (assignee !== undefined) { updateCmd += ` --assignee "${(assignee || '').replace(/"/g, '\\"')}"`; hasUpdates = true; }
+
+	const quotedFields: [string | undefined, string][] = [
+		[title, '--title'],
+		[description, '--description'],
+		[design, '--design'],
+		[acceptance_criteria, '--acceptance'],
+		[notes, '--notes'],
+		[assignee, '--assignee'],
+	];
+	for (const [value, flag] of quotedFields) {
+		if (value !== undefined) {
+			updateCmd += ` ${flag} "${(value || '').replace(/"/g, '\\"')}"`;
+			hasUpdates = true;
+		}
+	}
 	if (hasUpdates) commands.push(updateCmd);
 
 	// Add label commands
@@ -86,8 +96,7 @@ export const PATCH: RequestHandler = async ({ params, request, url }) => {
 
 		return json({ success: true });
 	} catch (err: unknown) {
-		const error = err as { stderr?: string; message?: string };
-		return json({ error: error.stderr || error.message || 'Update failed' }, { status: 500 });
+		return json({ error: extractErrorMessage(err, 'Update failed') }, { status: 500 });
 	}
 };
 
@@ -106,7 +115,6 @@ export const DELETE: RequestHandler = async ({ params, url }) => {
 
 		return json({ success: true });
 	} catch (err: unknown) {
-		const error = err as { stderr?: string; message?: string };
-		return json({ error: error.stderr || error.message || 'Delete failed' }, { status: 500 });
+		return json({ error: extractErrorMessage(err, 'Delete failed') }, { status: 500 });
 	}
 };

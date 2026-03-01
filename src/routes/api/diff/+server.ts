@@ -3,6 +3,7 @@ import { execSync } from 'child_process';
 import type { RequestHandler } from './$types';
 import { getAllIssues, resolveProjectCwd } from '$lib/db';
 import type { DiffChange, DiffResult } from '$lib/types';
+import { extractErrorMessage } from '$lib/server-utils';
 
 interface JsonlIssue {
 	id: string;
@@ -25,24 +26,33 @@ function parseJsonl(raw: string): Map<string, JsonlIssue> {
 }
 
 function getHistoricalIssues(rev: string, cwd: string): Map<string, JsonlIssue> {
-	const raw = execSync(`git show ${rev}:.beads/issues.jsonl`, {
-		cwd,
-		encoding: 'utf-8',
-		timeout: 10000
-	});
-	return parseJsonl(raw);
+	try {
+		const raw = execSync(`git show ${rev}:.beads/issues.jsonl`, {
+			cwd,
+			encoding: 'utf-8',
+			timeout: 10000
+		});
+		return parseJsonl(raw);
+	} catch {
+		// issues.jsonl not tracked at this revision (Dolt backend)
+		return new Map();
+	}
 }
 
 function getRecentCommits(cwd: string, limit = 20): { hash: string; message: string; date: string }[] {
-	const raw = execSync(
-		`git log --oneline --format="%H|%s|%ai" -${limit} -- .beads/issues.jsonl`,
-		{ cwd, encoding: 'utf-8', timeout: 10000 }
-	).trim();
-	if (!raw) return [];
-	return raw.split('\n').map(line => {
-		const [hash, message, date] = line.split('|');
-		return { hash, message, date };
-	});
+	try {
+		const raw = execSync(
+			`git log --oneline --format="%H|%s|%ai" -${limit} -- .beads/issues.jsonl`,
+			{ cwd, encoding: 'utf-8', timeout: 10000 }
+		).trim();
+		if (!raw) return [];
+		return raw.split('\n').map(line => {
+			const [hash, message, date] = line.split('|');
+			return { hash, message, date };
+		});
+	} catch {
+		return [];
+	}
 }
 
 function computeDiff(
@@ -112,8 +122,6 @@ export const GET: RequestHandler = async ({ url }) => {
 
 		return json(result);
 	} catch (err: unknown) {
-		const error = err as { message?: string; stderr?: string };
-		const msg = error.stderr || error.message || 'Failed to compute diff';
-		return json({ error: msg }, { status: 500 });
+		return json({ error: extractErrorMessage(err, 'Failed to compute diff') }, { status: 500 });
 	}
 };
