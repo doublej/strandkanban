@@ -51,6 +51,7 @@
 		oncompactSession: (name: string) => void;
 		onmarkPaneAsRead: (name: string) => void;
 		onopenTicketFromPane: (ticketId: string) => void;
+		oninterrupt?: (name: string) => void;
 		onstartDrag: (e: MouseEvent, name: string) => void;
 		onstartResize: (e: MouseEvent, name: string, edge: 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw') => void;
 		oncyclePaneSize: (name: string) => void;
@@ -104,6 +105,7 @@
 		oncompactSession,
 		onmarkPaneAsRead,
 		onopenTicketFromPane,
+		oninterrupt,
 		onstartDrag,
 		onstartResize,
 		oncyclePaneSize,
@@ -414,6 +416,7 @@
 		}}
 		onMarkAsRead={onmarkPaneAsRead}
 		onOpenTicket={onopenTicketFromPane}
+		onInterrupt={oninterrupt}
 	/>
 </div>
 {/if}

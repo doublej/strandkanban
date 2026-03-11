@@ -3,7 +3,7 @@
 	import { untrack } from 'svelte';
 	import { pushState as svelteKitPushState } from '$app/navigation';
 	import { setCurrentProject, appendProjectParam } from '$lib/project';
-	import { connect, disconnect, getPanes, getSessions, isConnected, addPane, removePane, sendToPane, killSession, clearAllSessions, endSession, clearSession, continueSession, compactSession, getPersistedSdkSessionId, getAllPersistedSessions, deletePersistedSession, fetchSdkSessions, markPaneAsRead, getTotalUnreadCount, getUnreadCount, notifyAgentOfTicketUpdate, type Pane, type SdkSessionInfo } from '$lib/wsStore.svelte';
+	import { connect, disconnect, getPanes, getSessions, isConnected, addPane, removePane, sendToPane, killSession, clearAllSessions, endSession, clearSession, continueSession, compactSession, interrupt, getPersistedSdkSessionId, getAllPersistedSessions, deletePersistedSession, fetchSdkSessions, markPaneAsRead, getTotalUnreadCount, getUnreadCount, notifyAgentOfTicketUpdate, type Pane, type SdkSessionInfo } from '$lib/wsStore.svelte';
 	import type { Issue, Attachment, CardPosition, FlyingCard, SortBy, PaneSize, ViewMode, Project, ViewRecipe } from '$lib/types';
 	import {
 		columns,
@@ -843,6 +843,7 @@
 	oncompactSession={compactSession}
 	onmarkPaneAsRead={markPaneAsRead}
 	onopenTicketFromPane={ops.openTicketFromPane}
+	oninterrupt={interrupt}
 	onstartDrag={startDrag}
 	onstartResize={startResize}
 	oncyclePaneSize={cyclePaneSize}

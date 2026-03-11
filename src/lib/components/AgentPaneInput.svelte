@@ -8,6 +8,7 @@
 		inputRef: HTMLInputElement | null;
 		onSendMessage: (name: string, message: string) => void;
 		onInputChange: (value: string) => void;
+		onInterrupt?: (name: string) => void;
 	}
 
 	let {
@@ -16,7 +17,8 @@
 		disabled,
 		inputRef = $bindable(),
 		onSendMessage,
-		onInputChange
+		onInputChange,
+		onInterrupt
 	}: Props = $props();
 
 	let slashMenuOpen = $state(false);
@@ -53,6 +55,16 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') {
+			if (slashMenuOpen) {
+				slashMenuOpen = false;
+			} else if (pane.streaming && onInterrupt) {
+				e.preventDefault();
+				onInterrupt(pane.name);
+			}
+			return;
+		}
+
 		if (!slashMenuOpen) return;
 		const filtered = getFilteredSlashCommands();
 		if (filtered.length === 0) return;
@@ -70,8 +82,6 @@
 				onInputChange('/' + cmd.name + ' ');
 				slashMenuOpen = false;
 			}
-		} else if (e.key === 'Escape') {
-			slashMenuOpen = false;
 		}
 	}
 

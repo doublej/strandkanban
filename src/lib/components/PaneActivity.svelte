@@ -32,6 +32,7 @@
 		onResumeSession?: (name: string, sessionId: string) => void;
 		onMarkAsRead?: (name: string) => void;
 		onOpenTicket?: (ticketId: string) => void;
+		onInterrupt?: (name: string) => void;
 	}
 
 	let {
@@ -61,7 +62,8 @@
 		onFetchSessions,
 		onResumeSession,
 		onMarkAsRead,
-		onOpenTicket
+		onOpenTicket,
+		onInterrupt
 	}: Props = $props();
 
 	let messagesRefs = $state<Record<string, HTMLDivElement | null>>({});
@@ -205,6 +207,7 @@
 			{onCompactSession}
 			{onFetchSessions}
 			onOpenSessionPicker={() => openSessionPicker(pane.name)}
+			{onInterrupt}
 		/>
 	{/each}
 </div>

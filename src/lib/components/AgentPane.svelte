@@ -38,6 +38,7 @@
 		onCompactSession?: (name: string) => void;
 		onFetchSessions?: () => Promise<SdkSessionInfo[]>;
 		onOpenSessionPicker: () => void;
+		onInterrupt?: (name: string) => void;
 	}
 
 	let {
@@ -73,7 +74,8 @@
 		onContinueSession,
 		onCompactSession,
 		onFetchSessions,
-		onOpenSessionPicker
+		onOpenSessionPicker,
+		onInterrupt
 	}: Props = $props();
 
 	function getTicketIdFromPaneName(name: string): string | null {
@@ -131,6 +133,7 @@
 		bind:inputRef
 		{onSendMessage}
 		{onInputChange}
+		{onInterrupt}
 	/>
 
 	<!-- Resize handles -->
