@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { formatCwdForDisplay } from '$lib/utils/agent-queue-helpers';
 
 	interface AgentQueueItem {
 		ticketId: string;
+		title: string;
+		description?: string;
 		agentName: string;
 		cwd: string;
 	}
@@ -37,8 +38,10 @@
 			<span class="ticket-id">{item.ticketId}</span>
 			<button class="cancel-btn" onclick={onCancel} title="Cancel">×</button>
 		</div>
-		<div class="agent-name">{item.agentName}</div>
-		<div class="cwd" title={item.cwd}>{formatCwdForDisplay(item.cwd)}</div>
+		<div class="item-title" title={item.title}>{item.title}</div>
+		{#if item.description}
+			<div class="item-description" title={item.description}>{item.description}</div>
+		{/if}
 	</div>
 </div>
 
@@ -138,17 +141,23 @@
 		color: #ef4444;
 	}
 
-	.agent-name {
-		font: 500 10px/1.2 var(--font-mono);
-		color: var(--text-tertiary);
-	}
-
-	.cwd {
-		font: 400 9px/1.3 var(--font-mono);
-		color: var(--text-muted);
+	.item-title {
+		font: 500 11px/1.3 var(--font-sans);
+		color: var(--text-secondary);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	.item-description {
+		font: 400 10px/1.4 var(--font-sans);
+		color: var(--text-tertiary);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
 	}
 
 	/* Light theme adjustments */

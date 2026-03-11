@@ -5,6 +5,8 @@
 
 	interface AgentQueueItem {
 		ticketId: string;
+		title: string;
+		description?: string;
 		agentName: string;
 		cwd: string;
 	}

@@ -209,6 +209,13 @@
 	});
 
 	let totalQueueCount = $derived(ops.agentQueue.length + runningAgents.length);
+	let mappedAgentQueue = $derived(ops.agentQueue.map(item => ({
+		ticketId: item.ticketId,
+		title: item.issueSnapshot.title,
+		description: item.issueSnapshot.description,
+		agentName: item.agentName,
+		cwd: item.cwd
+	})));
 
 	// --- Card Drag/Drop & Touch ---
 	const cardDrag = createCardDrag({
@@ -772,7 +779,7 @@
 				{/if}
 				{#if i === 0}
 					<AgentQueueColumn
-						queue={ops.agentQueue}
+						queue={mappedAgentQueue}
 						runningSessions={runningAgents}
 						isCollapsed={queueColumnCollapsed}
 						{activeColumnIndex}
