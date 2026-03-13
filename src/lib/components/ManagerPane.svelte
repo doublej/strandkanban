@@ -89,7 +89,7 @@
 		overflow: hidden;
 		transition: border-color var(--transition-fast);
 		animation: slideIn 200ms ease-out;
-		/* Match board padding: top/bottom 1.25rem, right 1.25rem; left gap comes from board */
+		/* Match board padding to align headers */
 		margin: 1.25rem 1.25rem 1.25rem 0;
 	}
 
@@ -109,7 +109,7 @@
 		justify-content: space-between;
 		padding: 0.625rem 0.75rem;
 		border-bottom: 1px solid var(--border-subtle);
-		background: var(--surface-card);
+		background: var(--surface-panel);
 	}
 
 	.column-title {

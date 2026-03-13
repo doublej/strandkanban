@@ -165,7 +165,7 @@
 		justify-content: space-between;
 		padding: 0.625rem 0.75rem;
 		border-bottom: 1px solid var(--border-subtle);
-		background: var(--surface-card);
+		background: var(--surface-panel);
 	}
 
 	.column.collapsed .column-header {
