@@ -4,7 +4,7 @@
 	import PaneActivity from './PaneActivity.svelte';
 	import StatusBar from './StatusBar.svelte';
 	import AgentBarSessionPicker from './AgentBarSessionPicker.svelte';
-	import { getManagerVisible, toggleManagerVisibility, MANAGER_SESSION_NAME } from '$lib/stores/manager.svelte';
+	import { getManagerVisible, toggleManagerVisibility, isManagerSession } from '$lib/stores/manager.svelte';
 
 	interface Props {
 		wsConnected: boolean;
@@ -309,7 +309,7 @@
 		{/if}
 
 		<div class="agent-tabs">
-			{#each [...wsPanes.values()] as pane}
+			{#each [...wsPanes.values()].filter(p => !isManagerSession(p.name)) as pane}
 				{@const unread = getUnreadCount(pane.name)}
 				{@const isExpanded = expandedPanes.has(pane.name)}
 				<div class="agent-tab-wrapper" class:active={isExpanded}>
@@ -341,25 +341,25 @@
 					{/if}
 				</div>
 			{/each}
+			{#if managerEnabled}
+				<button
+					class="manager-toggle"
+					class:active={getManagerVisible()}
+					class:streaming={managerSession?.streaming}
+					onclick={() => {
+						if (managerSession) {
+							toggleManagerVisibility();
+						} else {
+							onstartmanager?.();
+						}
+					}}
+					title={getManagerVisible() ? 'Hide manager' : 'Show manager'}
+				>
+					<span class="manager-dot" class:live={managerSession?.streaming}></span>
+					<span class="manager-toggle-label">Manager</span>
+				</button>
+			{/if}
 		</div>
-		{#if managerEnabled}
-			<button
-				class="manager-toggle"
-				class:active={getManagerVisible()}
-				class:streaming={managerSession?.streaming}
-				onclick={() => {
-					if (managerSession) {
-						toggleManagerVisibility();
-					} else {
-						onstartmanager?.();
-					}
-				}}
-				title={getManagerVisible() ? 'Hide manager' : 'Show manager'}
-			>
-				<span class="manager-dot" class:live={managerSession?.streaming}></span>
-				<span class="manager-toggle-label">Manager</span>
-			</button>
-		{/if}
 		<div class="agent-bar-spacer"></div>
 		<div class="agent-bar-status">
 			<StatusBar

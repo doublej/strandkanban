@@ -17,7 +17,14 @@ import {
 } from './agent-sessions.svelte';
 import { fetchSessionHistory } from '../session-persistence';
 import { initTabCoordinator } from './tab-coordinator.svelte';
-import { MANAGER_SESSION_NAME, setManagerVisible, getManagerVisible } from './manager.svelte';
+import {
+	getManagerSessionName,
+	isManagerSession,
+	setManagerVisible,
+	getManagerVisible,
+	getCurrentManagerProject,
+	setCurrentManagerProject,
+} from './manager.svelte';
 import { fetchInitialQueue, setQueueWsSender } from './queue.svelte';
 import { settings } from './settings.svelte';
 
@@ -184,7 +191,7 @@ function interruptInternal(name: string) {
 
 function killSessionInternal(name: string) {
 	// Manager session: minimize instead of killing
-	if (name === MANAGER_SESSION_NAME) {
+	if (isManagerSession(name)) {
 		setManagerVisible(false);
 		return;
 	}
@@ -204,16 +211,22 @@ function killSessionInternal(name: string) {
 }
 
 export function startManager(cwd: string) {
+	const sessionName = getManagerSessionName(cwd);
 	const sessions = getSessions();
-	const existing = sessions.get(MANAGER_SESSION_NAME);
+
+	// Check if there's already a manager for THIS project
+	const existing = sessions.get(sessionName);
 	if (existing?.serverId) {
-		// Already running with valid server session — just show
+		// Already running with valid server session for this project — just show
+		setCurrentManagerProject(cwd);
 		setManagerVisible(true);
 		return;
 	}
+
 	const model = settings.managerModel || undefined;
+	setCurrentManagerProject(cwd);
 	startSessionInternal(
-		MANAGER_SESSION_NAME,
+		sessionName,
 		cwd,
 		'You are the Manager Agent. Await instructions from the user.',
 		undefined,
@@ -225,20 +238,52 @@ export function startManager(cwd: string) {
 	setManagerVisible(true);
 }
 
+/** Switch manager to a different project. Hides current manager and shows/starts the one for the new project. */
+export function switchManagerProject(newCwd: string) {
+	const currentProject = getCurrentManagerProject();
+	if (currentProject === newCwd) return; // Same project, nothing to do
+
+	// The old manager session stays alive (backgrounded), we just switch context
+	setCurrentManagerProject(newCwd);
+
+	// If manager is visible, switch to the new project's manager
+	if (getManagerVisible()) {
+		const newSessionName = getManagerSessionName(newCwd);
+		const sessions = getSessions();
+		const existingForNew = sessions.get(newSessionName);
+
+		if (existingForNew?.serverId) {
+			// Resume existing session for new project
+			resumeSession(newSessionName);
+		} else {
+			// Start fresh manager for new project
+			startManager(newCwd);
+		}
+	}
+}
+
 export function forceKillManager() {
+	const currentProject = getCurrentManagerProject();
+	if (!currentProject) {
+		setManagerVisible(false);
+		return;
+	}
+
+	const sessionName = getManagerSessionName(currentProject);
 	const sessions = getSessions();
-	const session = sessions.get(MANAGER_SESSION_NAME);
+	const session = sessions.get(sessionName);
 	if (session?.streaming) {
-		sendToSocket(MANAGER_SESSION_NAME, { type: 'interrupt' });
+		sendToSocket(sessionName, { type: 'interrupt' });
 	}
 	const sockets = getSessionSockets();
-	const ws = sockets.get(MANAGER_SESSION_NAME);
+	const ws = sockets.get(sessionName);
 	if (ws) {
 		ws.close();
-		sockets.delete(MANAGER_SESSION_NAME);
+		sockets.delete(sessionName);
 	}
-	sessions.delete(MANAGER_SESSION_NAME);
+	sessions.delete(sessionName);
 	setSessions(new Map(sessions));
+	setCurrentManagerProject(null);
 	setManagerVisible(false);
 }
 
@@ -327,10 +372,10 @@ export function connect() {
 
 	// Wire up session-gone callback for auto-restart
 	setSessionGoneCallback((sessionName) => {
-		if (sessionName === MANAGER_SESSION_NAME && getManagerVisible()) {
+		if (isManagerSession(sessionName) && getManagerVisible()) {
 			// Manager session expired — auto-restart it
 			console.log('[agent:manager] session expired, auto-restarting');
-			const session = getSessions().get(MANAGER_SESSION_NAME);
+			const session = getSessions().get(sessionName);
 			if (session?.cwd) {
 				setTimeout(() => startManager(session.cwd!), 100);
 			}

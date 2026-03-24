@@ -51,8 +51,8 @@
 	import { createCardDrag } from '$lib/drag-drop/card-drag.svelte';
 	import { createPageOps } from '$lib/stores/page-ops.svelte';
 	import { issueMatchesFilters as matchesFilters, hasActiveFilters as checkActiveFilters, type FilterState } from '$lib/filters';
-	import { getManagerVisible, MANAGER_SESSION_NAME } from '$lib/stores/manager.svelte';
-	import { startManager } from '$lib/stores/ws-connection.svelte';
+	import { getManagerVisible, getManagerSessionName, isManagerSession } from '$lib/stores/manager.svelte';
+	import { startManager, switchManagerProject } from '$lib/stores/ws-connection.svelte';
 	import { getQueueItems, getQueuedTicketIds } from '$lib/stores/queue.svelte';
 
 	// --- UI State (page-only) ---
@@ -258,7 +258,11 @@
 	// --- WS Polling ---
 	let wsConnected = $state(false);
 	let wsPanes = $state<Map<string, Pane>>(new Map());
-	let managerSession = $derived(wsPanes.get(MANAGER_SESSION_NAME) ?? null);
+	let managerSession = $derived.by(() => {
+		if (!currentProjectPath) return null;
+		const sessionName = getManagerSessionName(currentProjectPath);
+		return wsPanes.get(sessionName) ?? null;
+	});
 	let lastPanesJson = '';
 
 	$effect(() => {
@@ -496,6 +500,9 @@
 		// Update frontend project context BEFORE API calls so appendProjectParam works
 		setCurrentProject(project.path);
 		currentProjectPath = project.path;
+
+		// Switch manager to new project (if visible, it will auto-resume or start new session)
+		switchManagerProject(project.path);
 
 		const [cwdRes] = await Promise.all([
 			fetch('/api/cwd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: project.path }) }),

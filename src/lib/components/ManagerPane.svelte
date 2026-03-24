@@ -2,7 +2,7 @@
 	import type { Pane } from '$lib/wsStore.svelte';
 	import AgentMessageList from './AgentMessageList.svelte';
 	import AgentPaneInput from './AgentPaneInput.svelte';
-	import { MANAGER_SESSION_NAME, toggleManagerVisibility } from '$lib/stores/manager.svelte';
+	import { toggleManagerVisibility } from '$lib/stores/manager.svelte';
 
 	interface Props {
 		session: Pane;
