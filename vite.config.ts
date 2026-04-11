@@ -1,10 +1,12 @@
 import { sveltekit } from '@sveltejs/kit/vite';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-	plugins: [sveltekit()],
+	plugins: [sveltekit(), basicSsl()],
 	server: {
 		hmr: false,
-		allowedHosts: ['m2.local']
+		host: '0.0.0.0',
+		allowedHosts: ['m2.local', 'beads-kanban.local']
 	}
 });
