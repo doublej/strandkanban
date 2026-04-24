@@ -16,7 +16,7 @@ export const POST: RequestHandler = wrap(async ({ params, request, url }) => {
 
 	const issue = getIssueById(params.id, cwd);
 	if (issue) {
-		notificationStore.emit('dependency_added', issue);
+		notificationStore.emit('dependency_added', issue, { cwd });
 		await hookExecutor.executeHooks('DependencyAdded', {
 			id: issue.id,
 			title: issue.title,

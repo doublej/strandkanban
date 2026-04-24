@@ -22,7 +22,7 @@ export const POST: RequestHandler = wrap(async ({ params, request, url }) => {
 
 	const issue = getIssueById(params.id, cwd);
 	if (issue) {
-		notificationStore.emit('comment_added', issue);
+		notificationStore.emit('comment_added', issue, { cwd });
 		await hookExecutor.executeHooks('CommentAdded', {
 			id: issue.id,
 			title: issue.title,

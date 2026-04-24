@@ -67,8 +67,9 @@ export const PATCH: RequestHandler = wrap(async ({ params, request, url }) => {
 			cwd,
 		};
 
+		const meta = { cwd };
 		if (beforeIssue.status !== afterIssue.status) {
-			notificationStore.emit('status_changed', afterIssue);
+			notificationStore.emit('status_changed', afterIssue, meta);
 			await hookExecutor.executeHooks('StatusChanged', {
 				...baseCtx,
 				oldStatus: beforeIssue.status,
@@ -78,24 +79,24 @@ export const PATCH: RequestHandler = wrap(async ({ params, request, url }) => {
 				await hookExecutor.executeHooks('TicketClosed', baseCtx);
 			}
 			if (afterIssue.status === 'blocked') {
-				notificationStore.emit('blocked', afterIssue);
+				notificationStore.emit('blocked', afterIssue, meta);
 				await hookExecutor.executeHooks('TicketBlocked', baseCtx);
 			}
 			if (beforeIssue.status === 'blocked' && afterIssue.status !== 'blocked') {
-				notificationStore.emit('unblocked', afterIssue);
+				notificationStore.emit('unblocked', afterIssue, meta);
 				await hookExecutor.executeHooks('TicketUnblocked', baseCtx);
 			}
 		}
 		if (beforeIssue.priority !== afterIssue.priority) {
-			notificationStore.emit('priority_changed', afterIssue);
+			notificationStore.emit('priority_changed', afterIssue, meta);
 			await hookExecutor.executeHooks('PriorityChanged', baseCtx);
 		}
 		if (beforeIssue.assignee !== afterIssue.assignee) {
-			notificationStore.emit('assignee_changed', afterIssue);
+			notificationStore.emit('assignee_changed', afterIssue, meta);
 			await hookExecutor.executeHooks('AssigneeChanged', baseCtx);
 		}
 		if (addLabels?.length || removeLabels?.length) {
-			notificationStore.emit('label_modified', afterIssue);
+			notificationStore.emit('label_modified', afterIssue, meta);
 			await hookExecutor.executeHooks('LabelModified', baseCtx);
 		}
 	}
@@ -111,7 +112,7 @@ export const DELETE: RequestHandler = wrap(async ({ params, url }) => {
 	if (!result.success) throw new ApiError(result.error || 'Delete failed');
 
 	if (issue) {
-		notificationStore.emit('issue_closed', issue);
+		notificationStore.emit('issue_closed', issue, { cwd });
 		await hookExecutor.executeHooks('TicketClosed', {
 			id: issue.id,
 			title: issue.title,

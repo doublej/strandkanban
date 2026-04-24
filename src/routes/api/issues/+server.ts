@@ -35,7 +35,7 @@ export const POST: RequestHandler = wrap(async ({ request, url }) => {
 		priority: number;
 		assignee?: string;
 	};
-	notificationStore.emit('issue_created', created as never);
+	notificationStore.emit('issue_created', created as never, { cwd });
 	await hookExecutor.executeHooks('TicketCreated', {
 		id: created.id,
 		title: created.title,

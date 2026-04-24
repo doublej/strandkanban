@@ -135,36 +135,53 @@ export function createIssueStore(callbacks: IssueStoreCallbacks) {
 		}
 	}
 
-	function connectSSE(): EventSource {
-		const eventSource = new EventSource(appendProjectParam('/api/issues/stream'));
-		sseSource = eventSource;
+	let pollCount = 0;
 
-		eventSource.onmessage = (event) => {
-			const msg = JSON.parse(event.data);
-
-			if (msg.type === 'error') {
-				loadingStatus = { ...loadingStatus, phase: 'error', errorMessage: msg.message };
+	async function refreshIssues(hasChanges: boolean) {
+		try {
+			const res = await fetch(appendProjectParam('/api/issues'));
+			const payload = await res.json();
+			if (!payload?.ok) {
+				loadingStatus = { ...loadingStatus, phase: 'error', errorMessage: payload?.error?.message ?? 'Load failed' };
 				return;
 			}
-			if (msg.type !== 'data') return;
-
+			const data = { issues: payload.data?.issues ?? [] };
+			pollCount += 1;
 			loadingStatus = {
 				...loadingStatus,
 				phase: 'ready',
-				pollCount: msg.pollCount,
-				lastUpdate: msg.timestamp,
-				issueCount: msg.issues.length,
-				hasChanges: msg.hasChanges,
-				errorMessage: null
+				pollCount,
+				lastUpdate: Date.now(),
+				issueCount: data.issues.length,
+				hasChanges,
+				errorMessage: null,
 			};
 			if (!initialLoaded) {
 				initialLoaded = true;
 				fetchMutations();
 			}
+			const oldIssuesMap = new Map(issues.map((i) => [i.id, i]));
+			checkEditingIssueClosed(data);
+			handleStatusChanges(data, oldIssuesMap);
+		} catch (e) {
+			const msg = e instanceof Error ? e.message : String(e);
+			loadingStatus = { ...loadingStatus, phase: 'error', errorMessage: msg };
+		}
+	}
 
-			const oldIssuesMap = new Map(issues.map(i => [i.id, i]));
-			checkEditingIssueClosed(msg);
-			handleStatusChanges(msg, oldIssuesMap);
+	function connectSSE(): EventSource {
+		const eventSource = new EventSource(appendProjectParam('/api/events/stream'));
+		sseSource = eventSource;
+
+		// Initial snapshot fires on open; subsequent refreshes triggered by events.
+		void refreshIssues(false);
+
+		eventSource.onmessage = (event) => {
+			let msg: { type?: string; name?: string };
+			try { msg = JSON.parse(event.data); } catch { return; }
+			if (msg.type === 'event') {
+				void refreshIssues(true);
+			}
 		};
 
 		eventSource.onerror = () => {
