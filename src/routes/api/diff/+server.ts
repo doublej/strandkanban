@@ -1,9 +1,8 @@
-import { json } from '@sveltejs/kit';
 import { execSync } from 'child_process';
 import type { RequestHandler } from './$types';
 import { getAllIssues, resolveProjectCwd } from '$lib/db';
 import type { DiffChange, DiffResult } from '$lib/types';
-import { extractErrorMessage } from '$lib/server-utils';
+import { ok, wrap, ApiError } from '$lib/server/response';
 
 interface JsonlIssue {
 	id: string;
@@ -28,13 +27,10 @@ function parseJsonl(raw: string): Map<string, JsonlIssue> {
 function getHistoricalIssues(rev: string, cwd: string): Map<string, JsonlIssue> {
 	try {
 		const raw = execSync(`git show ${rev}:.beads/issues.jsonl`, {
-			cwd,
-			encoding: 'utf-8',
-			timeout: 10000
+			cwd, encoding: 'utf-8', timeout: 10000,
 		});
 		return parseJsonl(raw);
 	} catch {
-		// issues.jsonl not tracked at this revision (Dolt backend)
 		return new Map();
 	}
 }
@@ -43,10 +39,10 @@ function getRecentCommits(cwd: string, limit = 20): { hash: string; message: str
 	try {
 		const raw = execSync(
 			`git log --oneline --format="%H|%s|%ai" -${limit} -- .beads/issues.jsonl`,
-			{ cwd, encoding: 'utf-8', timeout: 10000 }
+			{ cwd, encoding: 'utf-8', timeout: 10000 },
 		).trim();
 		if (!raw) return [];
-		return raw.split('\n').map(line => {
+		return raw.split('\n').map((line) => {
 			const [hash, message, date] = line.split('|');
 			return { hash, message, date };
 		});
@@ -57,22 +53,15 @@ function getRecentCommits(cwd: string, limit = 20): { hash: string; message: str
 
 function computeDiff(
 	current: Map<string, JsonlIssue>,
-	historical: Map<string, JsonlIssue>
+	historical: Map<string, JsonlIssue>,
 ): DiffChange[] {
 	const changes: DiffChange[] = [];
-
-	// New issues (in current but not historical)
 	for (const [id, issue] of current) {
-		if (!historical.has(id)) {
-			changes.push({ issue, changeType: 'added' });
-		}
+		if (!historical.has(id)) changes.push({ issue, changeType: 'added' });
 	}
-
-	// Closed/reopened/changed issues
 	for (const [id, oldIssue] of historical) {
 		const newIssue = current.get(id);
 		if (!newIssue) {
-			// Deleted (treat as closed)
 			changes.push({ issue: oldIssue, changeType: 'closed' });
 			continue;
 		}
@@ -87,41 +76,28 @@ function computeDiff(
 			changes.push({ issue: newIssue, changeType: 'priority_changed', oldValue: String(oldIssue.priority), newValue: String(newIssue.priority) });
 		}
 	}
-
 	return changes;
 }
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = wrap(async ({ url }) => {
 	const cwd = resolveProjectCwd(url);
 	const rev = url.searchParams.get('rev') || 'HEAD~1';
-
-	// Sanitise rev to prevent command injection
 	if (!/^[a-zA-Z0-9~^.\-_/]+$/.test(rev)) {
-		return json({ error: 'Invalid revision format' }, { status: 400 });
+		throw new ApiError('Invalid revision format', 400, 'VALIDATION');
 	}
 
-	try {
-		const currentIssues = getAllIssues(cwd);
-		const currentMap = new Map(currentIssues.map(i => [i.id, {
-			id: i.id, title: i.title, status: i.status,
-			priority: i.priority, issue_type: i.issue_type
-		}]));
-
-		const historicalMap = getHistoricalIssues(rev, cwd);
-		const changes = computeDiff(currentMap, historicalMap);
-		const commits = getRecentCommits(cwd);
-
-		const result: DiffResult = {
-			rev,
-			revLabel: rev,
-			currentCount: currentMap.size,
-			historicalCount: historicalMap.size,
-			changes,
-			commits
-		};
-
-		return json(result);
-	} catch (err: unknown) {
-		return json({ error: extractErrorMessage(err, 'Failed to compute diff') }, { status: 500 });
-	}
-};
+	const currentIssues = getAllIssues(cwd);
+	const currentMap = new Map(currentIssues.map((i) => [
+		i.id, { id: i.id, title: i.title, status: i.status, priority: i.priority, issue_type: i.issue_type },
+	]));
+	const historicalMap = getHistoricalIssues(rev, cwd);
+	const result: DiffResult = {
+		rev,
+		revLabel: rev,
+		currentCount: currentMap.size,
+		historicalCount: historicalMap.size,
+		changes: computeDiff(currentMap, historicalMap),
+		commits: getRecentCommits(cwd),
+	};
+	return ok(result);
+});

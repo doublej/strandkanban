@@ -1,11 +1,10 @@
-import { json } from '@sveltejs/kit';
 import { spawn } from 'child_process';
 import { join } from 'path';
 import { openSync } from 'fs';
 import type { RequestHandler } from './$types';
 import { log, LOG_FILE } from '$lib/server/logger';
+import { ok, wrap, ApiError } from '$lib/server/response';
 
-// Use process.cwd() which is project root in SvelteKit
 const AGENT_DIR = join(process.cwd(), 'src/lib/server/agent');
 let agentProcess: ReturnType<typeof spawn> | null = null;
 
@@ -14,7 +13,7 @@ function spawnAgent(): ReturnType<typeof spawn> {
 	const proc = spawn('bun', ['run', 'index.ts'], {
 		cwd: AGENT_DIR,
 		stdio: ['ignore', logFd, logFd],
-		detached: true
+		detached: true,
 	});
 	proc.unref();
 	proc.on('error', (err) => {
@@ -27,28 +26,23 @@ function spawnAgent(): ReturnType<typeof spawn> {
 	return proc;
 }
 
-export const POST: RequestHandler = async ({ request }) => {
-	const { action } = await request.json();
+export const POST: RequestHandler = wrap(async ({ request }) => {
+	const { action } = (await request.json()) ?? {};
 
 	if (action === 'start') {
-		if (agentProcess && !agentProcess.killed) {
-			return json({ success: true, message: 'Agent already running' });
-		}
-
+		if (agentProcess && !agentProcess.killed) return ok({ state: 'already_running' });
 		agentProcess = spawnAgent();
-
-		// Give it a moment to start
-		await new Promise(r => setTimeout(r, 500));
-		return json({ success: true, message: 'Agent started' });
+		await new Promise((r) => setTimeout(r, 500));
+		return ok({ state: 'started' });
 	}
 
 	if (action === 'stop') {
 		if (agentProcess && !agentProcess.killed) {
 			agentProcess.kill();
 			agentProcess = null;
-			return json({ success: true, message: 'Agent stopped' });
+			return ok({ state: 'stopped' });
 		}
-		return json({ success: true, message: 'Agent not running' });
+		return ok({ state: 'not_running' });
 	}
 
 	if (action === 'restart') {
@@ -56,13 +50,11 @@ export const POST: RequestHandler = async ({ request }) => {
 			agentProcess.kill();
 			agentProcess = null;
 		}
-		await new Promise(r => setTimeout(r, 300));
-
+		await new Promise((r) => setTimeout(r, 300));
 		agentProcess = spawnAgent();
-
-		await new Promise(r => setTimeout(r, 500));
-		return json({ success: true, message: 'Agent restarted' });
+		await new Promise((r) => setTimeout(r, 500));
+		return ok({ state: 'restarted' });
 	}
 
-	return json({ error: 'Invalid action' }, { status: 400 });
-};
+	throw new ApiError('Invalid action', 400, 'VALIDATION');
+});

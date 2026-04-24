@@ -1,45 +1,33 @@
-import { json, error } from '@sveltejs/kit';
 import { join } from 'path';
 import { existsSync, unlinkSync, readFileSync, readdirSync, rmdirSync } from 'fs';
 import type { RequestHandler } from './$types';
 import { getAttachmentsDir, getMimetype } from '$lib/attachments';
 import { resolveProjectCwd } from '$lib/db';
+import { ok, wrap, ApiError } from '$lib/server/response';
 
+// Binary GET bypasses the JSON envelope (file download).
 export const GET: RequestHandler = async ({ params, url }) => {
 	const cwd = resolveProjectCwd(url);
-	const dir = getAttachmentsDir(params.id, cwd);
-	const filePath = join(dir, params.filename);
+	const filePath = join(getAttachmentsDir(params.id, cwd), params.filename);
+	if (!existsSync(filePath)) return new Response('Not found', { status: 404 });
 
-	if (!existsSync(filePath)) {
-		throw error(404, 'Attachment not found');
-	}
-
-	const content = readFileSync(filePath);
-	const mimetype = getMimetype(params.filename);
-
-	return new Response(content, {
+	return new Response(readFileSync(filePath), {
 		headers: {
-			'Content-Type': mimetype,
+			'Content-Type': getMimetype(params.filename),
 			'Content-Disposition': `attachment; filename="${params.filename}"`,
 		},
 	});
 };
 
-export const DELETE: RequestHandler = async ({ params, url }) => {
+export const DELETE: RequestHandler = wrap(async ({ params, url }) => {
 	const cwd = resolveProjectCwd(url);
 	const dir = getAttachmentsDir(params.id, cwd);
 	const filePath = join(dir, params.filename);
-
-	if (!existsSync(filePath)) {
-		return json({ error: 'Attachment not found' }, { status: 404 });
-	}
+	if (!existsSync(filePath)) throw new ApiError('Attachment not found', 404, 'NOT_FOUND');
 
 	unlinkSync(filePath);
+	const remaining = readdirSync(dir);
+	if (remaining.length === 0) rmdirSync(dir);
 
-	const remainingFiles = readdirSync(dir);
-	if (remainingFiles.length === 0) {
-		rmdirSync(dir);
-	}
-
-	return json({ success: true });
-};
+	return ok({ deleted: true });
+});

@@ -1,22 +1,20 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getStoredCwd } from '$lib/db';
+import { resolveProjectCwd } from '$lib/db';
+import { ok, wrap } from '$lib/server/response';
 
-export const GET: RequestHandler = async ({ params, url }) => {
+export const GET: RequestHandler = wrap(async ({ params, url }) => {
 	const sessionId = params.sessionId;
-	if (!sessionId) return json({ messages: [] });
+	if (!sessionId) return ok({ messages: [] });
 
-	const cwd = url.searchParams.get('cwd') || getStoredCwd();
-	if (!cwd) return json({ messages: [] });
-
+	const cwd = resolveProjectCwd(url);
 	try {
 		const res = await fetch(
-			`http://localhost:9347/sessions/${encodeURIComponent(sessionId)}/history?cwd=${encodeURIComponent(cwd)}`
+			`http://localhost:9347/sessions/${encodeURIComponent(sessionId)}/history?cwd=${encodeURIComponent(cwd)}`,
 		);
-		if (!res.ok) return json({ messages: [] });
-		const data = await res.json();
-		return json({ messages: data.messages ?? [] });
+		if (!res.ok) return ok({ messages: [] });
+		const data = (await res.json()) as { messages?: unknown[] };
+		return ok({ messages: data.messages ?? [] });
 	} catch {
-		return json({ messages: [] });
+		return ok({ messages: [] });
 	}
-};
+});

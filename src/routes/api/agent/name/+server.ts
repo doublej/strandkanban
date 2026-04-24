@@ -1,7 +1,7 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { unstable_v2_prompt } from '@anthropic-ai/claude-agent-sdk';
 import { log } from '$lib/server/logger';
+import { ok, wrap, ApiError } from '$lib/server/response';
 
 const PROMPT = `Name a coding agent for "beads-kanban" (task tracker with bead/string theme).
 
@@ -22,21 +22,20 @@ STRICT RULES:
 
 Output the name only. No explanation. No alternatives.`;
 
-export const POST: RequestHandler = async () => {
+export const POST: RequestHandler = wrap(async () => {
 	try {
 		const result = await unstable_v2_prompt(PROMPT, {
 			model: 'claude-haiku-4-5-20251001',
 		});
 
 		if (result.subtype !== 'success' || !result.result) {
-			return json({ error: 'Failed to generate name' }, { status: 500 });
+			throw new ApiError('Failed to generate name', 500);
 		}
 
 		const name = result.result.trim().toLowerCase().replace(/\s+/g, '-');
-
-		return json({ name });
+		return ok({ name });
 	} catch (error) {
 		log.error('[agent/name] Error generating name:', error);
-		return json({ error: 'Failed to generate name' }, { status: 500 });
+		throw new ApiError('Failed to generate name', 500);
 	}
-};
+});

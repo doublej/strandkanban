@@ -268,8 +268,8 @@ export function createPageOps(ctx: PageOpsContext) {
 	async function loadComments(issueId: string) {
 		loadingComments = true;
 		const res = await fetch(appendProjectParam(`/api/issues/${issueId}/comments`));
-		const data = await res.json();
-		comments = data.comments || [];
+		const payload = await res.json();
+		comments = payload?.ok ? (payload.data?.comments ?? []) : [];
 		loadingComments = false;
 	}
 
@@ -549,9 +549,9 @@ export function createPageOps(ctx: PageOpsContext) {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ depends_on: toId, dep_type: 'blocks' })
 		});
-		const data = await res.json();
-		if (!res.ok) {
-			console.error('Failed to create dependency:', data.error);
+		const payload = await res.json();
+		if (!res.ok || !payload?.ok) {
+			console.error('Failed to create dependency:', payload?.error?.message);
 			return;
 		}
 		notifyTicket(fromId, `Dependency added: blocks → ${toId}`, 'dependency', { ticketTitle: getIssueTitle(fromId), sender: 'user' });
@@ -565,9 +565,9 @@ export function createPageOps(ctx: PageOpsContext) {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ depends_on: dependsOnId })
 		});
-		const data = await res.json();
-		if (!res.ok) {
-			console.error('Failed to remove dependency:', data.error);
+		const payload = await res.json();
+		if (!res.ok || !payload?.ok) {
+			console.error('Failed to remove dependency:', payload?.error?.message);
 			return;
 		}
 		if (editingIssue) {

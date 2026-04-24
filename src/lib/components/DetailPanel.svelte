@@ -135,8 +135,8 @@
 		}
 		loadingRelated = true;
 		fetch(`/api/issues/${encodeURIComponent(id)}/agent-sessions`)
-			.then((r) => (r.ok ? r.json() : { sessions: [] }))
-			.then((d) => { relatedSessions = d.sessions ?? []; })
+			.then((r) => (r.ok ? r.json() : null))
+			.then((payload) => { relatedSessions = payload?.ok ? (payload.data?.sessions ?? []) : []; })
 			.catch(() => { relatedSessions = []; })
 			.finally(() => { loadingRelated = false; });
 	});
@@ -153,8 +153,8 @@
 		try {
 			const r = await fetch(`/api/agent-sessions/${encodeURIComponent(sessionId)}/history`);
 			if (r.ok) {
-				const d = await r.json();
-				expandedMessages = d.messages ?? [];
+				const payload = await r.json();
+				expandedMessages = payload?.ok ? (payload.data?.messages ?? []) : [];
 			}
 		} catch {
 			expandedMessages = [];

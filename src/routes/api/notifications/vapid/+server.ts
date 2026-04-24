@@ -1,8 +1,8 @@
-import { json } from '@sveltejs/kit';
 import { ensureVapidKeys } from '$lib/vapid';
 import type { RequestHandler } from './$types';
+import { ok, wrap } from '$lib/server/response';
 
-export const GET: RequestHandler = async () => {
+export const GET: RequestHandler = wrap(async () => {
 	const { publicKey } = ensureVapidKeys();
-	return json({ publicKey });
-};
+	return ok({ publicKey });
+});

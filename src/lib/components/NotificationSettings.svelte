@@ -14,8 +14,8 @@
 			try {
 				const res = await fetch('/api/notifications/test', { method: 'POST' });
 				if (!res.ok) {
-					const data = await res.json();
-					throw new Error(data.error || 'Failed to send');
+					const payload = await res.json();
+					throw new Error(payload?.error?.message || 'Failed to send');
 				}
 				testState = 'success';
 				toastQueue.show({ type: 'success', title: 'Test', message: 'Test notification sent', duration: 3000 });

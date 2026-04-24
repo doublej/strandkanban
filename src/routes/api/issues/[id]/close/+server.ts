@@ -1,24 +1,15 @@
-import { json } from '@sveltejs/kit';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import type { RequestHandler } from './$types';
 import { resolveProjectCwd } from '$lib/db';
-import { extractErrorMessage } from '$lib/server-utils';
+import { closeIssue } from '$lib/bd';
+import { ok, wrap, ApiError } from '$lib/server/response';
 
-const execAsync = promisify(exec);
-
-export const POST: RequestHandler = async ({ params, request, url }) => {
-	const { reason } = await request.json().catch(() => ({ reason: 'Completed' }));
-	const reasonText = reason || 'Completed';
+export const POST: RequestHandler = wrap(async ({ params, request, url }) => {
+	const body = await request.json().catch(() => ({}));
+	const reason = body?.reason || 'Completed';
 
 	const cwd = resolveProjectCwd(url);
-	try {
-		const { stdout, stderr } = await execAsync(
-			`bd close ${params.id} --reason "${reasonText.replace(/"/g, '\\"')}"`,
-			{ cwd }
-		);
-		return json({ success: true, message: stdout.trim(), warning: stderr || undefined });
-	} catch (err: unknown) {
-		return json({ error: extractErrorMessage(err, 'Failed to close issue') }, { status: 500 });
-	}
-};
+	const result = await closeIssue(params.id, reason, cwd);
+	if (!result.success) throw new ApiError(result.error || 'Failed to close issue');
+
+	return ok({ closed: true });
+});

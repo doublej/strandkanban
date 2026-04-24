@@ -1,33 +1,17 @@
-import { json } from '@sveltejs/kit';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import type { RequestHandler } from './$types';
 import { resolveProjectCwd, getIssueById } from '$lib/db';
+import { addDependency, removeDependency } from '$lib/bd';
 import { notificationStore } from '$lib/notifications/notification-store.svelte';
 import { hookExecutor } from '$lib/server/agent/hook-executor';
-import { extractErrorMessage } from '$lib/server-utils';
+import { ok, wrap, ApiError } from '$lib/server/response';
 
-const execAsync = promisify(exec);
-
-async function runDepCmd(cmd: string, cwd: string, fallback: string) {
-	try {
-		const { stdout } = await execAsync(cmd, { cwd });
-		return json({ success: true, message: stdout.trim() });
-	} catch (err: unknown) {
-		return json({ error: extractErrorMessage(err, fallback) }, { status: 500 });
-	}
-}
-
-export const POST: RequestHandler = async ({ params, request, url }) => {
-	const { depends_on, dep_type = 'blocks' } = await request.json();
-
-	if (!depends_on) {
-		return json({ error: 'depends_on is required' }, { status: 400 });
-	}
+export const POST: RequestHandler = wrap(async ({ params, request, url }) => {
+	const { depends_on, dep_type = 'blocks' } = (await request.json()) ?? {};
+	if (!depends_on) throw new ApiError('depends_on is required', 400, 'VALIDATION');
 
 	const cwd = resolveProjectCwd(url);
-	const cmd = `bd dep add ${params.id} ${depends_on} --type ${dep_type}`;
-	const result = await runDepCmd(cmd, cwd, 'Failed to create dependency');
+	const result = await addDependency(params.id, depends_on, dep_type, cwd);
+	if (!result.success) throw new ApiError(result.error || 'Failed to create dependency');
 
 	const issue = getIssueById(params.id, cwd);
 	if (issue) {
@@ -39,18 +23,15 @@ export const POST: RequestHandler = async ({ params, request, url }) => {
 			cwd,
 		});
 	}
+	return ok({ added: true });
+});
 
-	return result;
-};
-
-export const DELETE: RequestHandler = async ({ params, request, url }) => {
-	const { depends_on } = await request.json();
-
-	if (!depends_on) {
-		return json({ error: 'depends_on is required' }, { status: 400 });
-	}
+export const DELETE: RequestHandler = wrap(async ({ params, request, url }) => {
+	const { depends_on } = (await request.json()) ?? {};
+	if (!depends_on) throw new ApiError('depends_on is required', 400, 'VALIDATION');
 
 	const cwd = resolveProjectCwd(url);
-	const cmd = `bd dep remove ${params.id} ${depends_on}`;
-	return runDepCmd(cmd, cwd, 'Failed to remove dependency');
-};
+	const result = await removeDependency(params.id, depends_on, cwd);
+	if (!result.success) throw new ApiError(result.error || 'Failed to remove dependency');
+	return ok({ removed: true });
+});

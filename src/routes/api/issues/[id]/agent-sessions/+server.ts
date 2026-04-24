@@ -1,6 +1,6 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getStoredCwd } from '$lib/db';
+import { resolveProjectCwd } from '$lib/db';
+import { ok, wrap } from '$lib/server/response';
 
 type SdkSessionInfo = {
 	sessionId: string;
@@ -10,21 +10,19 @@ type SdkSessionInfo = {
 	preview: string[];
 };
 
-export const GET: RequestHandler = async ({ params, url }) => {
+export const GET: RequestHandler = wrap(async ({ params, url }) => {
 	const id = params.id;
-	if (!id) return json({ sessions: [] });
+	if (!id) return ok({ sessions: [] });
 
-	const cwd = url.searchParams.get('cwd') || getStoredCwd();
-	if (!cwd) return json({ sessions: [] });
-
+	const cwd = resolveProjectCwd(url);
 	try {
 		const res = await fetch(`http://localhost:9347/sessions?cwd=${encodeURIComponent(cwd)}`);
-		if (!res.ok) return json({ sessions: [] });
+		if (!res.ok) return ok({ sessions: [] });
 		const data = (await res.json()) as { sessions?: SdkSessionInfo[] };
 		const prefix = `${id}-`;
 		const sessions = (data.sessions ?? []).filter((s) => s.agentName?.startsWith(prefix));
-		return json({ sessions });
+		return ok({ sessions });
 	} catch {
-		return json({ sessions: [] });
+		return ok({ sessions: [] });
 	}
-};
+});

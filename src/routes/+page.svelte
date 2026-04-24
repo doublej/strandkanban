@@ -433,8 +433,9 @@
 
 	$effect(() => {
 		if (!browser) return;
-		fetch(appendProjectParam('/api/issues')).then(r => r.json()).then(data => {
-			if (data.bdVersion) bdVersion = data.bdVersion;
+		fetch(appendProjectParam('/api/issues')).then(r => r.json()).then(payload => {
+			const data = payload?.ok ? payload.data : null;
+			if (data?.bdVersion) bdVersion = data.bdVersion;
 		}).catch(() => {});
 	});
 
@@ -472,13 +473,15 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ path: urlProject })
 			});
-			const data = await res.json();
+			const payload = await res.json();
+			const data = payload?.ok ? payload.data : {};
 			cwd = data.cwd || urlProject;
 			name = data.name || cwd.split('/').pop() || 'project';
 		} else {
 			// No URL param — get current from server
 			const res = await fetch('/api/cwd');
-			const data = await res.json();
+			const payload = await res.json();
+			const data = payload?.ok ? payload.data : {};
 			cwd = data.cwd;
 			name = data.name || cwd.split('/').pop() || 'project';
 			setCurrentProject(cwd);
@@ -492,7 +495,8 @@
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ path: cwd, name })
 		});
-		const projData = await projRes.json();
+		const projPayload = await projRes.json();
+		const projData = projPayload?.ok ? projPayload.data : {};
 		if (projData.projects) {
 			projects = projData.projects;
 			const current = projects.find((p: Project) => p.path === cwd);
@@ -532,7 +536,8 @@
 		]);
 		if (!cwdRes.ok) { projectTransition = 'idle'; return; }
 		const issuesRes = await fetch(appendProjectParam('/api/issues'));
-		const issuesData = await issuesRes.json();
+		const issuesPayload = await issuesRes.json();
+		const issuesData = issuesPayload?.ok ? issuesPayload.data : { issues: [] };
 		issueStore.setIssues(issuesData.issues || []);
 		projectName = project.name;
 		projectColor = project.color;

@@ -1,34 +1,24 @@
-import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { existsSync, statSync } from 'fs';
 import { resolve } from 'path';
 import { getStoredCwd, setStoredCwd } from '$lib/db';
+import { ok, wrap, ApiError } from '$lib/server/response';
 
-export const GET: RequestHandler = async () => {
+export const GET: RequestHandler = wrap(async () => {
 	const cwd = getStoredCwd();
-	return json({ cwd, name: cwd.split('/').pop() });
-};
+	return ok({ cwd, name: cwd.split('/').pop() });
+});
 
-export const POST: RequestHandler = async ({ request }) => {
-	const { path } = await request.json();
+export const POST: RequestHandler = wrap(async ({ request }) => {
+	const { path } = (await request.json()) ?? {};
 	if (!path || typeof path !== 'string') {
-		return json({ error: 'Path required' }, { status: 400 });
+		throw new ApiError('Path required', 400, 'VALIDATION');
 	}
-
 	const resolved = resolve(path);
-	if (!existsSync(resolved)) {
-		return json({ error: 'Path does not exist' }, { status: 400 });
-	}
-	if (!statSync(resolved).isDirectory()) {
-		return json({ error: 'Path is not a directory' }, { status: 400 });
-	}
-
-	// Check for .beads directory
-	const beadsDir = resolve(resolved, '.beads');
-	if (!existsSync(beadsDir)) {
-		return json({ error: 'No .beads directory found' }, { status: 400 });
-	}
+	if (!existsSync(resolved)) throw new ApiError('Path does not exist', 400, 'NOT_FOUND');
+	if (!statSync(resolved).isDirectory()) throw new ApiError('Path is not a directory', 400, 'NOT_DIR');
+	if (!existsSync(resolve(resolved, '.beads'))) throw new ApiError('No .beads directory found', 400, 'NO_BEADS');
 
 	setStoredCwd(resolved);
-	return json({ cwd: resolved, name: resolved.split('/').pop() });
-};
+	return ok({ cwd: resolved, name: resolved.split('/').pop() });
+});

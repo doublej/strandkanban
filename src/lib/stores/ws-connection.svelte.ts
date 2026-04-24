@@ -371,8 +371,8 @@ function leaderOrForward<A extends unknown[]>(
 async function checkServerHealth() {
 	try {
 		const res = await fetch('/api/agent/health');
-		const data = await res.json();
-		return data.ok === true;
+		const payload = await res.json();
+		return payload?.ok === true && payload.data?.healthy === true;
 	} catch {
 		return false;
 	}

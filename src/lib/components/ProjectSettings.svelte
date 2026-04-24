@@ -24,15 +24,16 @@
 	async function loadProjects() {
 		const res = await fetch('/api/projects');
 		if (res.ok) {
-			const data = await res.json();
-			projects = data.projects || [];
+			const payload = await res.json();
+			projects = payload?.ok ? (payload.data?.projects ?? []) : [];
 		}
 	}
 
 	async function fetchCwd() {
 		const res = await fetch('/api/cwd');
 		if (res.ok) {
-			const data = await res.json();
+			const payload = await res.json();
+			const data = payload?.ok ? payload.data : {};
 			cwd = data.cwd;
 			cwdName = data.name;
 			cwdInput = data.cwd;
@@ -48,12 +49,12 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ path: cwdInput })
 			});
-			const data = await res.json();
-			if (!res.ok) {
-				cwdError = data.error || 'Failed to change directory';
+			const payload = await res.json();
+			if (!res.ok || !payload?.ok) {
+				cwdError = payload?.error?.message || 'Failed to change directory';
 			} else {
-				cwd = data.cwd;
-				cwdName = data.name;
+				cwd = payload.data.cwd;
+				cwdName = payload.data.name;
 				isEditingCwd = false;
 				onprojectChanged?.();
 				window.location.reload();

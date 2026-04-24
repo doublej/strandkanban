@@ -1,25 +1,24 @@
-import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 import { getAllSubscriptions, removeSubscription } from '$lib/push-db';
 import { ensureVapidKeys } from '$lib/vapid';
 import webpush from 'web-push';
+import { ok, wrap, ApiError } from '$lib/server/response';
 
-export const POST: RequestHandler = async () => {
+export const POST: RequestHandler = wrap(async () => {
 	const { publicKey, privateKey } = ensureVapidKeys();
 	const subject = env.VAPID_SUBJECT || 'mailto:admin@beadskanban.local';
-
 	webpush.setVapidDetails(subject, publicKey, privateKey);
 
 	const subscriptions = getAllSubscriptions();
 	if (subscriptions.length === 0) {
-		return json({ error: 'No push subscriptions registered' }, { status: 404 });
+		throw new ApiError('No push subscriptions registered', 404, 'NOT_FOUND');
 	}
 
 	const payload = JSON.stringify({
 		title: 'Beads Kanban',
 		body: 'Test notification — push is working!',
-		data: { type: 'test' }
+		data: { type: 'test' },
 	});
 
 	const results = await Promise.allSettled(
@@ -27,7 +26,7 @@ export const POST: RequestHandler = async () => {
 			try {
 				await webpush.sendNotification(
 					{ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-					payload
+					payload,
 				);
 			} catch (err: unknown) {
 				const error = err as { statusCode?: number };
@@ -36,11 +35,11 @@ export const POST: RequestHandler = async () => {
 				}
 				throw err;
 			}
-		})
+		}),
 	);
 
-	const sent = results.filter((r) => r.status === 'fulfilled').length;
-	const failed = results.filter((r) => r.status === 'rejected').length;
-
-	return json({ sent, failed });
-};
+	return ok({
+		sent: results.filter((r) => r.status === 'fulfilled').length,
+		failed: results.filter((r) => r.status === 'rejected').length,
+	});
+});

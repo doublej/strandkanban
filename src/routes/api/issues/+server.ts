@@ -1,58 +1,48 @@
-import { json } from '@sveltejs/kit';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import type { RequestHandler } from './$types';
 import { getAllIssues, resolveProjectCwd } from '$lib/db';
+import { createIssue } from '$lib/bd';
 import { notificationStore } from '$lib/notifications/notification-store.svelte';
 import { hookExecutor } from '$lib/server/agent/hook-executor';
+import { ok, err, wrap, ApiError } from '$lib/server/response';
 
-const execAsync = promisify(exec);
-
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = wrap(async ({ url }) => {
 	const cwd = resolveProjectCwd(url);
-	try {
-		const issues = getAllIssues(cwd);
-		return json({ issues });
-	} catch {
-		return json({ issues: [], error: 'Failed to load issues for this project' }, { status: 200 });
-	}
-};
+	const issues = getAllIssues(cwd);
+	return ok({ issues });
+});
 
-export const POST: RequestHandler = async ({ request, url }) => {
-	const { title, description, priority, issue_type, deps } = await request.json();
+export const POST: RequestHandler = wrap(async ({ request, url }) => {
+	const body = await request.json();
+	const { title, description, priority, issue_type, deps } = body ?? {};
 
-	if (!title) {
-		return json({ error: 'Title required' }, { status: 400 });
-	}
-
-	let cmd = `bd create "${title.replace(/"/g, '\\"')}" --json`;
-	if (description) cmd += ` --description "${description.replace(/"/g, '\\"')}"`;
-	if (priority !== undefined) cmd += ` --priority ${priority}`;
-	if (issue_type) cmd += ` --type ${issue_type}`;
-	if (deps && deps.length > 0) {
-		cmd += ` --deps ${deps.join(',')}`;
-	}
+	if (!title) throw new ApiError('Title required', 400, 'VALIDATION');
 
 	const cwd = resolveProjectCwd(url);
-	try {
-		const { stdout, stderr } = await execAsync(cmd, { cwd });
-		// Parse JSON output to get the new issue ID
-		const created = JSON.parse(stdout.trim());
-
-		// Emit notification event
-		notificationStore.emit('issue_created', created);
-		await hookExecutor.executeHooks('TicketCreated', {
-			id: created.id,
-			title: created.title,
-			status: created.status,
-			priority: created.priority,
-			assignee: created.assignee,
-			cwd,
-		});
-
-		return json({ success: true, id: created.id, issue: created, warning: stderr || undefined });
-	} catch (err: unknown) {
-		const error = err as { stderr?: string; message?: string };
-		return json({ error: error.stderr || error.message || 'Failed to create issue' }, { status: 500 });
+	const result = await createIssue(
+		title,
+		{ description, priority, issue_type, deps },
+		cwd
+	);
+	if (!result.success || !result.issue) {
+		throw new ApiError(result.error || 'Failed to create issue', 500);
 	}
-};
+
+	const created = result.issue as {
+		id: string;
+		title: string;
+		status: string;
+		priority: number;
+		assignee?: string;
+	};
+	notificationStore.emit('issue_created', created as never);
+	await hookExecutor.executeHooks('TicketCreated', {
+		id: created.id,
+		title: created.title,
+		status: created.status,
+		priority: created.priority,
+		assignee: created.assignee,
+		cwd,
+	});
+
+	return ok({ id: created.id, issue: created, warning: result.warning });
+});

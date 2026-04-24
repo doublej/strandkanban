@@ -6,7 +6,7 @@
  *
  * Binary responses (file downloads) bypass the envelope.
  */
-import { json, type RequestEvent, type RequestHandler } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import { extractErrorMessage } from '$lib/server-utils';
 
 export class ApiError extends Error {
@@ -32,16 +32,16 @@ export const err = (
 ): Response =>
 	json({ ok: false, error: { message, code, details } }, { status });
 
-/** Wrap a handler so thrown ApiErrors become structured responses and unexpected errors become 500s. */
-export function wrap<E extends RequestEvent = RequestEvent>(
+/** Wrap a route handler so thrown ApiErrors become structured responses and unexpected errors become 500s. */
+export function wrap<E>(
 	fn: (event: E) => Response | Promise<Response>
-): RequestHandler {
-	return (async (event) => {
+): (event: E) => Promise<Response> {
+	return async (event: E) => {
 		try {
-			return await fn(event as unknown as E);
+			return await fn(event);
 		} catch (e) {
 			if (e instanceof ApiError) return err(e.message, e.status, e.code, e.details);
 			return err(extractErrorMessage(e, 'Unexpected error'));
 		}
-	}) as RequestHandler;
+	};
 }

@@ -1,16 +1,15 @@
-import { json } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 import type { RequestHandler } from './$types';
 import { getAllSubscriptions, removeSubscription } from '$lib/push-db';
 import { ensureVapidKeys } from '$lib/vapid';
 import webpush from 'web-push';
+import { ok, wrap } from '$lib/server/response';
 
-export const POST: RequestHandler = async ({ request }) => {
-	const { title, body, data } = await request.json();
+export const POST: RequestHandler = wrap(async ({ request }) => {
+	const { title, body, data } = (await request.json()) ?? {};
 
 	const { publicKey, privateKey } = ensureVapidKeys();
 	const subject = env.VAPID_SUBJECT || 'mailto:admin@beadskanban.local';
-
 	webpush.setVapidDetails(subject, publicKey, privateKey);
 
 	const subscriptions = getAllSubscriptions();
@@ -20,11 +19,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		subscriptions.map(async (sub) => {
 			try {
 				await webpush.sendNotification(
-					{
-						endpoint: sub.endpoint,
-						keys: { p256dh: sub.p256dh, auth: sub.auth }
-					},
-					payload
+					{ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+					payload,
 				);
 			} catch (err: unknown) {
 				const error = err as { statusCode?: number };
@@ -33,11 +29,11 @@ export const POST: RequestHandler = async ({ request }) => {
 				}
 				throw err;
 			}
-		})
+		}),
 	);
 
-	const sent = results.filter((r) => r.status === 'fulfilled').length;
-	const failed = results.filter((r) => r.status === 'rejected').length;
-
-	return json({ sent, failed });
-};
+	return ok({
+		sent: results.filter((r) => r.status === 'fulfilled').length,
+		failed: results.filter((r) => r.status === 'rejected').length,
+	});
+});

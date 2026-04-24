@@ -259,9 +259,10 @@ export function createIssueStore(callbacks: IssueStoreCallbacks) {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(form)
 		});
-		const data = await res.json();
+		const payload = await res.json();
+		const id = payload?.ok ? payload.data?.id : null;
 		fetchMutations();
-		return data.id ?? null;
+		return id ?? null;
 	}
 
 	function closeSse() {

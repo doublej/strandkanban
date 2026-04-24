@@ -1,4 +1,3 @@
-import { json } from '@sveltejs/kit';
 import { join } from 'path';
 import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'fs';
 import type { RequestHandler } from './$types';
@@ -11,17 +10,14 @@ import {
 	MAX_FILE_SIZE_BYTES,
 } from '$lib/attachments';
 import { resolveProjectCwd } from '$lib/db';
+import { ok, wrap, ApiError } from '$lib/server/response';
 
-export const GET: RequestHandler = async ({ params, url }) => {
+export const GET: RequestHandler = wrap(async ({ params, url }) => {
 	const cwd = resolveProjectCwd(url);
 	const dir = getAttachmentsDir(params.id, cwd);
+	if (!existsSync(dir)) return ok({ attachments: [] });
 
-	if (!existsSync(dir)) {
-		return json({ attachments: [] });
-	}
-
-	const files = readdirSync(dir);
-	const attachments: Attachment[] = files.map((filename) => {
+	const attachments: Attachment[] = readdirSync(dir).map((filename) => {
 		const filePath = join(dir, filename);
 		const stats = statSync(filePath);
 		return {
@@ -31,33 +27,28 @@ export const GET: RequestHandler = async ({ params, url }) => {
 			created_at: stats.birthtime.toISOString(),
 		};
 	});
+	return ok({ attachments });
+});
 
-	return json({ attachments });
-};
-
-export const POST: RequestHandler = async ({ params, request, url }) => {
+export const POST: RequestHandler = wrap(async ({ params, request, url }) => {
 	const formData = await request.formData();
 	const file = formData.get('file') as File | null;
-
-	if (!file) {
-		return json({ error: 'No file provided' }, { status: 400 });
-	}
-
+	if (!file) throw new ApiError('No file provided', 400, 'VALIDATION');
 	if (file.size > MAX_FILE_SIZE_BYTES) {
-		return json({ error: `File too large. Maximum size is ${MAX_FILE_SIZE_MB}MB` }, { status: 400 });
+		throw new ApiError(
+			`File too large. Maximum size is ${MAX_FILE_SIZE_MB}MB`,
+			400,
+			'FILE_TOO_LARGE',
+		);
 	}
 
 	const cwd = resolveProjectCwd(url);
 	const dir = getAttachmentsDir(params.id, cwd);
-	if (!existsSync(dir)) {
-		mkdirSync(dir, { recursive: true });
-	}
+	if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
 
 	const sanitized = sanitizeFilename(file.name);
 	const filePath = join(dir, sanitized);
-
-	const buffer = Buffer.from(await file.arrayBuffer());
-	writeFileSync(filePath, buffer);
+	writeFileSync(filePath, Buffer.from(await file.arrayBuffer()));
 
 	const stats = statSync(filePath);
 	const attachment: Attachment = {
@@ -66,6 +57,5 @@ export const POST: RequestHandler = async ({ params, request, url }) => {
 		mimetype: getMimetype(sanitized),
 		created_at: stats.birthtime.toISOString(),
 	};
-
-	return json({ success: true, attachment });
-};
+	return ok({ attachment });
+});

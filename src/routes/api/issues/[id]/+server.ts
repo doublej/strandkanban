@@ -1,171 +1,124 @@
-import { json } from '@sveltejs/kit';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import type { RequestHandler } from './$types';
 import { resolveProjectCwd, getIssueById } from '$lib/db';
+import { updateIssue, deleteIssue, addLabel, removeLabel, setMetadata, unsetMetadata } from '$lib/bd';
 import { notificationStore } from '$lib/notifications/notification-store.svelte';
 import { hookExecutor } from '$lib/server/agent/hook-executor';
-import { extractErrorMessage } from '$lib/server-utils';
+import { ok, err, wrap, ApiError } from '$lib/server/response';
 
-const execAsync = promisify(exec);
 const VALID_STATUSES = ['open', 'in_progress', 'hooked', 'blocked', 'closed'];
 
-export const PATCH: RequestHandler = async ({ params, request, url }) => {
-	const { status, title, description, priority, issue_type, design, acceptance_criteria, notes, assignee, addLabels, removeLabels, agent_model, agent_effort } = await request.json();
+export const PATCH: RequestHandler = wrap(async ({ params, request, url }) => {
+	const body = await request.json();
+	const {
+		status, title, description, priority, issue_type, design,
+		acceptance_criteria, notes, assignee, addLabels, removeLabels,
+		agent_model, agent_effort,
+	} = body ?? {};
 
 	if (status && !VALID_STATUSES.includes(status)) {
-		return json({ error: 'Invalid status' }, { status: 400 });
+		throw new ApiError('Invalid status', 400, 'VALIDATION');
 	}
 
 	const cwd = resolveProjectCwd(url);
-
-	// Read issue before update to detect changes
 	const beforeIssue = getIssueById(params.id, cwd);
-	const commands: string[] = [];
 
-	// Build update command if there are field updates
-	let updateCmd = `bd update ${params.id}`;
-	let hasUpdates = false;
-	if (status) { updateCmd += ` --status ${status}`; hasUpdates = true; }
-	if (priority !== undefined) { updateCmd += ` --priority ${priority}`; hasUpdates = true; }
+	const updateRes = await updateIssue(
+		params.id,
+		{ status, title, description, priority, design, acceptance_criteria, notes, assignee },
+		cwd,
+	);
+	if (!updateRes.success) throw new ApiError(updateRes.error || 'Update failed');
 
-	const quotedFields: [string | undefined, string][] = [
-		[title, '--title'],
-		[description, '--description'],
-		[design, '--design'],
-		[acceptance_criteria, '--acceptance'],
-		[notes, '--notes'],
-		[assignee, '--assignee'],
-	];
-	for (const [value, flag] of quotedFields) {
-		if (value !== undefined) {
-			updateCmd += ` ${flag} "${(value || '').replace(/"/g, '\\"')}"`;
-			hasUpdates = true;
-		}
-	}
-
-	// Handle agent metadata fields
 	if (agent_model !== undefined) {
-		if (agent_model) {
-			updateCmd += ` --set-metadata agent_model=${agent_model}`;
-		} else {
-			updateCmd += ` --unset-metadata agent_model`;
-		}
-		hasUpdates = true;
+		const r = agent_model
+			? await setMetadata(params.id, 'agent_model', String(agent_model), cwd)
+			: await unsetMetadata(params.id, 'agent_model', cwd);
+		if (!r.success) throw new ApiError(r.error || 'Update failed');
 	}
 	if (agent_effort !== undefined) {
-		if (agent_effort) {
-			updateCmd += ` --set-metadata agent_effort=${agent_effort}`;
-		} else {
-			updateCmd += ` --unset-metadata agent_effort`;
-		}
-		hasUpdates = true;
+		const r = agent_effort
+			? await setMetadata(params.id, 'agent_effort', String(agent_effort), cwd)
+			: await unsetMetadata(params.id, 'agent_effort', cwd);
+		if (!r.success) throw new ApiError(r.error || 'Update failed');
 	}
 
-	if (hasUpdates) commands.push(updateCmd);
-
-	// Add label commands
 	if (removeLabels?.length) {
 		for (const label of removeLabels) {
-			commands.push(`bd label remove ${params.id} ${label}`);
+			const r = await removeLabel(params.id, label, cwd);
+			if (!r.success) throw new ApiError(r.error || 'Update failed');
 		}
 	}
 	if (addLabels?.length) {
 		for (const label of addLabels) {
-			commands.push(`bd label add ${params.id} ${label}`);
+			const r = await addLabel(params.id, label, cwd);
+			if (!r.success) throw new ApiError(r.error || 'Update failed');
 		}
 	}
 
-	try {
-		// Run all commands in parallel for better performance
-		await Promise.all(commands.map(cmd => execAsync(cmd, { cwd })));
+	const afterIssue = getIssueById(params.id, cwd);
+	if (beforeIssue && afterIssue) {
+		const baseCtx = {
+			id: afterIssue.id,
+			title: afterIssue.title,
+			status: afterIssue.status,
+			priority: afterIssue.priority,
+			assignee: afterIssue.assignee,
+			cwd,
+		};
 
-		// Read updated issue
-		const afterIssue = getIssueById(params.id, cwd);
-
-		// Emit notification events based on changes
-		if (beforeIssue && afterIssue) {
-			const baseCtx = {
-				id: afterIssue.id,
-				title: afterIssue.title,
-				status: afterIssue.status,
-				priority: afterIssue.priority,
-				assignee: afterIssue.assignee,
-				cwd,
-			};
-
-			// Status changes
-			if (beforeIssue.status !== afterIssue.status) {
-				notificationStore.emit('status_changed', afterIssue);
-				await hookExecutor.executeHooks('StatusChanged', {
-					...baseCtx,
-					oldStatus: beforeIssue.status,
-					newStatus: afterIssue.status,
-				});
-
-				if (afterIssue.status === 'closed') {
-					await hookExecutor.executeHooks('TicketClosed', baseCtx);
-				}
-
-				// Special handling for blocked/unblocked
-				if (afterIssue.status === 'blocked') {
-					notificationStore.emit('blocked', afterIssue);
-					await hookExecutor.executeHooks('TicketBlocked', baseCtx);
-				}
-				if (beforeIssue.status === 'blocked' && afterIssue.status !== 'blocked') {
-					notificationStore.emit('unblocked', afterIssue);
-					await hookExecutor.executeHooks('TicketUnblocked', baseCtx);
-				}
-			}
-
-			// Priority changes
-			if (beforeIssue.priority !== afterIssue.priority) {
-				notificationStore.emit('priority_changed', afterIssue);
-				await hookExecutor.executeHooks('PriorityChanged', baseCtx);
-			}
-
-			// Assignee changes
-			if (beforeIssue.assignee !== afterIssue.assignee) {
-				notificationStore.emit('assignee_changed', afterIssue);
-				await hookExecutor.executeHooks('AssigneeChanged', baseCtx);
-			}
-
-			// Label changes
-			if (addLabels?.length || removeLabels?.length) {
-				notificationStore.emit('label_modified', afterIssue);
-				await hookExecutor.executeHooks('LabelModified', baseCtx);
-			}
-		}
-
-		return json({ success: true });
-	} catch (err: unknown) {
-		return json({ error: extractErrorMessage(err, 'Update failed') }, { status: 500 });
-	}
-};
-
-export const DELETE: RequestHandler = async ({ params, url }) => {
-	const cwd = resolveProjectCwd(url);
-	try {
-		// Read issue before deletion for notification
-		const issue = getIssueById(params.id, cwd);
-
-		await execAsync(`bd delete ${params.id}`, { cwd });
-
-		// Emit notification event
-		if (issue) {
-			notificationStore.emit('issue_closed', issue);
-			await hookExecutor.executeHooks('TicketClosed', {
-				id: issue.id,
-				title: issue.title,
-				status: issue.status,
-				priority: issue.priority,
-				assignee: issue.assignee,
-				cwd,
+		if (beforeIssue.status !== afterIssue.status) {
+			notificationStore.emit('status_changed', afterIssue);
+			await hookExecutor.executeHooks('StatusChanged', {
+				...baseCtx,
+				oldStatus: beforeIssue.status,
+				newStatus: afterIssue.status,
 			});
+			if (afterIssue.status === 'closed') {
+				await hookExecutor.executeHooks('TicketClosed', baseCtx);
+			}
+			if (afterIssue.status === 'blocked') {
+				notificationStore.emit('blocked', afterIssue);
+				await hookExecutor.executeHooks('TicketBlocked', baseCtx);
+			}
+			if (beforeIssue.status === 'blocked' && afterIssue.status !== 'blocked') {
+				notificationStore.emit('unblocked', afterIssue);
+				await hookExecutor.executeHooks('TicketUnblocked', baseCtx);
+			}
 		}
-
-		return json({ success: true });
-	} catch (err: unknown) {
-		return json({ error: extractErrorMessage(err, 'Delete failed') }, { status: 500 });
+		if (beforeIssue.priority !== afterIssue.priority) {
+			notificationStore.emit('priority_changed', afterIssue);
+			await hookExecutor.executeHooks('PriorityChanged', baseCtx);
+		}
+		if (beforeIssue.assignee !== afterIssue.assignee) {
+			notificationStore.emit('assignee_changed', afterIssue);
+			await hookExecutor.executeHooks('AssigneeChanged', baseCtx);
+		}
+		if (addLabels?.length || removeLabels?.length) {
+			notificationStore.emit('label_modified', afterIssue);
+			await hookExecutor.executeHooks('LabelModified', baseCtx);
+		}
 	}
-};
+
+	return ok({ updated: true });
+});
+
+export const DELETE: RequestHandler = wrap(async ({ params, url }) => {
+	const cwd = resolveProjectCwd(url);
+	const issue = getIssueById(params.id, cwd);
+
+	const result = await deleteIssue(params.id, cwd);
+	if (!result.success) throw new ApiError(result.error || 'Delete failed');
+
+	if (issue) {
+		notificationStore.emit('issue_closed', issue);
+		await hookExecutor.executeHooks('TicketClosed', {
+			id: issue.id,
+			title: issue.title,
+			status: issue.status,
+			priority: issue.priority,
+			assignee: issue.assignee,
+			cwd,
+		});
+	}
+	return ok({ deleted: true });
+});

@@ -154,6 +154,14 @@ export async function renameIssue(oldId: string, newId: string, cwd?: string): P
 	return run(`bd rename ${oldId} ${newId}`, cwd)
 }
 
+export async function setMetadata(id: string, key: string, value: string, cwd?: string): Promise<BdResult> {
+	return run(`bd update ${id} --set-metadata ${key}=${value}`, cwd)
+}
+
+export async function unsetMetadata(id: string, key: string, cwd?: string): Promise<BdResult> {
+	return run(`bd update ${id} --unset-metadata ${key}`, cwd)
+}
+
 export async function getChildren(id: string, cwd?: string): Promise<BdResult> {
 	return run(`bd children ${id} --json`, cwd)
 }
