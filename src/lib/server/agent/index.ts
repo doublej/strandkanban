@@ -100,6 +100,7 @@ const server = Bun.serve<WSData>({
     getSessionHistory,
     handleUpgrade: (req, server) => server.upgrade(req, { data: {} }),
     queue,
+    sessions,
   }),
   websocket: wsHandlers,
 });

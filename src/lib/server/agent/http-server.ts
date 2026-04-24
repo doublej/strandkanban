@@ -1,6 +1,8 @@
 import type { Server, ServerWebSocket } from "bun";
 import { createWorktree, listWorktrees, removeWorktree } from "./worktree";
 import type { AgentQueue } from "./queue-manager";
+import type { AgentSession } from "./session-types";
+import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 
 export type WSData = { sessionId?: string };
 
@@ -12,6 +14,7 @@ export type HttpConfig = {
   getSessionHistory: (cwd: string, sessionId: string) => unknown[];
   handleUpgrade: (req: Request, server: Server) => boolean;
   queue: AgentQueue;
+  sessions: Map<string, AgentSession>;
 };
 
 const corsHeaders = {
@@ -84,6 +87,22 @@ export function createHttpHandler(config: HttpConfig) {
       });
     }
 
+    // --- Agent control endpoints ---
+    if (url.pathname === "/agents") {
+      if (req.method === "POST") return handleAgentEnqueue(req, config);
+      if (req.method === "GET") return handleAgentList(url, config);
+    }
+    const agentMatch = url.pathname.match(/^\/agents\/([^/]+)$/);
+    if (agentMatch) {
+      const sessionId = agentMatch[1];
+      if (req.method === "GET") return handleAgentGet(sessionId, config);
+      if (req.method === "DELETE") return handleAgentInterrupt(sessionId, config);
+    }
+    const messageMatch = url.pathname.match(/^\/agents\/([^/]+)\/message$/);
+    if (messageMatch && req.method === "POST") {
+      return handleAgentMessage(messageMatch[1], req, config);
+    }
+
     // --- Worktree endpoints ---
     if (url.pathname === "/worktrees") {
       if (req.method === "POST") {
@@ -136,6 +155,112 @@ async function handleWorktreeList(url: URL): Promise<Response> {
       status: 500, headers: corsHeaders,
     });
   }
+}
+
+type EnqueueBody = {
+  ticketId?: string;
+  agentName?: string;
+  cwd?: string;
+  title?: string;
+  description?: string;
+  priority?: number;
+  issueType?: string;
+  model?: string;
+  useWorktree?: boolean;
+};
+
+async function handleAgentEnqueue(req: Request, config: HttpConfig): Promise<Response> {
+  const body = (await req.json()) as EnqueueBody;
+  if (!body.ticketId || !body.cwd) {
+    return new Response(JSON.stringify({ error: "ticketId and cwd required" }), {
+      status: 400, headers: corsHeaders,
+    });
+  }
+  const item = {
+    ticketId: body.ticketId,
+    agentName: body.agentName ?? `${body.ticketId}-agent`,
+    cwd: body.cwd,
+    title: body.title ?? body.ticketId,
+    description: body.description ?? "",
+    priority: body.priority ?? 2,
+    issueType: body.issueType ?? "task",
+    model: body.model,
+    useWorktree: body.useWorktree ?? false,
+    enqueuedAt: new Date().toISOString(),
+  };
+  config.queue.enqueue(item);
+  return new Response(JSON.stringify({ queued: true, ticketId: item.ticketId, enqueuedAt: item.enqueuedAt }), {
+    headers: corsHeaders,
+  });
+}
+
+function handleAgentList(url: URL, config: HttpConfig): Response {
+  const cwd = url.searchParams.get("cwd");
+  if (!cwd) {
+    return new Response(JSON.stringify({ error: "cwd required" }), {
+      status: 400, headers: corsHeaders,
+    });
+  }
+  const active = config.queue.getActiveSessions().filter((s) => s.projectCwd === cwd);
+  const queued = config.queue.getItemsForCwd(cwd);
+  return new Response(JSON.stringify({ active, queued }), { headers: corsHeaders });
+}
+
+function handleAgentGet(sessionId: string, config: HttpConfig): Response {
+  const session = config.sessions.get(sessionId);
+  if (!session) {
+    return new Response(JSON.stringify({ error: "session not found" }), {
+      status: 404, headers: corsHeaders,
+    });
+  }
+  return new Response(JSON.stringify({
+    sessionId: session.id,
+    agentName: session.agentName,
+    cwd: session.cwd,
+    projectCwd: session.projectCwd ?? session.cwd,
+    ticketId: session.ticketId,
+    worktreePath: session.worktreePath,
+    isRunning: session.isRunning,
+    isManager: !!session.isManager,
+    model: session.model,
+    sdkSessionId: session.sdkSessionId,
+    usage: session.usage,
+  }), { headers: corsHeaders });
+}
+
+function handleAgentInterrupt(sessionId: string, config: HttpConfig): Response {
+  const session = config.sessions.get(sessionId);
+  if (!session) {
+    return new Response(JSON.stringify({ error: "session not found" }), {
+      status: 404, headers: corsHeaders,
+    });
+  }
+  session.abortController.abort();
+  return new Response(JSON.stringify({ interrupted: true, sessionId }), { headers: corsHeaders });
+}
+
+async function handleAgentMessage(sessionId: string, req: Request, config: HttpConfig): Promise<Response> {
+  const session = config.sessions.get(sessionId);
+  if (!session) {
+    return new Response(JSON.stringify({ error: "session not found" }), {
+      status: 404, headers: corsHeaders,
+    });
+  }
+  const body = (await req.json()) as { text?: string };
+  if (!body.text) {
+    return new Response(JSON.stringify({ error: "text required" }), {
+      status: 400, headers: corsHeaders,
+    });
+  }
+  const userMsg: SDKUserMessage = {
+    type: "user",
+    session_id: session.id,
+    parent_tool_use_id: null,
+    message: { role: "user", content: body.text },
+  };
+  if (session.inputResolver) session.inputResolver(userMsg);
+  else session.inputQueue.push(userMsg);
+  return new Response(JSON.stringify({ delivered: true }), { headers: corsHeaders });
 }
 
 async function handleWorktreeRemove(req: Request): Promise<Response> {

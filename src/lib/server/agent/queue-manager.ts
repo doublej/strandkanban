@@ -162,6 +162,10 @@ export class AgentQueue {
 		return false;
 	}
 
+	getActiveSessions(): ActiveSessionSummary[] {
+		return this.buildActiveSessions();
+	}
+
 	private buildActiveSessions(): ActiveSessionSummary[] {
 		const sessions: ActiveSessionSummary[] = [];
 		for (const session of this.sessions.values()) {
