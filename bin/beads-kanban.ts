@@ -26,6 +26,11 @@ const AGENT_PORT = 9347
 const APP_DIR = dirname(new URL('.', import.meta.url).pathname)
 const CACHE_DIR = join(homedir(), '.cache', 'beads-kanban')
 
+/** Env to pass to every `bd` spawn. Enables bd 1.0 JSON envelope so output stays self-describing. */
+function bdEnv(): NodeJS.ProcessEnv {
+	return { ...process.env, BD_JSON_ENVELOPE: '1' }
+}
+
 function parseVersion(v: string): number[] {
 	return v.split('.').map(Number)
 }
@@ -283,7 +288,7 @@ async function main() {
 
 	// Check bd version
 	try {
-		const output = execSync('bd --version', { encoding: 'utf-8' }).trim()
+		const output = execSync('bd --version', { encoding: 'utf-8', env: bdEnv() }).trim()
 		const bdVersion = output.match(/(\d+\.\d+\.\d+)/)?.[1]
 		if (!bdVersion || !versionAtLeast(bdVersion, MIN_BD_VERSION)) {
 			fail(`bd ${bdVersion ?? 'unknown'} is too old (need >= ${MIN_BD_VERSION}). Upgrade with: brew upgrade bd`)
@@ -296,8 +301,8 @@ async function main() {
 	if (!existsSync(join(target, '.beads'))) {
 		if (!await confirm(`No .beads/ found in ${target}. Initialize beads?`)) process.exit(1)
 		try {
-			execSync('bd init', { cwd: target, stdio: 'inherit' })
-			execSync('bd doctor --fix --yes', { cwd: target, stdio: 'inherit' })
+			execSync('bd init', { cwd: target, stdio: 'inherit', env: bdEnv() })
+			execSync('bd doctor --fix --yes', { cwd: target, stdio: 'inherit', env: bdEnv() })
 		} catch (err) {
 			fail(`bd init failed: ${err instanceof Error ? err.message : 'unknown error'}`)
 		}

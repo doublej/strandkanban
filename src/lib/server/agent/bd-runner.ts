@@ -1,4 +1,5 @@
 import { spawn } from "child_process";
+import { bdEnv, unwrapBdJson } from "$lib/bd";
 
 export async function runBd(cwd: string, args: string[]): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -6,7 +7,7 @@ export async function runBd(cwd: string, args: string[]): Promise<string> {
 			cwd,
 			shell: false,
 			env: {
-				...process.env,
+				...bdEnv(),
 				BD_CWD: cwd,
 			},
 		});
@@ -18,7 +19,7 @@ export async function runBd(cwd: string, args: string[]): Promise<string> {
 
 		proc.on("close", (code) => {
 			if (code === 0) {
-				resolve(stdout.trim());
+				resolve(unwrapEnvelopeText(stdout.trim()));
 			} else {
 				reject(new Error(stderr || `bd exited with code ${code}`));
 			}
@@ -26,4 +27,15 @@ export async function runBd(cwd: string, args: string[]): Promise<string> {
 
 		proc.on("error", reject);
 	});
+}
+
+/** If stdout is a bd 1.0 JSON envelope, return the inner `.data` re-serialized; otherwise return as-is. */
+function unwrapEnvelopeText(stdout: string): string {
+	if (!stdout.startsWith('{')) return stdout;
+	try {
+		const inner = unwrapBdJson(stdout);
+		return JSON.stringify(inner);
+	} catch {
+		return stdout;
+	}
 }

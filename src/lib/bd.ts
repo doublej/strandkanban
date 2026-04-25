@@ -8,6 +8,29 @@ import { getStoredCwd } from './db'
 
 const execAsync = promisify(exec)
 
+/** Env to pass to every `bd` spawn. Enables the 1.0 JSON envelope so output stays self-describing. */
+export function bdEnv(): NodeJS.ProcessEnv {
+	return { ...process.env, BD_JSON_ENVELOPE: '1' }
+}
+
+/**
+ * Parse bd JSON output, unwrapping the 1.0 envelope `{data, schema_version}` if present.
+ * Pre-1.0 (or future tools that don't envelope) return their payload directly — both shapes work.
+ */
+export function unwrapBdJson<T = unknown>(raw: string): T {
+	const parsed = JSON.parse(raw)
+	if (
+		parsed &&
+		typeof parsed === 'object' &&
+		!Array.isArray(parsed) &&
+		'schema_version' in parsed &&
+		'data' in parsed
+	) {
+		return (parsed as { data: T }).data
+	}
+	return parsed as T
+}
+
 export interface BdResult {
 	success: boolean
 	stdout?: string
@@ -50,7 +73,7 @@ function escapeArg(val: string): string {
 
 async function run(cmd: string, cwd?: string): Promise<BdResult> {
 	try {
-		const { stdout, stderr } = await execAsync(cmd, { cwd: cwd ?? getStoredCwd() })
+		const { stdout, stderr } = await execAsync(cmd, { cwd: cwd ?? getStoredCwd(), env: bdEnv() })
 		return { success: true, stdout: stdout.trim(), warning: stderr || undefined }
 	} catch (err: unknown) {
 		const e = err as { stderr?: string; message?: string }
@@ -71,7 +94,7 @@ export async function createIssue(
 
 	const result = await run(cmd, cwd)
 	if (result.success && result.stdout) {
-		const parsed = JSON.parse(result.stdout)
+		const parsed = unwrapBdJson<{ id?: string }>(result.stdout)
 		return { ...result, id: parsed.id, issue: parsed }
 	}
 	return result

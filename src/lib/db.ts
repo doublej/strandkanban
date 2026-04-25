@@ -8,6 +8,7 @@ import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from '
 import type { Issue, Dependency, MutationEntry, Attachment, Comment, AgentModel, AgentEffort } from './types';
 import { getMimetype } from './attachments';
 import { recordTouchedCwd } from './touched-cwds';
+import { bdEnv, unwrapBdJson } from './bd';
 
 const CONFIG_FILE = join(process.cwd(), '.beads-cwd');
 
@@ -56,13 +57,14 @@ function bdSql<T>(query: string, cwd?: string): T[] {
 	const result = spawnSync('bd', ['sql', '--json', query], {
 		cwd: effectiveCwd,
 		encoding: 'utf-8',
-		timeout: 10000
+		timeout: 10000,
+		env: bdEnv()
 	});
 	if (result.status !== 0 || result.error) {
 		const msg = result.stderr?.trim() || result.error?.message || 'bd sql failed';
 		throw new Error(msg);
 	}
-	return JSON.parse(result.stdout.trim()) as T[];
+	return unwrapBdJson<T[]>(result.stdout.trim());
 }
 
 interface DbIssue {
