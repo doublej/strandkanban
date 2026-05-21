@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Issue, Dependency } from '$lib/types';
+	import type { Issue } from '$lib/types';
 	import { columns } from '$lib/utils';
 	import Icon from './Icon.svelte';
 
@@ -13,83 +13,67 @@
 	function statusAccent(s: string): string {
 		return columns.find((c) => c.status === s)?.accent ?? '#6b7280';
 	}
-	function isOpen(s: string): boolean {
-		return s !== 'closed';
-	}
+	function isOpen(s: string): boolean { return s !== 'closed'; }
 </script>
 
-<section class="links">
-	{#if hasLinks}
-		{#if blockers.length > 0}
-			<div class="branch up">
-				<div class="branch-label">
-					<span class="mono">{blockers.length}</span> blocker{blockers.length === 1 ? '' : 's'}
-				</div>
-				<ul class="rel-list">
-					{#each blockers as dep (dep.id)}
-						<li class="rel">
-							<span class="rel-dot" class:closed={!isOpen(dep.status)} style="--accent: {statusAccent(dep.status)};"></span>
-							<span class="mono rel-id">#{dep.id.replace(/^bk-0*/, '')}</span>
-							<span class="rel-title" class:done={!isOpen(dep.status)}>{dep.title}</span>
-							<button class="rel-x" title="Unlink"><Icon name="x" size={10} /></button>
-						</li>
-					{/each}
-				</ul>
-			</div>
-		{/if}
-
-		<div class="self">
-			<span class="self-mark"></span>
-			<span class="mono self-id">#{issue.id.replace(/^bk-0*/, '')}</span>
-			<span class="self-label">this issue</span>
+{#if hasLinks}
+	{#if blockers.length > 0}
+		<div class="branch">
+			<header class="branch-head">
+				<span class="label">{blockers.length} blocker{blockers.length === 1 ? '' : 's'}</span>
+			</header>
+			<ul class="rel-list">
+				{#each blockers as dep (dep.id)}
+					<li class="rel">
+						<span class="dot" class:is-ring={!isOpen(dep.status)} style="color: {statusAccent(dep.status)}; background: {isOpen(dep.status) ? statusAccent(dep.status) : 'var(--surf-1)'};"></span>
+						<span class="mono rel-id">#{dep.id.replace(/^bk-0*/, '')}</span>
+						<span class="rel-title" class:is-done={!isOpen(dep.status)}>{dep.title}</span>
+						<button class="icon-btn rel-x" title="Unlink"><Icon name="x" size={12} /></button>
+					</li>
+				{/each}
+			</ul>
 		</div>
-
-		{#if dependents.length > 0}
-			<div class="branch down">
-				<div class="branch-label">
-					blocks <span class="mono">{dependents.length}</span>
-				</div>
-				<ul class="rel-list">
-					{#each dependents as dep (dep.id)}
-						<li class="rel">
-							<span class="rel-dot" class:closed={!isOpen(dep.status)} style="--accent: {statusAccent(dep.status)};"></span>
-							<span class="mono rel-id">#{dep.id.replace(/^bk-0*/, '')}</span>
-							<span class="rel-title" class:done={!isOpen(dep.status)}>{dep.title}</span>
-							<button class="rel-x" title="Unlink"><Icon name="x" size={10} /></button>
-						</li>
-					{/each}
-				</ul>
-			</div>
-		{/if}
-	{:else}
-		<button class="links-empty">
-			<Icon name="link" size={12} />
-			<span>Link an issue…</span>
-		</button>
 	{/if}
-</section>
+
+	<div class="self">
+		<span class="dot self-mark"></span>
+		<span class="mono rel-id">#{issue.id.replace(/^bk-0*/, '')}</span>
+		<span class="label self-label">this issue</span>
+	</div>
+
+	{#if dependents.length > 0}
+		<div class="branch">
+			<header class="branch-head">
+				<span class="label">blocks {dependents.length}</span>
+			</header>
+			<ul class="rel-list">
+				{#each dependents as dep (dep.id)}
+					<li class="rel">
+						<span class="dot" class:is-ring={!isOpen(dep.status)} style="color: {statusAccent(dep.status)}; background: {isOpen(dep.status) ? statusAccent(dep.status) : 'var(--surf-1)'};"></span>
+						<span class="mono rel-id">#{dep.id.replace(/^bk-0*/, '')}</span>
+						<span class="rel-title" class:is-done={!isOpen(dep.status)}>{dep.title}</span>
+						<button class="icon-btn rel-x" title="Unlink"><Icon name="x" size={12} /></button>
+					</li>
+				{/each}
+			</ul>
+		</div>
+	{/if}
+{:else}
+	<button class="ctrl is-sm ghost">
+		<Icon name="link" size={12} />
+		<span>Link an issue…</span>
+	</button>
+{/if}
 
 <style>
-	.links {
-		display: flex;
-		flex-direction: column;
-	}
-
 	.branch {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
-		padding: 4px 0;
+		gap: var(--sp-1);
 	}
-	.branch-label {
-		font-size: 10.5px;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--dd-fg-3);
-		font-weight: 500;
-		padding: 0 0 2px 16px;
+	.branch-head {
+		padding-left: var(--sp-6);
 	}
-	.branch-label .mono { color: var(--dd-fg-1); font-weight: 600; }
 
 	.rel-list {
 		list-style: none;
@@ -99,129 +83,92 @@
 		flex-direction: column;
 	}
 
-	.rel {
-		position: relative;
+	/* Fixed column grid so every relation row aligns vertically */
+	.rel,
+	.self {
 		display: grid;
-		grid-template-columns: 16px auto 1fr auto;
-		gap: 8px;
+		grid-template-columns: var(--sp-4) 36px 1fr var(--ctrl-md);
+		column-gap: var(--sp-2);
 		align-items: center;
-		padding: 5px 4px 5px 16px;
-		font-size: 12px;
-		border-radius: 3px;
-		transition: background 80ms;
+		height: var(--ctrl-lg);
+		padding: 0 var(--sp-1) 0 var(--sp-2);
+		font-size: var(--fs-sm);
+		border-radius: var(--r-sm);
+		position: relative;
 	}
+
+	.rel:hover { background: var(--surf-2); }
+	.rel:hover .rel-x { opacity: 1; }
+
+	/* Connector line between rels */
 	.rel::before {
 		content: '';
 		position: absolute;
-		left: 5px;
+		left: calc(var(--sp-2) + 7px);
 		top: 0;
 		bottom: 0;
 		width: 1px;
-		background: var(--dd-border-2);
+		background: var(--line-2);
 	}
-	.rel:first-child::before { top: 12px; }
-	.rel:last-child::before { bottom: 12px; }
+	.rel:first-child::before { top: 50%; }
+	.rel:last-child::before { bottom: 50%; }
 	.rel::after {
 		content: '';
 		position: absolute;
-		left: 5px;
+		left: calc(var(--sp-2) + 7px);
 		top: 50%;
-		width: 9px;
+		width: var(--sp-2);
 		height: 1px;
-		background: var(--dd-border-2);
+		background: var(--line-2);
 	}
-	.rel:hover { background: var(--dd-bg-2); }
-	.rel:hover .rel-x { opacity: 1; }
 
-	.rel-dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-		background: var(--accent);
+	.dot {
 		justify-self: end;
 		position: relative;
 		z-index: 1;
-		box-shadow: 0 0 0 2px var(--dd-bg-1);
+		box-shadow: 0 0 0 2px var(--surf-1);
 	}
-	.rel-dot.closed {
-		background: var(--dd-bg-1);
-		border: 1.5px solid var(--accent);
-	}
+
 	.rel-id {
-		font-size: 11px;
-		color: var(--dd-fg-3);
-		min-width: 36px;
+		font-size: var(--fs-xs);
+		color: var(--ink-3);
 	}
 	.rel-title {
-		color: var(--dd-fg-1);
+		color: var(--ink-1);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.rel-title.done {
+	.rel-title.is-done {
 		text-decoration: line-through;
-		text-decoration-color: var(--dd-fg-4);
-		color: var(--dd-fg-3);
+		text-decoration-color: var(--ink-4);
+		color: var(--ink-3);
 	}
 	.rel-x {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 18px;
-		height: 18px;
-		border-radius: 3px;
-		color: var(--dd-fg-3);
 		opacity: 0;
-		transition: opacity 120ms, background 80ms;
+		transition: opacity 120ms;
 	}
-	.rel-x:hover { color: var(--dd-fg-1); background: var(--dd-bg-3); }
 
 	.self {
-		position: relative;
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 8px 4px 8px 16px;
-		font-size: 12px;
-		color: var(--dd-fg-2);
+		margin: var(--sp-2) 0;
 	}
 	.self-mark {
-		position: absolute;
-		left: 0;
-		top: 50%;
-		transform: translateY(-50%);
-		width: 11px;
-		height: 11px;
-		border-radius: 50%;
-		background: var(--dd-accent);
-		box-shadow: 0 0 0 3px var(--dd-bg-1), 0 0 0 4px var(--dd-accent);
-	}
-	.self-id {
-		font-size: 11px;
-		color: var(--dd-fg-2);
-		font-weight: 600;
+		justify-self: end;
+		background: var(--accent);
+		box-shadow: 0 0 0 2px var(--surf-1), 0 0 0 3px var(--accent);
 	}
 	.self-label {
-		font-size: 11px;
-		color: var(--dd-fg-4);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		font-size: 10px;
+		color: var(--ink-4);
 	}
 
-	.links-empty {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		padding: 6px 10px;
-		font-size: 12px;
-		color: var(--dd-fg-4);
-		border: 1px dashed var(--dd-border-2);
-		border-radius: var(--dd-r-2);
+	.ghost {
+		color: var(--ink-4);
+		border: 1px dashed var(--line-2);
 		align-self: flex-start;
-		transition: color 80ms, border-color 80ms;
 	}
-	.links-empty:hover {
-		color: var(--dd-fg-2);
-		border-color: var(--dd-border-3);
+	.ghost:hover {
+		color: var(--ink-2);
+		border-color: var(--line-3);
 	}
 </style>

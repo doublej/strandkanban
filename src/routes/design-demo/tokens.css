@@ -1,63 +1,98 @@
+/*
+ * Design system tokens for the demo.
+ * Only values from these scales may be used in component CSS.
+ */
 .design-demo {
-	--dd-bg-0: #fafaf9;
-	--dd-bg-1: #ffffff;
-	--dd-bg-2: #f5f5f4;
-	--dd-bg-3: #ececea;
-	--dd-bg-4: #dfdfdc;
+	/* Surface */
+	--surf-0: #fafaf9;       /* page */
+	--surf-1: #ffffff;       /* card / panel */
+	--surf-2: #f3f3f1;       /* nested / hover */
+	--surf-3: #e8e8e5;       /* active */
 
-	--dd-border-1: #ececea;
-	--dd-border-2: #dcdcd9;
-	--dd-border-3: #c4c4c0;
+	/* Lines */
+	--line-1: #ececea;
+	--line-2: #d8d8d4;
+	--line-3: #b8b8b3;
 
-	--dd-fg-1: #18181b;
-	--dd-fg-2: #52525b;
-	--dd-fg-3: #7a7a85;
-	--dd-fg-4: #a8a8b0;
+	/* Text */
+	--ink-1: #18181b;
+	--ink-2: #52525b;
+	--ink-3: #7a7a85;
+	--ink-4: #a8a8b0;
 
-	--dd-status-open: #4f46e5;
-	--dd-status-progress: #d97706;
-	--dd-status-hooked: #7c3aed;
-	--dd-status-blocked: #dc2626;
-	--dd-status-closed: #059669;
+	/* Status (one source of truth) */
+	--st-open: #4f46e5;
+	--st-progress: #d97706;
+	--st-hooked: #7c3aed;
+	--st-blocked: #dc2626;
+	--st-closed: #059669;
 
-	--dd-pri-0: #dc2626;
-	--dd-pri-1: #d97706;
-	--dd-pri-2: #4f46e5;
-	--dd-pri-3: #059669;
-	--dd-pri-4: #6b7280;
+	/* Semantic accents */
+	--accent: #2563eb;
+	--agent: #059669;
+	--human: #4f46e5;
+	--warn: #d97706;
+	--danger: #dc2626;
+	--worktree: #9333ea;
 
-	--dd-accent: #2563eb;
-	--dd-agent: #059669;
-	--dd-human: #4f46e5;
-	--dd-warn: #d97706;
-	--dd-danger: #dc2626;
-	--dd-worktree: #9333ea;
+	/* Spacing — multiples of 4 only */
+	--sp-1: 4px;
+	--sp-2: 8px;
+	--sp-3: 12px;
+	--sp-4: 16px;
+	--sp-6: 24px;
+	--sp-8: 32px;
+	--sp-12: 48px;
 
-	--dd-font-sans: 'Inter', -apple-system, system-ui, sans-serif;
-	--dd-font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+	/* Type sizes — five steps */
+	--fs-xs: 11px;     /* labels, meta, footer */
+	--fs-sm: 12px;     /* controls, secondary */
+	--fs-md: 13px;     /* body */
+	--fs-lg: 15px;     /* prose */
+	--fs-xxl: 22px;    /* panel + page title */
 
-	--dd-s-1: 4px;
-	--dd-s-2: 8px;
-	--dd-s-3: 12px;
-	--dd-s-4: 16px;
-	--dd-s-5: 20px;
-	--dd-s-6: 24px;
-	--dd-s-8: 32px;
+	/* Line-heights */
+	--lh-tight: 1.25;
+	--lh-snug: 1.4;
+	--lh-prose: 1.6;
 
-	--dd-r-1: 3px;
-	--dd-r-2: 5px;
-	--dd-r-3: 7px;
-	--dd-r-pill: 999px;
+	/* Control heights — four steps */
+	--ctrl-sm: 20px;
+	--ctrl-md: 24px;
+	--ctrl-lg: 28px;
+	--ctrl-xl: 32px;
 
-	--dd-shadow-1: 0 1px 1px rgba(15, 15, 20, 0.04), 0 1px 2px rgba(15, 15, 20, 0.05);
-	--dd-shadow-2: 0 6px 16px rgba(15, 15, 20, 0.08), 0 2px 4px rgba(15, 15, 20, 0.04);
-	--dd-shadow-3: 0 24px 48px rgba(15, 15, 20, 0.14), 0 4px 12px rgba(15, 15, 20, 0.06);
+	/* Icons — two sizes only */
+	--ic-sm: 12px;
+	--ic-md: 16px;
 
-	background: var(--dd-bg-0);
-	color: var(--dd-fg-1);
-	font-family: var(--dd-font-sans);
-	font-size: 13px;
-	line-height: 1.45;
+	/* Radii — two values */
+	--r-sm: 4px;
+	--r-md: 8px;
+
+	/* Page rhythm (named so layouts don't reinvent) */
+	--gutter-x: var(--sp-6);     /* page horizontal padding */
+	--gutter-y: var(--sp-4);     /* page vertical padding */
+	--col-gap: var(--sp-3);      /* between board columns */
+	--card-gap: var(--sp-2);     /* between cards */
+	--panel-pad: var(--sp-4);    /* panel inner */
+	--facet-gap: var(--sp-6);    /* between facets */
+	--section-gap: var(--sp-3);  /* within a facet */
+
+	/* Shadows — three steps */
+	--shadow-1: 0 1px 1px rgba(15, 15, 20, 0.04), 0 1px 2px rgba(15, 15, 20, 0.05);
+	--shadow-2: 0 4px 12px rgba(15, 15, 20, 0.07), 0 1px 3px rgba(15, 15, 20, 0.05);
+	--shadow-3: 0 16px 40px rgba(15, 15, 20, 0.12), 0 4px 10px rgba(15, 15, 20, 0.06);
+
+	/* Fonts */
+	--font-sans: 'Inter', -apple-system, system-ui, sans-serif;
+	--font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+	background: var(--surf-0);
+	color: var(--ink-1);
+	font-family: var(--font-sans);
+	font-size: var(--fs-md);
+	line-height: var(--lh-snug);
 	letter-spacing: -0.005em;
 	font-feature-settings: 'cv11', 'ss01', 'ss03';
 }
@@ -81,49 +116,151 @@
 .design-demo textarea {
 	font: inherit;
 	color: inherit;
-	background: var(--dd-bg-1);
-	border: 1px solid var(--dd-border-2);
-	border-radius: var(--dd-r-2);
-	padding: 8px 10px;
+	background: var(--surf-1);
+	border: 1px solid var(--line-2);
+	border-radius: var(--r-sm);
+	padding: var(--sp-2) var(--sp-3);
 	outline: none;
 	transition: border-color 100ms, box-shadow 100ms;
 }
-
 .design-demo input:focus,
 .design-demo textarea:focus {
-	border-color: var(--dd-accent);
+	border-color: var(--accent);
 	box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
-
 .design-demo input::placeholder,
-.design-demo textarea::placeholder {
-	color: var(--dd-fg-4);
+.design-demo textarea::placeholder { color: var(--ink-4); }
+
+.design-demo ::selection { background: rgba(37, 99, 235, 0.18); }
+
+/*
+ * SHARED PRIMITIVES — used by all components.
+ * If you find yourself writing button/pill CSS in a component,
+ * use one of these classes instead.
+ */
+
+/* Tiny uppercase section label — used for facet/group headers */
+.design-demo .label {
+	font-size: var(--fs-xs);
+	font-weight: 500;
+	text-transform: uppercase;
+	letter-spacing: 0.07em;
+	color: var(--ink-3);
 }
 
-.design-demo ::selection {
-	background: rgba(37, 99, 235, 0.18);
-}
-
+/* Tabular monospace digits */
 .design-demo .mono {
-	font-family: var(--dd-font-mono);
-	font-feature-settings: 'zero', 'ss02';
+	font-family: var(--font-mono);
+	font-feature-settings: 'zero', 'ss02', 'tnum';
 }
 
-.design-demo .scrollarea {
-	scrollbar-width: thin;
-	scrollbar-color: var(--dd-border-3) transparent;
+/* The one control: every pill/button/chip uses this base */
+.design-demo .ctrl {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--sp-2);
+	height: var(--ctrl-lg);            /* 28px — the default */
+	padding: 0 var(--sp-3);            /* 12px */
+	border-radius: var(--r-sm);
+	font-size: var(--fs-sm);
+	font-weight: 500;
+	color: var(--ink-2);
+	background: transparent;
+	border: 1px solid transparent;
+	white-space: nowrap;
+	transition: background 80ms, color 80ms, border-color 80ms;
+}
+.design-demo .ctrl:hover {
+	background: var(--surf-2);
+	color: var(--ink-1);
+}
+.design-demo .ctrl.is-active {
+	color: var(--ink-1);
+	background: var(--surf-3);
+}
+.design-demo .ctrl.is-primary {
+	background: var(--accent);
+	color: #fff;
+}
+.design-demo .ctrl.is-primary:hover {
+	background: color-mix(in srgb, var(--accent) 88%, black);
+}
+.design-demo .ctrl.is-agent {
+	background: var(--agent);
+	color: #fff;
+}
+.design-demo .ctrl.is-agent:hover {
+	background: color-mix(in srgb, var(--agent) 88%, black);
+}
+.design-demo .ctrl.is-outline {
+	border-color: var(--line-2);
+}
+.design-demo .ctrl.is-outline:hover {
+	border-color: var(--line-3);
+}
+.design-demo .ctrl.is-sm {
+	height: var(--ctrl-md);            /* 24px */
+	padding: 0 var(--sp-2);
+	font-size: var(--fs-xs);
+	gap: var(--sp-1);
 }
 
-.design-demo .scrollarea::-webkit-scrollbar {
+/* Icon-only square button */
+.design-demo .icon-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--ctrl-lg);
+	height: var(--ctrl-lg);
+	border-radius: var(--r-sm);
+	color: var(--ink-3);
+	transition: background 80ms, color 80ms;
+}
+.design-demo .icon-btn:hover {
+	background: var(--surf-2);
+	color: var(--ink-1);
+}
+
+/* Status / priority / agent dot — one size everywhere */
+.design-demo .dot {
 	width: 8px;
 	height: 8px;
+	border-radius: 50%;
+	flex: 0 0 8px;
+	display: inline-block;
+}
+.design-demo .dot.is-ring {
+	background: var(--surf-1);
+	border: 1.5px solid currentColor;
 }
 
-.design-demo .scrollarea::-webkit-scrollbar-thumb {
-	background: var(--dd-border-2);
-	border-radius: 4px;
+/* Tiny kbd hint */
+.design-demo .kbd {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 var(--sp-1);
+	font-size: 10px;
+	font-family: var(--font-mono);
+	font-weight: 500;
+	border-radius: var(--r-sm);
+	background: var(--surf-2);
+	color: var(--ink-3);
+	border: 1px solid var(--line-2);
+}
+.design-demo .kbd.is-inverse {
+	background: rgba(255, 255, 255, 0.22);
+	color: rgba(255, 255, 255, 0.95);
+	border-color: transparent;
 }
 
-.design-demo .scrollarea::-webkit-scrollbar-thumb:hover {
-	background: var(--dd-border-3);
+/* Scrollbars */
+.design-demo .scrollarea {
+	scrollbar-width: thin;
+	scrollbar-color: var(--line-2) transparent;
 }
+.design-demo .scrollarea::-webkit-scrollbar { width: 8px; height: 8px; }
+.design-demo .scrollarea::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 4px; }
+.design-demo .scrollarea::-webkit-scrollbar-thumb:hover { background: var(--line-3); }

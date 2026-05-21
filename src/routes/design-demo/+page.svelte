@@ -12,18 +12,9 @@
 
 	const openIssue = $derived(openId ? demoIssues.find((i) => i.id === openId) ?? null : null);
 
-	function openIssueById(id: string) {
-		newOpen = false;
-		openId = id;
-	}
-	function closeAll() {
-		openId = null;
-		newOpen = false;
-	}
-	function openNew() {
-		openId = null;
-		newOpen = true;
-	}
+	function openIssueById(id: string) { newOpen = false; openId = id; }
+	function closeAll() { openId = null; newOpen = false; }
+	function openNew() { openId = null; newOpen = true; }
 
 	function columnIssues(status: string) {
 		return demoIssues
@@ -39,34 +30,25 @@
 	function onGlobalKey(e: KeyboardEvent) {
 		const tag = (e.target as HTMLElement)?.tagName;
 		if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-		if (e.key === 'n' || e.key === 'N') {
-			e.preventDefault();
-			openNew();
-		}
+		if (e.key === 'n' || e.key === 'N') { e.preventDefault(); openNew(); }
 	}
 </script>
 
-<svelte:head>
-	<title>Design Demo · Strandkanban</title>
-</svelte:head>
-
+<svelte:head><title>Design Demo · Strandkanban</title></svelte:head>
 <svelte:window on:keydown={onGlobalKey} />
 
 <div class="design-demo page">
 	<header class="top">
 		<div class="top-left">
-			<span class="top-eyebrow mono">design-demo · pass 2</span>
+			<span class="label">Design demo · pass 3</span>
 			<h1 class="top-title">Four core surfaces</h1>
-			<p class="top-sub">
-				Click any card. Click anything inside the panel to edit.
-				Press <span class="kbd">N</span> to capture a new issue.
-			</p>
+			<p class="top-sub">Click a card · click any property to edit · <span class="kbd">N</span> to capture.</p>
 		</div>
 		<div class="top-right">
-			<button class="new-btn" onclick={openNew}>
+			<button class="ctrl is-primary" onclick={openNew}>
 				<Icon name="plus" size={12} />
 				<span>New</span>
-				<span class="kbd dark">N</span>
+				<span class="kbd is-inverse">N</span>
 			</button>
 		</div>
 	</header>
@@ -74,10 +56,10 @@
 	<section class="board scrollarea">
 		{#each columns as col (col.key)}
 			{@const issues = columnIssues(col.status)}
-			<div class="column" style="--accent: {col.accent};">
+			<div class="column">
 				<header class="col-head">
-					<span class="col-dot" style="background: {col.accent};"></span>
-					<span class="col-label">{col.label}</span>
+					<span class="dot" style="background: {col.accent};"></span>
+					<span class="col-label label">{col.label}</span>
 					<span class="col-count mono">{issues.length}</span>
 				</header>
 				<div class="col-body">
@@ -114,75 +96,41 @@
 		min-height: 100vh;
 		display: flex;
 		flex-direction: column;
-		background: var(--dd-bg-0);
+		background: var(--surf-0);
 	}
 
 	.top {
-		display: flex;
-		align-items: flex-end;
-		gap: 16px;
-		padding: 22px 28px 16px;
-		border-bottom: 1px solid var(--dd-border-1);
+		display: grid;
+		grid-template-columns: 1fr auto;
+		align-items: end;
+		gap: var(--sp-4);
+		padding: var(--sp-6) var(--gutter-x) var(--sp-4);
+		border-bottom: 1px solid var(--line-1);
 	}
-	.top-left { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-	.top-eyebrow {
-		font-size: 10.5px;
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-		color: var(--dd-fg-3);
+	.top-left {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
 	}
 	.top-title {
 		margin: 0;
-		font-size: 22px;
+		font-size: var(--fs-xxl);
 		font-weight: 600;
-		letter-spacing: -0.02em;
+		line-height: var(--lh-tight);
+		letter-spacing: -0.022em;
 	}
 	.top-sub {
-		margin: 4px 0 0;
-		font-size: 12.5px;
-		color: var(--dd-fg-2);
+		margin: var(--sp-1) 0 0;
+		font-size: var(--fs-sm);
+		color: var(--ink-2);
 	}
-	.kbd {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 18px;
-		height: 18px;
-		padding: 0 5px;
-		font-size: 10.5px;
-		font-family: var(--dd-font-mono);
-		border-radius: 3px;
-		background: var(--dd-bg-2);
-		color: var(--dd-fg-2);
-		border: 1px solid var(--dd-border-2);
-	}
-	.kbd.dark {
-		background: rgba(255, 255, 255, 0.22);
-		color: rgba(255, 255, 255, 0.96);
-		border-color: transparent;
-		margin-left: 4px;
-	}
-
-	.new-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		padding: 8px 12px;
-		border-radius: var(--dd-r-2);
-		background: var(--dd-fg-1);
-		color: white;
-		font-size: 12.5px;
-		font-weight: 500;
-		transition: background 80ms;
-	}
-	.new-btn:hover { background: color-mix(in srgb, var(--dd-fg-1) 80%, var(--dd-fg-2)); }
 
 	.board {
 		flex: 1;
 		display: grid;
 		grid-template-columns: repeat(5, minmax(240px, 1fr));
-		gap: 14px;
-		padding: 18px 20px 24px;
+		gap: var(--col-gap);
+		padding: var(--sp-4) var(--gutter-x) var(--sp-6);
 		overflow-x: auto;
 		min-height: 0;
 	}
@@ -190,38 +138,23 @@
 	.column {
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
 		min-width: 0;
 	}
 	.col-head {
 		display: flex;
 		align-items: center;
-		gap: 7px;
-		padding: 4px 4px 8px;
+		gap: var(--sp-2);
+		height: var(--ctrl-lg);
+		padding: 0 var(--sp-1);
+		margin-bottom: var(--sp-2);
 	}
-	.col-dot {
-		width: 7px;
-		height: 7px;
-		border-radius: 50%;
-	}
-	.col-label {
-		font-size: 11px;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.07em;
-		color: var(--dd-fg-2);
-	}
-	.col-count {
-		margin-left: auto;
-		font-size: 10.5px;
-		color: var(--dd-fg-4);
-	}
+	.col-count { margin-left: auto; font-size: var(--fs-xs); color: var(--ink-4); }
 
 	.col-body {
 		display: flex;
 		flex-direction: column;
-		gap: 6px;
-		min-height: 60px;
+		gap: var(--card-gap);
+		min-height: var(--sp-12);
 	}
 
 	.scrim {
@@ -231,14 +164,9 @@
 		z-index: 40;
 		animation: fade-in 160ms ease-out;
 	}
-	@keyframes fade-in {
-		from { opacity: 0; }
-		to { opacity: 1; }
-	}
+	@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 
 	@media (max-width: 900px) {
-		.board {
-			grid-template-columns: repeat(5, 240px);
-		}
+		.board { grid-template-columns: repeat(5, 240px); }
 	}
 </style>

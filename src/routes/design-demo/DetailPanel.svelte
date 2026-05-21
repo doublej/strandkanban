@@ -29,60 +29,55 @@
 
 <aside class="panel" aria-label="Issue detail">
 	<header class="panel-head">
-		<button class="id-pill mono" onclick={copyId} title="Copy ID">
-			<span>#{issue.id.replace(/^bk-0*/, '')}</span>
-			<Icon name={copied ? 'check' : 'copy'} size={10} />
+		<button class="ctrl is-sm" onclick={copyId} title="Copy ID">
+			<span class="mono">#{issue.id.replace(/^bk-0*/, '')}</span>
+			<Icon name={copied ? 'check' : 'copy'} size={12} />
 		</button>
-		<span class="head-spacer"></span>
+		<span class="spacer"></span>
 		<button class="icon-btn" title="Close" onclick={onclose}>
-			<Icon name="x" size={14} />
+			<Icon name="x" size={16} />
 		</button>
 	</header>
 
 	{#if banner}
 		<div class="banner">
-			<span class="banner-dot"></span>
+			<span class="dot" style="background: var(--danger);"></span>
 			<span class="banner-text">Closed externally while open.</span>
-			<button class="banner-x" onclick={() => (banner = false)} title="Dismiss">
-				<Icon name="x" size={11} />
+			<button class="icon-btn" onclick={() => (banner = false)} title="Dismiss">
+				<Icon name="x" size={12} />
 			</button>
 		</div>
 	{/if}
 
 	<div class="body scrollarea">
-		<FacetWork {issue} />
+		<section class="facet">
+			<FacetWork {issue} />
+		</section>
 
-		<div class="divider"></div>
+		<section class="facet">
+			<header class="facet-head"><span class="label">State</span></header>
+			<FacetState {issue} />
+		</section>
 
-		<FacetState {issue} />
-
-		<div class="divider"></div>
-
-		<div class="facet">
-			<header class="facet-head">
-				<span class="facet-label">Links</span>
-			</header>
+		<section class="facet">
+			<header class="facet-head"><span class="label">Links</span></header>
 			<FacetLinks {issue} />
-		</div>
+		</section>
 
-		<div class="divider"></div>
-
-		<div class="facet">
-			<header class="facet-head">
-				<span class="facet-label">Activity</span>
-			</header>
+		<section class="facet">
+			<header class="facet-head"><span class="label">Activity</span></header>
 			<FacetActivity {issue} />
-		</div>
+		</section>
 	</div>
 
-	<footer class="foot">
-		<button class="btn-text">
+	<footer class="panel-foot">
+		<button class="ctrl is-sm danger-text">
 			<Icon name="trash" size={12} /><span>Delete</span>
 		</button>
-		<span class="foot-spacer"></span>
+		<span class="spacer"></span>
 		{#if canStartAgent}
-			<button class="btn agent">
-				<Icon name="play" size={11} /><span>Start Agent</span>
+			<button class="ctrl is-agent">
+				<Icon name="play" size={12} /><span>Start Agent</span>
 			</button>
 		{/if}
 	</footer>
@@ -95,9 +90,9 @@
 		right: 0;
 		bottom: 0;
 		width: min(540px, 100vw);
-		background: var(--dd-bg-1);
-		border-left: 1px solid var(--dd-border-2);
-		box-shadow: var(--dd-shadow-3);
+		background: var(--surf-1);
+		border-left: 1px solid var(--line-2);
+		box-shadow: var(--shadow-3);
 		display: flex;
 		flex-direction: column;
 		z-index: 50;
@@ -108,141 +103,56 @@
 		to { transform: translateX(0); opacity: 1; }
 	}
 
-	.panel-head {
+	.panel-head, .panel-foot {
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		padding: 10px 14px;
-		border-bottom: 1px solid var(--dd-border-1);
+		gap: var(--sp-2);
+		padding: var(--sp-2) var(--sp-3);
+		border-bottom: 1px solid var(--line-1);
+		min-height: var(--ctrl-xl);
 	}
-
-	.id-pill {
-		display: inline-flex;
-		align-items: center;
-		gap: 5px;
-		padding: 4px 8px;
-		border-radius: var(--dd-r-2);
-		color: var(--dd-fg-3);
-		font-size: 11px;
-		transition: background 80ms, color 80ms;
+	.panel-foot {
+		border-bottom: 0;
+		border-top: 1px solid var(--line-1);
 	}
-	.id-pill:hover { background: var(--dd-bg-2); color: var(--dd-fg-1); }
-
-	.head-spacer { flex: 1; }
-
-	.icon-btn {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 26px;
-		height: 26px;
-		border-radius: var(--dd-r-2);
-		color: var(--dd-fg-3);
-		transition: background 80ms, color 80ms;
-	}
-	.icon-btn:hover { color: var(--dd-fg-1); background: var(--dd-bg-2); }
+	.spacer { flex: 1; }
 
 	.banner {
 		display: flex;
 		align-items: center;
-		gap: 8px;
-		padding: 7px 14px;
-		background: color-mix(in srgb, var(--dd-danger) 7%, var(--dd-bg-1));
-		border-bottom: 1px solid color-mix(in srgb, var(--dd-danger) 20%, var(--dd-border-1));
-		color: var(--dd-danger);
-		font-size: 12px;
-	}
-	.banner-dot {
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		background: var(--dd-danger);
+		gap: var(--sp-2);
+		padding: var(--sp-2) var(--sp-3);
+		background: color-mix(in srgb, var(--danger) 7%, var(--surf-1));
+		border-bottom: 1px solid color-mix(in srgb, var(--danger) 20%, var(--line-1));
+		color: var(--danger);
+		font-size: var(--fs-sm);
+		min-height: var(--ctrl-xl);
 	}
 	.banner-text { flex: 1; }
-	.banner-x {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 20px;
-		height: 20px;
-		border-radius: 3px;
-		color: var(--dd-fg-3);
-	}
-	.banner-x:hover { color: var(--dd-fg-1); background: var(--dd-bg-2); }
 
 	.body {
 		flex: 1;
 		overflow-y: auto;
-		padding: 20px;
+		padding: var(--sp-6) var(--panel-pad) var(--sp-8);
 		display: flex;
 		flex-direction: column;
-		gap: 18px;
-	}
-
-	.divider {
-		height: 1px;
-		background: var(--dd-border-1);
-		margin: 0 -4px;
+		gap: var(--facet-gap);
 	}
 
 	.facet {
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		gap: var(--section-gap);
 	}
 	.facet-head {
 		display: flex;
 		align-items: baseline;
-		gap: 6px;
-	}
-	.facet-label {
-		font-size: 10.5px;
-		text-transform: uppercase;
-		letter-spacing: 0.07em;
-		color: var(--dd-fg-3);
-		font-weight: 500;
+		height: var(--ctrl-md);
+		margin-bottom: calc(var(--sp-1) * -1);
 	}
 
-	.foot {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 10px 14px;
-		border-top: 1px solid var(--dd-border-1);
-		background: var(--dd-bg-1);
-	}
-	.foot-spacer { flex: 1; }
-
-	.btn-text {
-		display: inline-flex;
-		align-items: center;
-		gap: 5px;
-		padding: 6px 10px;
-		font-size: 12px;
-		color: var(--dd-fg-3);
-		border-radius: var(--dd-r-2);
-		transition: color 80ms, background 80ms;
-	}
-	.btn-text:hover {
-		color: var(--dd-danger);
-		background: color-mix(in srgb, var(--dd-danger) 8%, var(--dd-bg-1));
-	}
-
-	.btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		padding: 8px 14px;
-		border-radius: var(--dd-r-2);
-		font-size: 12.5px;
-		font-weight: 500;
-		transition: background 80ms;
-	}
-	.btn.agent {
-		background: var(--dd-agent);
-		color: white;
-	}
-	.btn.agent:hover {
-		background: color-mix(in srgb, var(--dd-agent) 88%, black);
+	.danger-text:hover {
+		color: var(--danger);
+		background: color-mix(in srgb, var(--danger) 8%, var(--surf-1));
 	}
 </style>

@@ -7,7 +7,6 @@
 
 	let title = $state(untrack(() => issue.title));
 	let description = $state(untrack(() => issue.description));
-
 	let editingTitle = $state(false);
 	let editingDesc = $state(false);
 	let titleEl: HTMLTextAreaElement;
@@ -25,121 +24,101 @@
 		descEl?.focus();
 	}
 	function endTitle(e: KeyboardEvent) {
-		if (e.key === 'Enter' && !e.shiftKey) {
-			e.preventDefault();
-			editingTitle = false;
-		} else if (e.key === 'Escape') {
-			editingTitle = false;
-		}
+		if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); editingTitle = false; }
+		else if (e.key === 'Escape') editingTitle = false;
 	}
 </script>
 
-<section class="work">
-	{#if editingTitle}
-		<textarea
-			bind:this={titleEl}
-			class="title-input"
-			bind:value={title}
-			rows="2"
-			onblur={() => (editingTitle = false)}
-			onkeydown={endTitle}
-		></textarea>
-	{:else}
-		<h1 class="title" onclick={startTitle} role="button" tabindex="0">
-			{title}
-		</h1>
-	{/if}
+{#if editingTitle}
+	<textarea
+		bind:this={titleEl}
+		class="title-input"
+		bind:value={title}
+		rows="2"
+		onblur={() => (editingTitle = false)}
+		onkeydown={endTitle}
+	></textarea>
+{:else}
+	<h1 class="title" onclick={startTitle} role="button" tabindex="0">{title}</h1>
+{/if}
 
-	{#if editingDesc}
-		<textarea
-			bind:this={descEl}
-			class="desc-input"
-			bind:value={description}
-			rows="6"
-			placeholder="Describe the work…"
-			onblur={() => (editingDesc = false)}
-		></textarea>
-	{:else if description}
-		<p class="desc" onclick={startDesc} role="button" tabindex="0">{description}</p>
-	{:else}
-		<button class="desc-empty" onclick={startDesc}>Add a description…</button>
-	{/if}
-</section>
+{#if editingDesc}
+	<textarea
+		bind:this={descEl}
+		class="desc-input"
+		bind:value={description}
+		rows="6"
+		placeholder="Describe the work…"
+		onblur={() => (editingDesc = false)}
+	></textarea>
+{:else if description}
+	<p class="desc" onclick={startDesc} role="button" tabindex="0">{description}</p>
+{:else}
+	<button class="desc-empty" onclick={startDesc}>Add a description…</button>
+{/if}
 
 <style>
-	.work {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-
 	.title {
 		margin: 0;
-		font-size: 22px;
+		font-size: var(--fs-xxl);
 		font-weight: 600;
-		line-height: 1.22;
+		line-height: var(--lh-tight);
 		letter-spacing: -0.022em;
-		color: var(--dd-fg-1);
+		color: var(--ink-1);
 		cursor: text;
-		border-radius: var(--dd-r-2);
-		padding: 2px 4px;
-		margin-left: -4px;
+		border-radius: var(--r-sm);
+		padding: var(--sp-1) var(--sp-1);
+		margin-left: calc(var(--sp-1) * -1);
 		transition: background 80ms;
 	}
-	.title:hover {
-		background: var(--dd-bg-2);
-	}
+	.title:hover { background: var(--surf-2); }
+
 	.title-input {
-		font-size: 22px;
+		font-size: var(--fs-xxl);
 		font-weight: 600;
-		line-height: 1.22;
+		line-height: var(--lh-tight);
 		letter-spacing: -0.022em;
 		resize: vertical;
-		min-height: 50px;
-		padding: 2px 4px;
-		margin-left: -4px;
+		min-height: calc(var(--fs-xxl) * 2);
+		padding: var(--sp-1);
+		margin-left: calc(var(--sp-1) * -1);
 		background: transparent;
-		border-color: var(--dd-accent);
+		border-color: var(--accent);
 	}
 
 	.desc {
 		margin: 0;
-		font-size: 13.5px;
-		line-height: 1.65;
-		color: var(--dd-fg-2);
+		font-size: var(--fs-md);
+		line-height: var(--lh-prose);
+		color: var(--ink-2);
 		white-space: pre-wrap;
 		cursor: text;
-		padding: 4px;
-		margin-left: -4px;
-		border-radius: var(--dd-r-2);
+		padding: var(--sp-1);
+		margin-left: calc(var(--sp-1) * -1);
+		border-radius: var(--r-sm);
 		transition: background 80ms;
 	}
-	.desc:hover {
-		background: var(--dd-bg-2);
-	}
+	.desc:hover { background: var(--surf-2); }
 
 	.desc-input {
-		font-size: 13.5px;
-		line-height: 1.65;
+		font-size: var(--fs-md);
+		line-height: var(--lh-prose);
 		resize: vertical;
-		min-height: 110px;
-		padding: 4px;
-		margin-left: -4px;
+		min-height: calc(var(--fs-md) * 6);
+		padding: var(--sp-1);
+		margin-left: calc(var(--sp-1) * -1);
 		background: transparent;
-		border-color: var(--dd-accent);
+		border-color: var(--accent);
 	}
 
 	.desc-empty {
 		text-align: left;
-		font-size: 13px;
-		color: var(--dd-fg-4);
-		padding: 4px;
-		margin-left: -4px;
-		border-radius: var(--dd-r-2);
+		font-size: var(--fs-sm);
+		color: var(--ink-4);
+		padding: var(--sp-1);
+		margin-left: calc(var(--sp-1) * -1);
+		border-radius: var(--r-sm);
 		transition: background 80ms, color 80ms;
 	}
-	.desc-empty:hover {
-		background: var(--dd-bg-2);
-		color: var(--dd-fg-3);
-	}
+	.desc-empty:hover { background: var(--surf-2); color: var(--ink-3); }
 </style>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Issue, Comment } from '$lib/types';
+	import type { Issue } from '$lib/types';
 	import { formatTimestamp } from '$lib/utils';
 	import Icon from './Icon.svelte';
 
@@ -11,7 +11,6 @@
 		| { kind: 'msg'; ts: string; role: 'user' | 'assistant' | 'tool'; text: string; session: string }
 		| { kind: 'event'; ts: string; text: string; by: string };
 
-	// Per-issue activity. Mixes comments with agent chat + system events, chronologically.
 	const extraActivity: Record<string, Item[]> = {
 		'bk-0142': [
 			{ kind: 'event', ts: new Date(Date.now() - 60 * 60 * 1000 * 3).toISOString(), text: 'Status changed to In Progress', by: 'jurre' },
@@ -34,207 +33,187 @@
 	});
 
 	let draft = $state('');
-	function send() {
-		if (!draft.trim()) return;
-		draft = '';
+	function send() { if (draft.trim()) draft = ''; }
+
+	function authorColor(item: Item): string {
+		if (item.kind === 'comment') {
+			return item.author.startsWith('agent') ? 'var(--agent)' : 'var(--accent)';
+		}
+		if (item.kind === 'msg') {
+			if (item.role === 'assistant') return 'var(--agent)';
+			if (item.role === 'user') return 'var(--accent)';
+		}
+		return 'var(--ink-3)';
 	}
 </script>
 
-<section class="activity">
-	<div class="thread scrollarea">
-		{#if items.length === 0}
-			<div class="empty">No activity yet.</div>
-		{:else}
-			{#each items as item, i (i)}
-				{@const ts = formatTimestamp(item.ts)}
-				{#if item.kind === 'event'}
-					<div class="item event">
-						<span class="dot"></span>
-						<span class="event-text">{item.text}</span>
-						<span class="by mono">by {item.by}</span>
+<div class="thread scrollarea">
+	{#if items.length === 0}
+		<div class="empty">No activity yet.</div>
+	{:else}
+		{#each items as item, i (i)}
+			{@const ts = formatTimestamp(item.ts)}
+			{#if item.kind === 'event'}
+				<div class="item event">
+					<span class="event-rail"></span>
+					<span class="event-text">{item.text}</span>
+					<span class="event-by mono">{item.by}</span>
+					<span class="event-ts mono">{ts.relative}</span>
+				</div>
+			{:else}
+				<div class="item">
+					<div class="head">
+						<span class="author" style="color: {authorColor(item)};">
+							{#if item.kind === 'comment'}
+								{item.author}
+							{:else if item.role === 'user'}
+								jurre
+							{:else if item.role === 'assistant'}
+								<span class="dot pulse"></span> agent-claude-1
+							{:else}
+								<Icon name="chore" size={12} /> tool
+							{/if}
+						</span>
+						{#if item.kind === 'msg'}
+							<span class="session label">{item.session}</span>
+						{/if}
 						<span class="ts mono">{ts.relative}</span>
 					</div>
-				{:else if item.kind === 'comment'}
-					<div class="item comment" class:agent={item.author.startsWith('agent')}>
-						<header class="head">
-							<span class="author">{item.author}</span>
-							<span class="ts mono">{ts.relative}</span>
-						</header>
+					{#if item.kind === 'msg' && item.role === 'tool'}
+						<pre class="body code mono">{item.text}</pre>
+					{:else}
 						<p class="body">{item.text}</p>
-					</div>
-				{:else if item.kind === 'msg'}
-					<div class="item msg" class:user={item.role === 'user'} class:assistant={item.role === 'assistant'} class:tool={item.role === 'tool'}>
-						<header class="head">
-							<span class="role">
-								{#if item.role === 'user'}
-									<Icon name="message" size={10} /><span>jurre</span>
-								{:else if item.role === 'assistant'}
-									<span class="pulse-tiny"></span><span>agent-claude-1</span>
-								{:else}
-									<Icon name="chore" size={10} /><span>tool</span>
-								{/if}
-							</span>
-							<span class="session mono">{item.session}</span>
-							<span class="ts mono">{ts.relative}</span>
-						</header>
-						<p class="body" class:mono={item.role === 'tool'}>{item.text}</p>
-					</div>
-				{/if}
-			{/each}
-		{/if}
-	</div>
+					{/if}
+				</div>
+			{/if}
+		{/each}
+	{/if}
+</div>
 
-	<form class="composer" onsubmit={(e) => { e.preventDefault(); send(); }}>
-		<textarea
-			class="composer-input"
-			rows="2"
-			placeholder="Add a comment…"
-			bind:value={draft}
-			onkeydown={(e) => {
-				if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); }
-			}}
-		></textarea>
-		<button class="send" type="submit" disabled={!draft.trim()} title="Send (⌘↵)">
-			<Icon name="send" size={13} />
-		</button>
-	</form>
-</section>
+<form class="composer" onsubmit={(e) => { e.preventDefault(); send(); }}>
+	<textarea
+		class="composer-input"
+		rows="2"
+		placeholder="Add a comment…"
+		bind:value={draft}
+		onkeydown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); send(); } }}
+	></textarea>
+	<button class="icon-btn send" type="submit" disabled={!draft.trim()} title="Send (⌘↵)">
+		<Icon name="send" size={12} />
+	</button>
+</form>
 
 <style>
-	.activity {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
-	}
-
 	.thread {
 		max-height: 320px;
 		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
-		gap: 14px;
-		padding: 4px 2px 4px 0;
+		gap: var(--sp-4);
+		padding-right: var(--sp-1);
 	}
 
 	.empty {
-		padding: 14px;
+		padding: var(--sp-4);
 		text-align: center;
-		font-size: 12px;
-		color: var(--dd-fg-4);
+		font-size: var(--fs-sm);
+		color: var(--ink-4);
 	}
 
 	.item.event {
-		display: flex;
+		display: grid;
+		grid-template-columns: var(--sp-4) 1fr auto auto;
+		gap: var(--sp-2);
 		align-items: center;
-		gap: 8px;
-		font-size: 11.5px;
-		color: var(--dd-fg-3);
+		height: var(--ctrl-md);
+		font-size: var(--fs-xs);
+		color: var(--ink-3);
 	}
-	.item.event .dot {
-		width: 5px;
-		height: 5px;
+	.event-rail {
+		justify-self: end;
+		width: 6px;
+		height: 6px;
 		border-radius: 50%;
-		background: var(--dd-border-3);
+		background: var(--line-3);
 	}
-	.event-text { flex: 1; }
-	.by { color: var(--dd-fg-4); font-size: 10.5px; }
-	.ts { font-size: 10.5px; color: var(--dd-fg-4); }
+	.event-by { color: var(--ink-4); }
+	.event-ts { color: var(--ink-4); }
 
+	.item:not(.event) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--sp-1);
+	}
 	.head {
 		display: flex;
 		align-items: baseline;
-		gap: 6px;
-		margin-bottom: 4px;
+		gap: var(--sp-2);
+		min-height: var(--ctrl-md);
 	}
 	.author {
-		font-size: 12px;
-		font-weight: 500;
-		color: var(--dd-accent);
-	}
-	.comment.agent .author { color: var(--dd-agent); }
-	.body {
-		margin: 0;
-		font-size: 12.5px;
-		line-height: 1.55;
-		color: var(--dd-fg-1);
-		white-space: pre-wrap;
-	}
-
-	.msg .role {
 		display: inline-flex;
 		align-items: center;
-		gap: 4px;
-		font-size: 12px;
+		gap: var(--sp-1);
+		font-size: var(--fs-sm);
 		font-weight: 500;
-		color: var(--dd-fg-2);
 	}
-	.msg.assistant .role {
-		color: var(--dd-agent);
-	}
-	.msg.user .role {
-		color: var(--dd-accent);
-	}
-	.msg.tool .role {
-		color: var(--dd-fg-3);
-		font-weight: 400;
+	.author .dot {
+		background: currentColor;
+		animation: pulse 1.4s ease-in-out infinite;
 	}
 	.session {
 		font-size: 10px;
 		text-transform: lowercase;
-		padding: 1px 5px;
-		border-radius: 3px;
-		background: var(--dd-bg-2);
-		color: var(--dd-fg-3);
+		letter-spacing: 0;
+		padding: 1px var(--sp-1);
+		border-radius: var(--r-sm);
+		background: var(--surf-2);
+		color: var(--ink-3);
+		font-weight: 400;
 	}
-	.msg.tool .body {
-		font-size: 11.5px;
-		color: var(--dd-fg-3);
-		padding: 4px 8px;
-		background: var(--dd-bg-2);
-		border-radius: 3px;
-		display: inline-block;
+	.ts {
+		font-size: var(--fs-xs);
+		color: var(--ink-4);
+		margin-left: auto;
 	}
-	.pulse-tiny {
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		background: var(--dd-agent);
-		animation: pulse 1.4s ease-in-out infinite;
+
+	.body {
+		margin: 0;
+		font-size: var(--fs-md);
+		line-height: var(--lh-prose);
+		color: var(--ink-1);
+		white-space: pre-wrap;
+	}
+	.body.code {
+		font-size: var(--fs-sm);
+		color: var(--ink-2);
+		padding: var(--sp-2) var(--sp-3);
+		background: var(--surf-2);
+		border-radius: var(--r-sm);
+		display: block;
 	}
 
 	.composer {
 		position: relative;
 		display: flex;
-		margin-top: 6px;
+		margin-top: var(--sp-2);
 	}
 	.composer-input {
 		flex: 1;
 		resize: vertical;
-		min-height: 52px;
-		padding-right: 38px;
+		min-height: calc(var(--ctrl-xl) + var(--sp-3));
+		padding-right: calc(var(--ctrl-lg) + var(--sp-2));
 	}
 	.send {
 		position: absolute;
-		right: 6px;
-		bottom: 6px;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 28px;
-		height: 28px;
-		border-radius: 4px;
-		background: transparent;
-		color: var(--dd-fg-3);
-		transition: background 80ms, color 80ms;
+		right: var(--sp-1);
+		bottom: var(--sp-1);
 	}
 	.send:not(:disabled):hover {
-		background: var(--dd-accent);
+		background: var(--accent);
 		color: white;
 	}
-	.send:disabled {
-		opacity: 0.4;
-		cursor: default;
-	}
+	.send:disabled { opacity: 0.4; cursor: default; }
 
 	@keyframes pulse {
 		0%, 100% { opacity: 1; transform: scale(1); }
