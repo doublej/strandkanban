@@ -24,3 +24,8 @@ CLAUDE-MANAGER.md
 
 # Beads workdir pointer (leaks home path)
 .beads-cwd
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
