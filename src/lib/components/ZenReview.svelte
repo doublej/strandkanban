@@ -187,7 +187,7 @@
 	}
 	.zen-eyebrow {
 		font-family: var(--font-mono);
-		font-size: 10px;
+		font-size: 11px;
 		font-weight: 500;
 		letter-spacing: 0.18em;
 		text-transform: uppercase;
@@ -212,7 +212,7 @@
 		left: 0;
 		right: 0;
 		bottom: 0;
-		height: 1px;
+		height: 2px;
 		background: var(--border-subtle);
 	}
 	.zen-fill {
@@ -268,7 +268,7 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 7px;
-		color: var(--text-muted);
+		color: var(--text-secondary);
 	}
 	.meta-sep { opacity: 0.5; }
 	.meta .type {
@@ -290,11 +290,11 @@
 
 	.desc {
 		font-size: 1.0625rem;
-		line-height: 1.78;
-		color: color-mix(in srgb, var(--text-primary) 84%, transparent);
+		line-height: 1.65;
+		color: color-mix(in srgb, var(--text-primary) 88%, transparent);
 	}
 	.desc :global(.markdown-content) {
-		line-height: 1.78;
+		line-height: 1.65;
 		overflow: visible;
 	}
 	.desc :global(.markdown-content p) {
@@ -343,7 +343,7 @@
 		display: flex;
 		gap: 14px;
 		font-size: 11px;
-		color: var(--text-muted);
+		color: var(--text-tertiary);
 	}
 	.hints span {
 		display: inline-flex;
