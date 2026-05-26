@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { untrack } from 'svelte';
-	import { pushState as svelteKitPushState } from '$app/navigation';
+	import { pushState as svelteKitPushState, replaceState as svelteKitReplaceState } from '$app/navigation';
 	import { setCurrentProject, appendProjectParam } from '$lib/project';
 	import { connect, disconnect, getPanes, getSessions, isConnected, addPane, removePane, sendToPane, killSession, clearAllSessions, endSession, clearSession, continueSession, compactSession, interrupt, getPersistedSdkSessionId, getAllPersistedSessions, deletePersistedSession, fetchSdkSessions, markPaneAsRead, getTotalUnreadCount, getUnreadCount, notifyAgentOfTicketUpdate, type Pane, type SdkSessionInfo } from '$lib/wsStore.svelte';
 	import type { Issue, Attachment, CardPosition, FlyingCard, SortBy, PaneSize, ViewMode, Project, ViewRecipe } from '$lib/types';
@@ -315,6 +315,20 @@
 		zenOpen = true;
 	}
 
+	// Deep-link entrypoint: ?zen=bd-1,bd-2,bd-3 opens focus review on load.
+	// The param is consumed (stripped) so a refresh/close doesn't force it back.
+	function consumeZenParam(raw: string) {
+		const wanted = raw.split(',').map((s) => s.trim()).filter(Boolean);
+		const valid = wanted.filter((id) => issues.some((i) => i.id === id));
+		const list = valid.length ? valid : wanted;
+		if (list.length) openZenReview(list, 0);
+		if (browser) {
+			const url = new URL(window.location.href);
+			url.searchParams.delete('zen');
+			svelteKitReplaceState(url.pathname + url.search + url.hash, {});
+		}
+	}
+
 	// --- Keyboard Nav ---
 	const keyboardNav = createKeyboardNav({
 		getFilteredIssues: () => filteredIssues,
@@ -474,8 +488,11 @@
 	$effect(() => {
 		if (!browser || initialUrlChecked || issues.length === 0) return;
 		initialUrlChecked = true;
-		const issueId = new URL(window.location.href).searchParams.get('issue');
-		if (issueId) ops.openIssueById(issueId, false);
+		const params = new URL(window.location.href).searchParams;
+		const zenParam = params.get('zen');
+		if (zenParam) consumeZenParam(zenParam);
+		const issueId = params.get('issue');
+		if (issueId && !zenParam) ops.openIssueById(issueId, false);
 	});
 
 	async function initProject(urlProject: string | null) {
