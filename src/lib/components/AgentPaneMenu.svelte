@@ -130,6 +130,19 @@
 				{/each}
 			</div>
 		{/if}
+		{#if caps.mcpServers && caps.mcpServers.length > 0}
+			<div class="menu-divider"></div>
+			<div class="menu-section">
+				<span class="menu-label">MCP servers</span>
+				{#each caps.mcpServers as srv (srv.name)}
+					<div class="menu-item mcp-row" title="{srv.name}: {srv.status}">
+						<span class="mcp-dot" class:connected={srv.status === 'connected'} class:failed={srv.status === 'failed' || srv.status === 'needs-auth'}></span>
+						<span class="mcp-name">{srv.name}</span>
+						<span class="menu-badge mcp-status">{srv.status}</span>
+					</div>
+				{/each}
+			</div>
+		{/if}
 	{/if}
 	<div class="menu-divider"></div>
 	<button class="menu-item danger" onclick={() => { onRemovePane(pane.name); onClose(); }}>
@@ -210,6 +223,13 @@
 		color: #10b981;
 	}
 
+	.mcp-row { cursor: default; }
+	.mcp-row:hover { background: transparent; }
+	.mcp-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	.mcp-status { background: rgba(148, 163, 184, 0.18); color: var(--text-tertiary); text-transform: none; }
+	.mcp-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; background: rgba(148, 163, 184, 0.6); }
+	.mcp-dot.connected { background: #22c55e; }
+	.mcp-dot.failed { background: #ef4444; }
 	.menu-divider {
 		height: 1px;
 		background: rgba(255, 255, 255, 0.06);
