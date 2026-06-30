@@ -36,6 +36,25 @@
 	function isToolCollapsed(key: string): boolean {
 		return toolsExpandedByDefault ? collapsedTools.has(key) : !collapsedTools.has(key);
 	}
+
+	// --- Run summary (per-model usage, turns, denials, guardrail outcome) ---
+	const runModels = $derived(Object.entries(pane.lastRun?.modelUsage ?? {}));
+	const runIsError = $derived(!!pane.lastRun && pane.lastRun.subtype !== 'success');
+
+	function fmtTokens(n: number): string {
+		return n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n);
+	}
+	function shortModel(name: string): string {
+		const m = name.match(/(opus|sonnet|haiku)/i);
+		return m ? m[1].toLowerCase() : name.replace(/^claude-/, '').split('-')[0];
+	}
+	function subtypeLabel(s: string): string {
+		if (s === 'error_max_turns') return 'max turns reached';
+		if (s === 'error_max_budget_usd') return 'budget limit reached';
+		if (s === 'error_during_execution') return 'execution error';
+		if (s === 'error_max_structured_output_retries') return 'output retries exceeded';
+		return s;
+	}
 </script>
 
 <div class="messages" bind:this={messagesRef}>
@@ -188,6 +207,30 @@
 				<MarkdownContent content={pane.currentDelta} />
 				<span class="cursor"></span>
 			</div>
+		</div>
+	{/if}
+	{#if !pane.streaming && pane.lastRun}
+		<div class="run-summary" class:error={runIsError}>
+			<div class="run-summary-head">
+				<span class="run-stat">{pane.lastRun.numTurns ?? 0} turns</span>
+				{#if pane.lastRun.costUsd != null}<span class="run-stat">${pane.lastRun.costUsd.toFixed(3)}</span>{/if}
+				{#if pane.lastRun.denials}<span class="run-stat denials">{pane.lastRun.denials} denied</span>{/if}
+				{#if runIsError}<span class="run-stat err">{subtypeLabel(pane.lastRun.subtype)}</span>{/if}
+			</div>
+			{#if runModels.length > 0}
+				<div class="run-models">
+					{#each runModels as [name, u] (name)}
+						<span class="run-model" title="in {u.inputTokens} · out {u.outputTokens} · cache {u.cacheReadInputTokens}">
+							<span class="run-model-name">{shortModel(name)}</span>
+							<span class="run-model-tok">{fmtTokens(u.inputTokens + u.outputTokens)}</span>
+							{#if u.costUSD}<span class="run-model-cost">${u.costUSD.toFixed(3)}</span>{/if}
+						</span>
+					{/each}
+				</div>
+			{/if}
+			{#if pane.lastRun.errors && pane.lastRun.errors.length > 0}
+				<div class="run-errors">{pane.lastRun.errors.join('; ')}</div>
+			{/if}
 		</div>
 	{/if}
 	{#if pane.messages.length === 0 && !pane.currentDelta && !pane.currentThinking}
@@ -453,6 +496,29 @@
 		flex: 1; display: flex; align-items: center; justify-content: center;
 		color: var(--text-tertiary); font: italic 11px/1 'IBM Plex Mono', monospace; opacity: 0.6;
 	}
+
+	/* Run summary footer */
+	.run-summary {
+		margin-top: 0.375rem; padding: 0.375rem 0.5rem; border-radius: 4px;
+		background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.18);
+		display: flex; flex-direction: column; gap: 0.25rem;
+		font: 9px/1.4 'IBM Plex Mono', ui-monospace, monospace;
+	}
+	.run-summary.error { background: rgba(239, 68, 68, 0.07); border-color: rgba(239, 68, 68, 0.28); }
+	.run-summary-head { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+	.run-stat { color: var(--text-secondary); }
+	.run-stat.denials { color: #f59e0b; }
+	.run-stat.err { color: #ef4444; font-weight: 600; }
+	.run-models { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+	.run-model {
+		display: inline-flex; align-items: center; gap: 0.25rem;
+		padding: 0.0625rem 0.3rem; border-radius: 3px; background: rgba(255, 255, 255, 0.04);
+	}
+	:global(.app.light) .run-model { background: rgba(0, 0, 0, 0.04); }
+	.run-model-name { color: #818cf8; text-transform: capitalize; }
+	.run-model-tok { color: var(--text-tertiary); }
+	.run-model-cost { color: var(--text-tertiary); opacity: 0.8; }
+	.run-errors { color: #ef4444; word-break: break-word; }
 
 	@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 

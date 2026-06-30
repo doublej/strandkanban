@@ -311,13 +311,22 @@ export function createMessageHandler(sessionName: string) {
 				if (session.currentDelta) {
 					messages = [...messages, makeMsg('assistant', session.currentDelta)];
 				}
+				const r = msg.result;
 				updateSession(sessionName, {
 					streaming: false,
 					messages,
 					currentDelta: '',
 					currentThinking: '',
-					cost: msg.result.total_cost_usd,
-					diffs: msg.diffs
+					cost: r.total_cost_usd,
+					diffs: msg.diffs,
+					lastRun: {
+						subtype: r.subtype,
+						numTurns: r.num_turns,
+						costUsd: r.total_cost_usd,
+						modelUsage: r.modelUsage,
+						denials: Array.isArray(r.permission_denials) ? r.permission_denials.length : 0,
+						errors: r.errors
+					}
 				});
 				break;
 			}

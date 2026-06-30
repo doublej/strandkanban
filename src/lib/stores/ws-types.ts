@@ -87,6 +87,8 @@ export interface AgentSession {
 	capabilities?: AgentCapabilities;
 	/** Effective permission mode for this session (e.g. 'bypassPermissions', 'plan'). */
 	permissionMode?: string;
+	/** Summary of the most recent completed run (turns, per-model usage, denials). */
+	lastRun?: RunSummary;
 	pane_type: string;
 	backend: string;
 	lastReadCount?: number;
@@ -103,6 +105,25 @@ export interface FileDiff {
 	operation: 'created' | 'modified' | 'deleted';
 	before: string | null;
 	after: string | null;
+}
+
+/** Per-model token/cost usage reported by the SDK result message. */
+export interface RunModelUsage {
+	inputTokens: number;
+	outputTokens: number;
+	cacheReadInputTokens: number;
+	cacheCreationInputTokens: number;
+	costUSD: number;
+}
+
+/** Summary of a completed agent run, derived from the SDK result message. */
+export interface RunSummary {
+	subtype: string;
+	numTurns?: number;
+	costUsd?: number;
+	modelUsage?: Record<string, RunModelUsage>;
+	denials?: number;
+	errors?: string[];
 }
 
 export interface StreamEvent {
@@ -146,7 +167,7 @@ export type ServerMessage =
 	| { type: 'session_ended'; sessionId: string }
 	| { type: 'session_cleared'; sessionId: string }
 	| { type: 'stream'; data: StreamEvent | AssistantMessage | ToolResult | ToolCallEvent | ToolResultEvent | { type: string } }
-	| { type: 'done'; result: { subtype: string; total_cost_usd?: number }; diffs?: FileDiff[] }
+	| { type: 'done'; result: { subtype: string; total_cost_usd?: number; modelUsage?: Record<string, RunModelUsage>; num_turns?: number; permission_denials?: unknown[]; errors?: string[] }; diffs?: FileDiff[] }
 	| { type: 'error'; error: string }
 	| { type: 'interrupted' }
 	| { type: 'active_sessions'; cwd: string | null; sessions: ActiveRemoteSession[] }
