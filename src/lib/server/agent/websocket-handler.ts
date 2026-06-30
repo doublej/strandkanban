@@ -188,8 +188,39 @@ export function createWebSocketHandlers(config: WebSocketConfig) {
         }
 
         case "interrupt":
-          session.abortController.abort();
+          // Prefer a graceful SDK interrupt: it stops the current turn while keeping
+          // the session alive/resumable. Fall back to aborting the whole query.
+          if (session.agentQuery) {
+            try {
+              await session.agentQuery.interrupt();
+            } catch (err) {
+              log.warn("[agent] graceful interrupt failed, aborting:", err);
+              session.abortController.abort();
+            }
+          } else {
+            session.abortController.abort();
+          }
           sendToClient(session, { type: "interrupted" });
+          return;
+
+        case "set_model":
+          session.model = msg.model;
+          try {
+            await session.agentQuery?.setModel(msg.model);
+            sendToClient(session, { type: "model_changed", model: msg.model });
+          } catch (err) {
+            sendToClient(session, { type: "error", error: `Failed to switch model: ${err}` });
+          }
+          return;
+
+        case "set_permission_mode":
+          session.permissionMode = msg.mode;
+          try {
+            await session.agentQuery?.setPermissionMode(msg.mode);
+            sendToClient(session, { type: "permission_mode_changed", mode: msg.mode });
+          } catch (err) {
+            sendToClient(session, { type: "error", error: `Failed to switch permission mode: ${err}` });
+          }
           return;
 
         case "end":

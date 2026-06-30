@@ -96,7 +96,7 @@ export async function runAgent(session: AgentSession, briefing: string, opts: Ru
     cwd: session.cwd,
     abortController: session.abortController,
     ...(session.model && { model: session.model }),
-    permissionMode: "bypassPermissions",
+    permissionMode: session.permissionMode ?? "bypassPermissions",
     allowDangerouslySkipPermissions: true,
     includePartialMessages: true,
     settingSources: ["user", "project"],
@@ -173,11 +173,16 @@ export async function runAgent(session: AgentSession, briefing: string, opts: Ru
   }
 
   const agentQuery = query({ prompt: inputIterator, options });
+  session.agentQuery = agentQuery;
 
   try {
     for await (const message of agentQuery) {
       if (message.type === "system" && message.subtype === "init") {
         session.sdkSessionId = message.session_id;
+
+        const initMsg = message as any;
+        // Adopt the SDK's effective permission mode so the client reflects reality.
+        session.permissionMode = session.permissionMode ?? initMsg.permissionMode;
 
         // Get rich slash command info from the SDK
         const slashCommands = await agentQuery.supportedCommands();
@@ -192,6 +197,25 @@ export async function runAgent(session: AgentSession, briefing: string, opts: Ru
             description: cmd.description,
             argumentHint: cmd.argumentHint
           }))
+        });
+
+        // Surface SDK-reported capabilities: available models, MCP server health,
+        // current model/permission mode. The init message already carries most of
+        // this; supportedModels() fills the model picker.
+        let models: { value: string; displayName: string; description: string }[] = [];
+        try {
+          models = await agentQuery.supportedModels();
+        } catch (err) {
+          log.warn("[agent] supportedModels failed:", err);
+        }
+        sendToClient(session, {
+          type: "agent_capabilities",
+          models,
+          mcpServers: initMsg.mcp_servers ?? [],
+          currentModel: initMsg.model,
+          permissionMode: initMsg.permissionMode,
+          tools: initMsg.tools ?? [],
+          plugins: initMsg.plugins ?? [],
         });
 
         if (session.usage.inputTokens > 0 || session.usage.outputTokens > 0) {
@@ -254,7 +278,19 @@ export async function runAgent(session: AgentSession, briefing: string, opts: Ru
 
       if (message.type === "result") {
         const diffs = await computeDiffs(session.fileSnapshots, session.touchedFiles);
-        sendToClient(session, { type: "done", result: message, diffs });
+        const r = message as any;
+        sendToClient(session, {
+          type: "done",
+          result: {
+            subtype: r.subtype,
+            total_cost_usd: r.total_cost_usd,
+            modelUsage: r.modelUsage,
+            num_turns: r.num_turns,
+            permission_denials: r.permission_denials,
+            errors: r.errors,
+          },
+          diffs,
+        });
         if (!session.isManager) break;
       }
     }
@@ -263,6 +299,7 @@ export async function runAgent(session: AgentSession, briefing: string, opts: Ru
     throw err;
   } finally {
     session.isRunning = false;
+    session.agentQuery = undefined;
     const threwError = runError !== null;
     const errorMessage = threwError
       ? (runError instanceof Error ? runError.message : String(runError))
