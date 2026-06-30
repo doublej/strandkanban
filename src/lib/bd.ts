@@ -74,8 +74,13 @@ export async function checkVersion(cwd?: string): Promise<BdVersion> {
 	return { version, compatible: versionAtLeast(version, MIN_BD_VERSION) }
 }
 
-function escapeArg(val: string): string {
-	return val.replace(/"/g, '\\"')
+/**
+ * POSIX single-quote shell escaping. Wraps a value in single quotes so the shell
+ * treats it 100% literally — no $(...) / backtick substitution, no metacharacter
+ * interpretation. Use for EVERY interpolated value (including ids) passed to run().
+ */
+function shq(val: string | number): string {
+	return `'${String(val).replace(/'/g, "'\\''")}'`
 }
 
 async function run(cmd: string, cwd?: string, timeoutMs?: number): Promise<BdResult> {
@@ -95,14 +100,14 @@ export async function createIssue(
 	opts?: { description?: string; priority?: number; issue_type?: string; deps?: string[]; due?: string; estimate?: number; external_ref?: string },
 	cwd?: string
 ): Promise<BdResult & { id?: string; issue?: unknown }> {
-	let cmd = `bd create "${escapeArg(title)}" --json`
-	if (opts?.description) cmd += ` --description "${escapeArg(opts.description)}"`
+	let cmd = `bd create ${shq(title)} --json`
+	if (opts?.description) cmd += ` --description ${shq(opts.description)}`
 	if (opts?.priority !== undefined) cmd += ` --priority ${opts.priority}`
-	if (opts?.issue_type) cmd += ` --type ${opts.issue_type}`
-	if (opts?.deps?.length) cmd += ` --deps ${opts.deps.join(',')}`
-	if (opts?.due) cmd += ` --due "${escapeArg(opts.due)}"`
+	if (opts?.issue_type) cmd += ` --type ${shq(opts.issue_type)}`
+	if (opts?.deps?.length) cmd += ` --deps ${shq(opts.deps.join(','))}`
+	if (opts?.due) cmd += ` --due ${shq(opts.due)}`
 	if (opts?.estimate !== undefined) cmd += ` --estimate ${Math.round(opts.estimate)}`
-	if (opts?.external_ref) cmd += ` --external-ref "${escapeArg(opts.external_ref)}"`
+	if (opts?.external_ref) cmd += ` --external-ref ${shq(opts.external_ref)}`
 
 	const result = await run(cmd, cwd)
 	if (result.success && result.stdout) {
@@ -133,7 +138,7 @@ export async function updateIssue(
 	},
 	cwd?: string
 ): Promise<BdResult> {
-	let cmd = `bd update ${id}`
+	let cmd = `bd update ${shq(id)}`
 	let hasUpdates = false
 
 	type StringField = keyof Pick<typeof updates, 'title' | 'description' | 'design' | 'acceptance_criteria' | 'notes' | 'assignee'>;
@@ -147,20 +152,20 @@ export async function updateIssue(
 	];
 	for (const [field, flag] of stringFields) {
 		if (updates[field] !== undefined) {
-			cmd += ` ${flag} "${escapeArg(String(updates[field] ?? ''))}"`;
+			cmd += ` ${flag} ${shq(String(updates[field] ?? ''))}`;
 			hasUpdates = true;
 		}
 	}
 
-	if (updates.status) { cmd += ` --status ${updates.status}`; hasUpdates = true }
+	if (updates.status) { cmd += ` --status ${shq(updates.status)}`; hasUpdates = true }
 	if (updates.priority !== undefined) { cmd += ` --priority ${updates.priority}`; hasUpdates = true }
-	if (updates.appendNotes) { cmd += ` --append-notes "${escapeArg(updates.appendNotes)}"`; hasUpdates = true }
+	if (updates.appendNotes) { cmd += ` --append-notes ${shq(updates.appendNotes)}`; hasUpdates = true }
 	if (updates.ephemeral === true) { cmd += ' --ephemeral'; hasUpdates = true }
 	if (updates.ephemeral === false) { cmd += ' --persistent'; hasUpdates = true }
-	if (updates.due !== undefined) { cmd += ` --due "${escapeArg(updates.due)}"`; hasUpdates = true }
-	if (updates.defer !== undefined) { cmd += ` --defer "${escapeArg(updates.defer)}"`; hasUpdates = true }
-	if (updates.external_ref !== undefined) { cmd += ` --external-ref "${escapeArg(updates.external_ref)}"`; hasUpdates = true }
-	if (updates.spec_id !== undefined) { cmd += ` --spec-id "${escapeArg(updates.spec_id)}"`; hasUpdates = true }
+	if (updates.due !== undefined) { cmd += ` --due ${shq(updates.due)}`; hasUpdates = true }
+	if (updates.defer !== undefined) { cmd += ` --defer ${shq(updates.defer)}`; hasUpdates = true }
+	if (updates.external_ref !== undefined) { cmd += ` --external-ref ${shq(updates.external_ref)}`; hasUpdates = true }
+	if (updates.spec_id !== undefined) { cmd += ` --spec-id ${shq(updates.spec_id)}`; hasUpdates = true }
 	if (updates.estimate !== undefined) { cmd += ` --estimate ${Math.round(updates.estimate)}`; hasUpdates = true }
 
 	if (!hasUpdates) return { success: true }
@@ -168,31 +173,31 @@ export async function updateIssue(
 }
 
 export async function deleteIssue(id: string, cwd?: string): Promise<BdResult> {
-	return run(`bd delete ${id}`, cwd)
+	return run(`bd delete ${shq(id)}`, cwd)
 }
 
 export async function closeIssue(id: string, reason = 'Completed', cwd?: string): Promise<BdResult> {
-	return run(`bd close ${id} --reason "${escapeArg(reason)}"`, cwd)
+	return run(`bd close ${shq(id)} --reason ${shq(reason)}`, cwd)
 }
 
 export async function addDependency(issueId: string, dependsOn: string, depType = 'blocks', cwd?: string): Promise<BdResult> {
-	return run(`bd dep add ${issueId} ${dependsOn} --type ${depType}`, cwd)
+	return run(`bd dep add ${shq(issueId)} ${shq(dependsOn)} --type ${shq(depType)}`, cwd)
 }
 
 export async function removeDependency(issueId: string, dependsOn: string, cwd?: string): Promise<BdResult> {
-	return run(`bd dep remove ${issueId} ${dependsOn}`, cwd)
+	return run(`bd dep remove ${shq(issueId)} ${shq(dependsOn)}`, cwd)
 }
 
 export async function addComment(issueId: string, text: string, cwd?: string): Promise<BdResult> {
-	return run(`bd comments add ${issueId} "${escapeArg(text)}"`, cwd)
+	return run(`bd comments add ${shq(issueId)} ${shq(text)}`, cwd)
 }
 
 export async function addLabel(issueId: string, label: string, cwd?: string): Promise<BdResult> {
-	return run(`bd label add ${issueId} ${label}`, cwd)
+	return run(`bd label add ${shq(issueId)} ${shq(label)}`, cwd)
 }
 
 export async function removeLabel(issueId: string, label: string, cwd?: string): Promise<BdResult> {
-	return run(`bd label remove ${issueId} ${label}`, cwd)
+	return run(`bd label remove ${shq(issueId)} ${shq(label)}`, cwd)
 }
 
 /**
@@ -200,38 +205,38 @@ export async function removeLabel(issueId: string, label: string, cwd?: string):
  * Creates an event bead + updates the `<dimension>:<value>` label atomically.
  */
 export async function setIssueState(id: string, dimension: string, value: string, reason?: string, cwd?: string): Promise<BdResult> {
-	let cmd = `bd set-state ${id} "${escapeArg(dimension)}=${escapeArg(value)}"`
-	if (reason) cmd += ` --reason "${escapeArg(reason)}"`
+	let cmd = `bd set-state ${shq(id)} ${shq(`${dimension}=${value}`)}`
+	if (reason) cmd += ` --reason ${shq(reason)}`
 	return run(cmd, cwd)
 }
 
 /** Promote a wisp (ephemeral issue) to a permanent bead via `bd promote`. ID is preserved. */
 export async function promoteWisp(id: string, reason?: string, cwd?: string): Promise<BdResult> {
-	let cmd = `bd promote ${id}`
-	if (reason) cmd += ` --reason "${escapeArg(reason)}"`
+	let cmd = `bd promote ${shq(id)}`
+	if (reason) cmd += ` --reason ${shq(reason)}`
 	return run(cmd, cwd)
 }
 
 /** Lint an issue for missing recommended sections via `bd lint <id> --json`. */
 export async function lintIssue(id: string, cwd?: string): Promise<BdResult> {
-	return run(`bd lint ${id} --json`, cwd)
+	return run(`bd lint ${shq(id)} --json`, cwd)
 }
 
 /** Fetch an issue's Dolt version history via `bd history <id> --json`. */
 export async function historyIssue(id: string, limit = 20, cwd?: string): Promise<BdResult> {
-	return run(`bd history ${id} --json --limit ${Math.max(0, Math.floor(limit))}`, cwd)
+	return run(`bd history ${shq(id)} --json --limit ${Math.max(0, Math.floor(limit))}`, cwd)
 }
 
 export async function setMetadata(id: string, key: string, value: string, cwd?: string): Promise<BdResult> {
-	return run(`bd update ${id} --set-metadata ${key}=${value}`, cwd)
+	return run(`bd update ${shq(id)} --set-metadata ${shq(`${key}=${value}`)}`, cwd)
 }
 
 export async function unsetMetadata(id: string, key: string, cwd?: string): Promise<BdResult> {
-	return run(`bd update ${id} --unset-metadata ${key}`, cwd)
+	return run(`bd update ${shq(id)} --unset-metadata ${shq(key)}`, cwd)
 }
 
 export async function getChildren(id: string, cwd?: string): Promise<BdResult> {
-	return run(`bd children ${id} --json`, cwd)
+	return run(`bd children ${shq(id)} --json`, cwd)
 }
 
 export interface BdPing {
