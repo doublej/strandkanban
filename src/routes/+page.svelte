@@ -1020,6 +1020,7 @@
 		onaddlabel={(label) => ops.addLabelToEditing(label)}
 		onremovelabel={(label) => ops.removeLabelFromEditing(label)}
 		onsetstate={(dimension, value, reason) => ops.setIssueState(dimension, value, reason)}
+		onpromote={(reason) => ops.promoteWisp(reason)}
 		onremovedep={(issueId, depId) => ops.removeDependency(issueId, depId)}
 		onpaneltouchstart={cardDrag.handlePanelTouchStart}
 		onpaneltouchmove={cardDrag.handlePanelTouchMove}

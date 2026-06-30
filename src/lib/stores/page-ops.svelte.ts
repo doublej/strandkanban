@@ -9,7 +9,8 @@ import {
 	loadAttachmentsApi,
 	uploadAttachmentApi,
 	deleteAttachmentApi,
-	setIssueStateApi
+	setIssueStateApi,
+	promoteWispApi
 } from '$lib/api';
 import { formatTicketDelivery as formatTicketDeliveryFn } from '$lib/agent/ticket-delivery';
 import type { TicketDeliveryData } from '$lib/agent/ticket-delivery';
@@ -274,6 +275,14 @@ export function createPageOps(ctx: PageOpsContext) {
 		const others = (editingIssue.labels || []).filter(l => !l.startsWith(`${dimension}:`));
 		editingIssue.labels = [...others, `${dimension}:${value}`];
 		await setIssueStateApi(id, dimension, value, reason);
+	}
+
+	/** Promote the open wisp to a permanent bead (bd promote). */
+	async function promoteWisp(reason?: string) {
+		if (!editingIssue || !editingIssue.ephemeral) return;
+		const id = editingIssue.id;
+		editingIssue.ephemeral = undefined; // optimistic
+		await promoteWispApi(id, reason);
 	}
 
 	// --- Comments ---
@@ -639,6 +648,7 @@ export function createPageOps(ctx: PageOpsContext) {
 		addLabelToEditing,
 		removeLabelFromEditing,
 		setIssueState,
+		promoteWisp,
 		loadComments,
 		addComment,
 		loadAttachments,

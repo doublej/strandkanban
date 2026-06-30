@@ -205,6 +205,18 @@ export async function setIssueState(id: string, dimension: string, value: string
 	return run(cmd, cwd)
 }
 
+/** Promote a wisp (ephemeral issue) to a permanent bead via `bd promote`. ID is preserved. */
+export async function promoteWisp(id: string, reason?: string, cwd?: string): Promise<BdResult> {
+	let cmd = `bd promote ${id}`
+	if (reason) cmd += ` --reason "${escapeArg(reason)}"`
+	return run(cmd, cwd)
+}
+
+/** Lint an issue for missing recommended sections via `bd lint <id> --json`. */
+export async function lintIssue(id: string, cwd?: string): Promise<BdResult> {
+	return run(`bd lint ${id} --json`, cwd)
+}
+
 export async function setMetadata(id: string, key: string, value: string, cwd?: string): Promise<BdResult> {
 	return run(`bd update ${id} --set-metadata ${key}=${value}`, cwd)
 }

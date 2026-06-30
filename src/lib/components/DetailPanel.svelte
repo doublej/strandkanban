@@ -11,6 +11,7 @@
 	import DetailPanelFooter from './DetailPanelFooter.svelte';
 	import MarkdownContent from './MarkdownContent.svelte';
 	import { appendProjectParam } from '$lib/project';
+	import { lintIssueApi } from '$lib/api';
 
 	let isEditMode = $state(false);
 
@@ -46,6 +47,7 @@
 		onaddlabel: (label: string) => void;
 		onremovelabel: (label: string) => void;
 		onsetstate?: (dimension: string, value: string, reason?: string) => void;
+		onpromote?: (reason?: string) => void;
 		onremovedep: (issueId: string, depId: string) => void;
 		onpaneltouchstart: (e: TouchEvent) => void;
 		onpaneltouchmove: (e: TouchEvent) => void;
@@ -88,6 +90,7 @@
 		onaddlabel,
 		onremovelabel,
 		onsetstate,
+		onpromote,
 		onremovedep,
 		onpaneltouchstart,
 		onpaneltouchmove,
@@ -146,6 +149,17 @@
 	let expandedSessionId = $state<string | null>(null);
 	let expandedMessages = $state<RelatedMessage[]>([]);
 	let loadingExpanded = $state(false);
+
+	// Lint hints (missing recommended sections) for the open issue
+	let lintMissing = $state<string[]>([]);
+	$effect(() => {
+		const id = editingIssue?.id;
+		if (!id || isCreating || editingIssue?.status === 'closed') {
+			lintMissing = [];
+			return;
+		}
+		lintIssueApi(id).then((missing) => { lintMissing = missing; }).catch(() => { lintMissing = []; });
+	});
 
 	$effect(() => {
 		const id = editingIssue?.id;
@@ -307,6 +321,21 @@
 						{/if}
 					</div>
 				</div>
+
+				{#if editingIssue.ephemeral}
+					<div class="wisp-banner">
+						<div class="wisp-info"><Icon name="zap" size={13} /><span>Wisp{#if editingIssue.wisp_type} · {editingIssue.wisp_type}{/if} — ephemeral, may be compacted</span></div>
+						{#if onpromote}<button class="wisp-promote" onclick={() => onpromote()}>Promote</button>{/if}
+					</div>
+				{/if}
+
+				{#if lintMissing.length > 0}
+					<div class="lint-hints">
+						<Icon name="alert-circle" size={12} />
+						<span class="lint-label">Missing:</span>
+						{#each lintMissing as m}<span class="lint-chip">{m.replace(/^#+\s*/, '')}</span>{/each}
+					</div>
+				{/if}
 
 				{#if editingIssue.status === 'closed' && editingIssue.notes}
 					<div class="summary-callout">
@@ -643,6 +672,28 @@
 		background: #14b8a6; border: none; color: #fff; font-size: 0.6875rem; font-weight: 600; cursor: pointer;
 	}
 	.state-set:disabled { opacity: 0.4; cursor: not-allowed; }
+
+	/* wisp / promote banner */
+	.wisp-banner {
+		display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+		margin-bottom: 0.75rem; padding: 0.5rem 0.625rem; border-radius: var(--radius-sm, 8px);
+		background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.3);
+	}
+	.wisp-info { display: flex; align-items: center; gap: 0.4rem; color: #8b5cf6; font-size: 0.6875rem; font-weight: 600; }
+	.wisp-promote {
+		flex-shrink: 0; padding: 0.25rem 0.625rem; border-radius: var(--radius-xs);
+		background: #8b5cf6; border: none; color: #fff; font-size: 0.6875rem; font-weight: 600; cursor: pointer;
+	}
+	.wisp-promote:hover { background: #7c3aed; }
+
+	/* lint hints */
+	.lint-hints {
+		display: flex; align-items: center; flex-wrap: wrap; gap: 0.375rem;
+		margin-bottom: 0.75rem; padding: 0.375rem 0.5rem; border-radius: var(--radius-xs);
+		background: rgba(245, 158, 11, 0.1); color: #f59e0b; font-size: 0.625rem;
+	}
+	.lint-label { font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+	.lint-chip { padding: 0.0625rem 0.375rem; border-radius: var(--radius-xs); background: rgba(245, 158, 11, 0.18); font-weight: 500; }
 	.facet-chip {
 		display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
 		padding: 0.1875rem 0.4rem; border-radius: var(--radius-xs);

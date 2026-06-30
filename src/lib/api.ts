@@ -17,6 +17,15 @@ export async function setIssueStateApi(id: string, dimension: string, value: str
 	await postJSON(`/api/issues/${id}/state`, { dimension, value, reason });
 }
 
+export async function promoteWispApi(id: string, reason?: string): Promise<void> {
+	await postJSON(`/api/issues/${id}/promote`, { reason });
+}
+
+export async function lintIssueApi(id: string): Promise<string[]> {
+	const data = await fetchJSON<{ missing: string[] }>(`/api/issues/${id}/lint`);
+	return data.missing ?? [];
+}
+
 export async function createIssueApi(form: { title: string; description: string; priority: number; issue_type: string }): Promise<{ id: string; issue: unknown }> {
 	return postJSON<{ id: string; issue: unknown }>('/api/issues', form);
 }
