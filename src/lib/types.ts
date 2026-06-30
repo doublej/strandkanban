@@ -22,6 +22,7 @@ export interface Issue {
 	created_at?: string;
 	updated_at?: string;
 	closed_at?: string;
+	close_reason?: string;
 	assignee?: string;
 	// bd 1.0 scheduling / metadata fields
 	estimated_minutes?: number;

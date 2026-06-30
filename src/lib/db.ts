@@ -92,6 +92,7 @@ interface DbIssue {
 	created_at: string;
 	updated_at: string;
 	closed_at: string | null;
+	close_reason: string | null;
 	metadata: string | null;
 	estimated_minutes: number | null;
 	external_ref: string | null;
@@ -108,7 +109,7 @@ interface DbIssue {
 /** Columns shared by getAllIssues / getIssueById selects (bd 1.0 issue schema). */
 const ISSUE_COLUMNS =
 	`title, description, design, acceptance_criteria, notes,
-	 status, priority, issue_type, assignee, created_at, updated_at, closed_at, metadata,
+	 status, priority, issue_type, assignee, created_at, updated_at, closed_at, close_reason, metadata,
 	 estimated_minutes, external_ref, spec_id, ephemeral, wisp_type, pinned, due_at, defer_until, started_at, agent_state`;
 
 /** Map shared bd-1.0 issue columns onto the Issue shape. */
@@ -124,6 +125,7 @@ function mapIssueFields(row: DbIssue) {
 		defer_until: row.defer_until || undefined,
 		started_at: row.started_at || undefined,
 		agent_state: row.agent_state || undefined,
+		close_reason: row.close_reason || undefined,
 	};
 }
 

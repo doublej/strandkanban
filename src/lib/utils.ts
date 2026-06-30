@@ -166,6 +166,24 @@ export function isStale(issue: Issue, days = 30): boolean {
 	return Date.now() - updated > days * 86400000;
 }
 
+/**
+ * Split labels into bd operational-state dimensions (`dimension:value`) and plain labels.
+ * Operational state is stored as `<dimension>:<value>` labels (see `bd set-state`).
+ */
+export function parseStateLabels(labels?: string[]): { states: { dimension: string; value: string }[]; plain: string[] } {
+	const states: { dimension: string; value: string }[] = [];
+	const plain: string[] = [];
+	for (const l of labels ?? []) {
+		const idx = l.indexOf(':');
+		if (idx > 0 && idx < l.length - 1) {
+			states.push({ dimension: l.slice(0, idx), value: l.slice(idx + 1) });
+		} else {
+			plain.push(l);
+		}
+	}
+	return { states, plain };
+}
+
 export function sortIssues(issues: Issue[], sortBy: SortBy): Issue[] {
 	return [...issues].sort((a, b) => {
 		if (sortBy === 'priority') return a.priority - b.priority;

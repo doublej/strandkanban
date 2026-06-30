@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Issue, Comment, Attachment } from '$lib/types';
-	import { getPriorityConfig, getTypeIcon, formatTimestamp, getIssueColumn, isAgentAssignee as checkAgentAssignee } from '$lib/utils';
+	import { getPriorityConfig, getTypeIcon, formatTimestamp, getIssueColumn, isAgentAssignee as checkAgentAssignee, getDueInfo, formatMinutes, isStale, parseStateLabels } from '$lib/utils';
 	import Icon from './Icon.svelte';
 	import { copyState } from '$lib/stores/copy-state.svelte';
 	import IssueFormFields from './IssueFormFields.svelte';
@@ -95,6 +95,10 @@
 		updatenewcomment,
 		ondismissclosedwarning
 	}: Props = $props();
+
+	const dueInfo = $derived(editingIssue ? getDueInfo(editingIssue.due_at) : null);
+	const parsedLabels = $derived(parseStateLabels(editingIssue?.labels));
+	const stale = $derived(editingIssue ? isStale(editingIssue) : false);
 
 	function handlePaste(e: ClipboardEvent) {
 		const items = e.clipboardData?.items;
@@ -249,6 +253,19 @@
 							{@const ts = formatTimestamp(editingIssue.created_at)}
 							<span class="spec-time" title="{ts.absolute}">{ts.relative}</span>
 						{/if}
+						{#if dueInfo}
+							<span class="spec-due {dueInfo.level}" title="Due {dueInfo.absolute}"><Icon name="calendar" size={11} /><span>{dueInfo.label}</span></span>
+						{/if}
+						{#if editingIssue.estimated_minutes}
+							<span class="spec-est" title="Estimate"><Icon name="clock" size={11} /><span>{formatMinutes(editingIssue.estimated_minutes)}</span></span>
+						{/if}
+						{#if stale}
+							<span class="spec-stale" title="No updates in 30+ days"><Icon name="alert-circle" size={11} /><span>stale</span></span>
+						{/if}
+						{#if editingIssue.defer_until}
+							{@const dts = formatTimestamp(editingIssue.defer_until)}
+							<span class="spec-defer" title="Deferred until {dts.absolute}">deferred · {dts.relative}</span>
+						{/if}
 						{#if editingIssue.assignee}
 							{#if isAgentAssignee}
 								<span class="spec-agent" class:working={editingIssue.status === 'in_progress'}>
@@ -308,9 +325,30 @@
 					<section class="section"><span class="section-label">Notes</span><div class="prose"><MarkdownContent content={editingIssue.notes} /></div></section>
 				{/if}
 
-				{#if editingIssue.labels && editingIssue.labels.length > 0}
+				{#if parsedLabels.states.length > 0}
+					<div class="state-row">
+						{#each parsedLabels.states as st (st.dimension)}
+							<span class="state-badge" title="Operational state"><span class="state-dim">{st.dimension}</span><span class="state-val">{st.value}</span></span>
+						{/each}
+					</div>
+				{/if}
+				{#if editingIssue.external_ref || editingIssue.spec_id}
+					<div class="facet-row">
+						{#if editingIssue.external_ref}
+							{#if /^https?:\/\//.test(editingIssue.external_ref)}
+								<a class="facet-chip" href={editingIssue.external_ref} target="_blank" rel="noopener noreferrer" title={editingIssue.external_ref}><Icon name="external-link" size={10} /><span>{editingIssue.external_ref}</span></a>
+							{:else}
+								<span class="facet-chip" title="External reference"><Icon name="external-link" size={10} /><span>{editingIssue.external_ref}</span></span>
+							{/if}
+						{/if}
+						{#if editingIssue.spec_id}
+							<span class="facet-chip" title="Spec"><Icon name="file" size={10} /><span>{editingIssue.spec_id}</span></span>
+						{/if}
+					</div>
+				{/if}
+				{#if parsedLabels.plain.length > 0}
 					<div class="labels-row">
-						{#each editingIssue.labels as label}<span class="label-chip">{label}</span>{/each}
+						{#each parsedLabels.plain as label (label)}<span class="label-chip">{label}</span>{/each}
 					</div>
 				{/if}
 
@@ -526,6 +564,45 @@
 
 	.spec-agent { background: rgba(16, 185, 129, 0.1); color: #10b981; }
 	.spec-agent.working { background: rgba(16, 185, 129, 0.15); }
+
+	/* bd 1.0 scheduling chips */
+	.spec-due, .spec-est {
+		display: inline-flex; align-items: center; gap: 3px;
+		padding: 0.1875rem 0.375rem; border-radius: var(--radius-xs);
+		font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; font-weight: 600;
+		flex-shrink: 0;
+	}
+	.spec-est { background: rgba(148, 163, 184, 0.14); color: var(--text-tertiary); }
+	.spec-due.normal { background: rgba(99, 102, 241, 0.12); color: #6366f1; }
+	.spec-due.soon { background: rgba(245, 158, 11, 0.14); color: #f59e0b; }
+	.spec-due.overdue { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+	.spec-stale {
+		display: inline-flex; align-items: center; gap: 3px;
+		padding: 0.1875rem 0.375rem; border-radius: var(--radius-xs);
+		font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; font-weight: 600;
+		background: rgba(245, 158, 11, 0.12); color: #f59e0b; flex-shrink: 0;
+	}
+	.spec-defer {
+		font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; font-weight: 500;
+		color: var(--text-tertiary); flex-shrink: 0;
+	}
+
+	/* operational-state badges + external_ref/spec facets */
+	.state-row, .facet-row { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.5rem; }
+	.state-badge {
+		display: inline-flex; align-items: stretch; border-radius: var(--radius-xs); overflow: hidden;
+		font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 0.625rem; font-weight: 600;
+	}
+	.state-badge .state-dim { padding: 0.125rem 0.375rem; background: rgba(20, 184, 166, 0.16); color: #14b8a6; text-transform: uppercase; letter-spacing: 0.03em; }
+	.state-badge .state-val { padding: 0.125rem 0.375rem; background: rgba(20, 184, 166, 0.28); color: #0d9488; }
+	.facet-chip {
+		display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
+		padding: 0.1875rem 0.4rem; border-radius: var(--radius-xs);
+		background: var(--surface-panel, rgba(255,255,255,0.04)); color: var(--text-secondary);
+		font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 0.625rem; text-decoration: none;
+	}
+	.facet-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+	a.facet-chip:hover { color: var(--text-primary); }
 
 	.spec-human {
 		background: var(--surface-panel, rgba(255,255,255,0.04));
