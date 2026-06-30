@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Issue } from '$lib/types';
-	import { getPriorityConfig, calculateImpactScore, getImpactLevel, getDueInfo, formatMinutes } from '$lib/utils';
+	import { getPriorityConfig, calculateImpactScore, getImpactLevel, getDueInfo, formatMinutes, isStale } from '$lib/utils';
 	import Icon from './Icon.svelte';
 	import { copyState } from '$lib/stores/copy-state.svelte';
 
@@ -19,6 +19,7 @@
 	const impactScore = $derived(calculateImpactScore(issue));
 	const impactLevel = $derived(getImpactLevel(impactScore));
 	const dueInfo = $derived(getDueInfo(issue.due_at));
+	const stale = $derived(isStale(issue));
 </script>
 
 <div class="card-header">
@@ -72,6 +73,9 @@
 	{/if}
 	{#if issue.ephemeral}
 		<span class="wisp-badge" title="Ephemeral wisp{issue.wisp_type ? ' · ' + issue.wisp_type : ''}">wisp</span>
+	{/if}
+	{#if stale}
+		<span class="stale-badge" title="No updates in 30+ days">stale</span>
 	{/if}
 </div>
 {#if issue.assignee && isAgentAssignee}
@@ -268,6 +272,12 @@
 		font-family: ui-monospace, "SF Mono", monospace; font-size: 0.5rem; font-weight: 600;
 		text-transform: uppercase; letter-spacing: 0.04em;
 		background: rgba(168, 85, 247, 0.14); color: #a855f7; cursor: help; white-space: nowrap;
+	}
+	.stale-badge {
+		padding: 0.0625rem 0.3rem; border-radius: 4px;
+		font-family: ui-monospace, "SF Mono", monospace; font-size: 0.5rem; font-weight: 600;
+		text-transform: uppercase; letter-spacing: 0.04em;
+		background: rgba(148, 163, 184, 0.16); color: #94a3b8; cursor: help; white-space: nowrap;
 	}
 	/* Agent Chip */
 	.agent-chip {
