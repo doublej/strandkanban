@@ -60,6 +60,13 @@ function buildMap<T, V>(rows: T[], key: (r: T) => string, val: (r: T) => V): Map
 	return map;
 }
 
+/** Timeout for a single `bd sql` read. Generous default so a project's first-time JSONL
+ *  auto-import can finish instead of being SIGTERM-killed mid-import. Override via env. */
+const BD_SQL_TIMEOUT_MS = (() => {
+	const n = Number(process.env.BEADS_KANBAN_BD_SQL_TIMEOUT_MS);
+	return Number.isFinite(n) && n > 0 ? n : 30000;
+})();
+
 /** Run a SELECT query via `bd sql --json`. Uses spawnSync to avoid shell-quoting issues. */
 function bdSql<T>(query: string, cwd?: string): T[] {
 	const effectiveCwd = cwd ?? getStoredCwd();
@@ -67,9 +74,22 @@ function bdSql<T>(query: string, cwd?: string): T[] {
 	const result = spawnSync('bd', ['sql', '--json', query], {
 		cwd: effectiveCwd,
 		encoding: 'utf-8',
-		timeout: 10000,
+		timeout: BD_SQL_TIMEOUT_MS,
 		env: bdEnv()
 	});
+	// On timeout, spawnSync kills the child (signal SIGTERM, error code ETIMEDOUT) and leaves
+	// whatever bd had printed so far in stderr — typically the "auto-importing … into empty
+	// database" banner. Surfacing that banner as the error is misleading, so report the timeout.
+	const timedOut =
+		result.signal === 'SIGTERM' ||
+		(result.error as NodeJS.ErrnoException | undefined)?.code === 'ETIMEDOUT';
+	if (timedOut) {
+		throw new Error(
+			`bd sql timed out after ${BD_SQL_TIMEOUT_MS}ms in ${effectiveCwd} — bd is likely ` +
+				`re-importing the JSONL on every query (empty/unhealthy Dolt db). Repair the ` +
+				`project's bd database, or raise BEADS_KANBAN_BD_SQL_TIMEOUT_MS.`
+		);
+	}
 	if (result.status !== 0 || result.error) {
 		const msg = result.stderr?.trim() || result.error?.message || 'bd sql failed';
 		throw new Error(msg);
