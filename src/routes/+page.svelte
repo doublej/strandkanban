@@ -68,6 +68,7 @@
 	let themeTransitionActive = $state(false);
 	let themeTransitionToLight = $state(false);
 	let showActivityBar = $state(true);
+	let chatBarReserve = $state(64);
 	let newPaneName = $state('');
 	let resumePrompt = $state<{ name: string; sessionId: string } | null>(null);
 	let showSessionPicker = $state(false);
@@ -726,7 +727,7 @@
 
 <svelte:window onkeydown={handleKeydown} onkeyup={handleKeyup} onpopstate={handlePopState} onclick={ops.closeContextMenu} onmousemove={ops.handleMouseMove} onmouseup={ops.handleMouseUp} onblur={handleWindowBlur} />
 
-<div class="app scheme-{colorScheme}" class:light={!isDarkMode} class:panel-open={ops.panelOpen} class:show-hotkeys={showHotkeys || settings.alwaysShowHotkeys} class:has-chat-bar={wsConnected && showActivityBar} style="--project-color: {projectColor}">
+<div class="app scheme-{colorScheme}" class:light={!isDarkMode} class:panel-open={ops.panelOpen} class:show-hotkeys={showHotkeys || settings.alwaysShowHotkeys} class:has-chat-bar={wsConnected && showActivityBar} style="--project-color: {projectColor}; --chat-bar-space: {chatBarReserve}px">
 
 {#if ops.contextMenu}
 	<ContextMenu
@@ -1016,6 +1017,7 @@
 	oncyclePaneSize={cyclePaneSize}
 	onhandleMouseMove={ops.handleMouseMove}
 	onhandleMouseUp={ops.handleMouseUp}
+	onbasesizechange={(px) => chatBarReserve = px}
 />
 
 <FlyingCardComponent {teleports} />
@@ -1119,7 +1121,7 @@
 	}
 
 	.app.has-chat-bar {
-		height: calc(100vh - 48px);
+		height: calc(100vh - var(--chat-bar-space, 64px));
 	}
 
 	.workspace {

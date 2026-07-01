@@ -5,6 +5,7 @@
 	import StatusBar from './StatusBar.svelte';
 	import AgentBarSessionPicker from './AgentBarSessionPicker.svelte';
 	import { getManagerVisible, toggleManagerVisibility, isManagerSession } from '$lib/stores/manager.svelte';
+	import { browser } from '$app/environment';
 
 	interface Props {
 		wsConnected: boolean;
@@ -59,6 +60,8 @@
 		oncyclePaneSize: (name: string) => void;
 		onhandleMouseMove: (e: MouseEvent) => void;
 		onhandleMouseUp: () => void;
+		/** Reports the collapsed bar's footprint (px from viewport bottom to its top edge). */
+		onbasesizechange?: (px: number) => void;
 	}
 
 	let {
@@ -113,11 +116,25 @@
 		oncyclePaneSize,
 		onhandleMouseMove,
 		onhandleMouseUp,
+		onbasesizechange,
 	}: Props = $props();
 
 	const nonManagerPaneCount = $derived(
 		[...wsPanes.values()].filter(p => !isManagerSession(p.name) && (p.projectCwd ?? p.cwd) === currentProjectPath).length
 	);
+
+	// Report the collapsed bar's footprint so the layout can reserve matching space.
+	let stripEl = $state<HTMLDivElement | null>(null);
+	$effect(() => {
+		if (!browser || !stripEl) return;
+		const el = stripEl;
+		const measure = () => onbasesizechange?.(Math.max(0, window.innerHeight - el.getBoundingClientRect().top));
+		measure();
+		const ro = new ResizeObserver(measure);
+		ro.observe(el);
+		window.addEventListener('resize', measure);
+		return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+	});
 
 	let agentMenuOpen = $state(false);
 	let agentNameInputOpen = $state(false);
@@ -209,7 +226,7 @@
 
 {#if wsConnected && showActivityBar}
 <div class="agent-bar" class:has-panes={wsPanes.size > 0}>
-	<div class="agent-bar-inner">
+	<div class="agent-bar-inner" bind:this={stripEl}>
 		<!-- Agent launcher button with dropdown menu -->
 		<div class="agent-launcher">
 			<button
