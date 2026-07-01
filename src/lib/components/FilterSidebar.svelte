@@ -203,8 +203,10 @@
 		flex: 0 0 260px;
 		width: 260px;
 		min-height: 0;
+		margin: 1.25rem 0 1.25rem 1.25rem;
 		background: var(--surface-panel);
-		border-right: 1px solid var(--border-subtle);
+		border: 1px solid var(--border-subtle);
+		border-radius: var(--radius-md);
 		overflow: hidden;
 	}
 
@@ -215,8 +217,10 @@
 		flex: 0 0 44px;
 		width: 44px;
 		padding-top: 0.5rem;
+		margin: 1.25rem 0 1.25rem 1.25rem;
 		background: var(--surface-panel);
-		border-right: 1px solid var(--border-subtle);
+		border: 1px solid var(--border-subtle);
+		border-radius: var(--radius-md);
 	}
 
 	.rail-btn {
@@ -458,6 +462,8 @@
 			left: 0;
 			bottom: 0;
 			z-index: 901;
+			margin: 0;
+			border-radius: 0;
 			flex: 0 0 82vw;
 			width: 82vw;
 			max-width: 320px;

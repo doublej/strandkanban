@@ -239,6 +239,9 @@
 		flex: 1;
 		min-width: 0;
 		min-height: 0;
+		background: var(--surface-panel);
+		border: 1px solid var(--border-subtle);
+		border-radius: var(--radius-md);
 		overflow: hidden;
 	}
 

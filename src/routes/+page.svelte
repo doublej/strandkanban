@@ -882,7 +882,10 @@
 		{/if}
 	</div>
 	{:else if viewMode === 'table'}
-		<div class="list-view-layout" class:wipe-out={projectTransition === 'wipe-out'} class:wipe-in={projectTransition === 'wipe-in'}>
+		<div class="table-layout" class:wipe-out={projectTransition === 'wipe-out'} class:wipe-in={projectTransition === 'wipe-in'}>
+			{#if ops.panelOpen}
+				{@render detailPanel()}
+			{/if}
 			<TableView
 				issues={filteredIssues}
 				columnConfig={settings.tableColumns}
@@ -893,9 +896,6 @@
 				oncolumnschange={(cols) => settings.tableColumns = cols}
 				onsortchange={(s) => settings.tableSort = s}
 			/>
-			{#if ops.panelOpen}
-				{@render detailPanel()}
-			{/if}
 		</div>
 	{:else if viewMode === 'tree'}
 		<div class="list-view-layout" class:wipe-out={projectTransition === 'wipe-out'} class:wipe-in={projectTransition === 'wipe-in'}>
@@ -1149,6 +1149,16 @@
 	.list-view-layout {
 		display: flex;
 		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.table-layout {
+		display: flex;
+		flex: 1;
+		gap: 1rem;
+		padding: 1.25rem;
+		min-width: 0;
 		min-height: 0;
 		overflow: hidden;
 	}
