@@ -3,9 +3,7 @@
 
 	const viewModes = [
 		{ key: 'kanban', label: 'Board' },
-		{ key: 'tree', label: 'Tree' },
-		{ key: 'graph', label: 'Graph' },
-		{ key: 'stats', label: 'Stats' }
+		{ key: 'table', label: 'Table' }
 	] as const
 
 	const sortModes = [

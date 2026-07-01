@@ -30,8 +30,6 @@
 	import FlyingCardComponent from '$lib/components/FlyingCard.svelte';
 	import AgentBar from '$lib/components/AgentBar.svelte';
 	import InitialLoader from '$lib/components/InitialLoader.svelte';
-	import TreeView from '$lib/components/TreeView.svelte';
-	import GraphView from '$lib/components/GraphView.svelte';
 	import MutationLog from '$lib/components/MutationLog.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import AgentQueueColumn from '$lib/components/AgentQueueColumn.svelte';
@@ -40,9 +38,7 @@
 	import SettingsPane from '$lib/components/SettingsPane.svelte';
 	import SetupWizard from '$lib/components/SetupWizard.svelte';
 	import { fetchMutations } from '$lib/mutationStore.svelte';
-	import StatsView from '$lib/components/StatsView.svelte';
 	import HealthBadge from '$lib/components/HealthBadge.svelte';
-	import DiffView from '$lib/components/DiffView.svelte';
 	import ThemeTransition from '$lib/components/ThemeTransition.svelte';
 	import ProjectSwitcher from '$lib/components/ProjectSwitcher.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
@@ -638,7 +634,7 @@
 	function applyRecipe(recipe: ViewRecipe) {
 		filters = normalizeFilterState(recipe.filters);
 		columnSortBy = { ...recipe.columnSort };
-		viewMode = recipe.viewMode;
+		viewMode = recipe.viewMode === 'table' ? 'table' : 'kanban';
 		if (recipe.table) settings.tableColumns = reconcileTableColumns(recipe.table);
 		if (recipe.tableSort !== undefined) settings.tableSort = recipe.tableSort;
 
@@ -915,28 +911,6 @@
 				onbulkdelete={bulkDeleteIssues}
 			/>
 		</div>
-	{:else if viewMode === 'tree'}
-		<div class="list-view-layout" class:wipe-out={projectTransition === 'wipe-out'} class:wipe-in={projectTransition === 'wipe-in'}>
-			<TreeView {issues} {selectedId} onselect={(issue) => ops.openEditPanel(issue)} oncreate={ops.openCreatePanel} />
-			{#if ops.panelOpen}
-				{@render detailPanel()}
-			{/if}
-		</div>
-	{:else if viewMode === 'graph'}
-		<div class="list-view-layout" class:wipe-out={projectTransition === 'wipe-out'} class:wipe-in={projectTransition === 'wipe-in'}>
-			<GraphView {issues} {selectedId} onselect={(issue) => ops.openEditPanel(issue)} />
-			{#if ops.panelOpen}
-				{@render detailPanel()}
-			{/if}
-		</div>
-	{:else if viewMode === 'stats'}
-		<div class="stats-view-wrapper" class:wipe-out={projectTransition === 'wipe-out'} class:wipe-in={projectTransition === 'wipe-in'}>
-			<StatsView {issues} />
-		</div>
-	{:else if viewMode === 'diff'}
-		<div class="stats-view-wrapper" class:wipe-out={projectTransition === 'wipe-out'} class:wipe-in={projectTransition === 'wipe-in'}>
-			<DiffView />
-		</div>
 	{/if}
 
 	</div><!-- /.workspace-main -->
@@ -1132,22 +1106,11 @@
 		overflow: hidden;
 	}
 
-	.stats-view-wrapper {
-		display: flex;
-		flex: 1;
-		min-height: 0;
-		overflow: hidden;
-	}
-
-	.main-content.wipe-out,
-	.list-view-layout.wipe-out,
-	.stats-view-wrapper.wipe-out {
+	.main-content.wipe-out {
 		animation: wipeUp 350ms ease-in forwards;
 	}
 
-	.main-content.wipe-in,
-	.list-view-layout.wipe-in,
-	.stats-view-wrapper.wipe-in {
+	.main-content.wipe-in {
 		animation: wipeDown 350ms ease-out forwards;
 	}
 
@@ -1162,13 +1125,6 @@
 		transition: margin-right var(--transition-smooth);
 		scrollbar-width: none;
 		-ms-overflow-style: none;
-	}
-
-	.list-view-layout {
-		display: flex;
-		flex: 1;
-		min-height: 0;
-		overflow: hidden;
 	}
 
 	.table-layout {

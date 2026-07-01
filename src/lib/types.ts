@@ -107,7 +107,7 @@ export interface RopeDragState {
 
 export type SortBy = 'priority' | 'created' | 'title';
 export type PaneSize = 'compact' | 'medium' | 'large';
-export type ViewMode = 'kanban' | 'tree' | 'graph' | 'stats' | 'diff' | 'table';
+export type ViewMode = 'kanban' | 'table';
 
 /** Columns available in the table view (keys match the sort accessor in utils). */
 export type TableColumnKey =

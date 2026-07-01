@@ -196,7 +196,7 @@ function createSettings() {
 		notificationEvents = loadObject('notificationEvents', notificationEvents);
 		mcpBatchDelay = loadNumber('mcpBatchDelay', mcpBatchDelay);
 		viewRecipes = loadObject('viewRecipes', viewRecipes);
-		defaultViewMode = loadString('defaultViewMode', defaultViewMode) as ViewMode;
+		defaultViewMode = loadString('defaultViewMode', defaultViewMode) === 'table' ? 'table' : 'kanban';
 		defaultColumnSort = loadString('defaultColumnSort', defaultColumnSort) as SortBy;
 		showColumnCounts = loadBool('showColumnCounts', showColumnCounts);
 		alwaysShowHotkeys = loadBool('alwaysShowHotkeys', alwaysShowHotkeys);
