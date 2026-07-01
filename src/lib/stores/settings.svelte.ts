@@ -152,6 +152,7 @@ function createSettings() {
 	// Layout
 	let collapsedColumns = $state<Set<string>>(new Set());
 	let alwaysShowHotkeys = $state(false);
+	let sidebarCollapsed = $state(false);
 
 	// View Recipes
 	let viewRecipes = $state<ViewRecipe[]>([]);
@@ -194,6 +195,7 @@ function createSettings() {
 		defaultColumnSort = loadString('defaultColumnSort', defaultColumnSort) as SortBy;
 		showColumnCounts = loadBool('showColumnCounts', showColumnCounts);
 		alwaysShowHotkeys = loadBool('alwaysShowHotkeys', alwaysShowHotkeys);
+		sidebarCollapsed = loadBool('sidebarCollapsed', sidebarCollapsed);
 	}
 
 	function toggleColumnCollapse(key: string) {
@@ -274,6 +276,8 @@ function createSettings() {
 		set showColumnCounts(v: boolean) { showColumnCounts = v; persist('showColumnCounts', String(v)); },
 		get alwaysShowHotkeys() { return alwaysShowHotkeys; },
 		set alwaysShowHotkeys(v: boolean) { alwaysShowHotkeys = v; persist('alwaysShowHotkeys', String(v)); },
+		get sidebarCollapsed() { return sidebarCollapsed; },
+		set sidebarCollapsed(v: boolean) { sidebarCollapsed = v; persist('sidebarCollapsed', String(v)); },
 		get collapsedColumns() { return collapsedColumns; },
 		get combinedSystemPrompt() { return combinedSystemPrompt; },
 		get notificationMode() { return notificationMode; },

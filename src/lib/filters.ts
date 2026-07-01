@@ -1,13 +1,38 @@
 import type { Issue } from './types';
 
+/** Sentinel assignee token meaning "no assignee". */
+export const UNASSIGNED = '@unassigned';
+
+export const ALL_STATUSES = ['open', 'in_progress', 'hooked', 'blocked', 'closed'] as const;
+
+/**
+ * Multi-select filter state. Empty arrays mean "no constraint" (match all).
+ * `time` is single-select ('all' = inactive); `labelMode` picks any-of vs all-of.
+ */
 export interface FilterState {
-	searchQuery: string;
-	filterPriority: number | 'all';
-	filterType: string;
-	filterTime: string;
-	filterStatus: string;
-	filterLabel: string;
-	filterActionable: boolean;
+	search: string;
+	statuses: string[];
+	priorities: number[];
+	types: string[];
+	assignees: string[];
+	labels: string[];
+	labelMode: 'any' | 'all';
+	time: string;
+	actionable: boolean;
+}
+
+export function emptyFilterState(): FilterState {
+	return {
+		search: '',
+		statuses: [],
+		priorities: [],
+		types: [],
+		assignees: [],
+		labels: [],
+		labelMode: 'any',
+		time: 'all',
+		actionable: false
+	};
 }
 
 export function isIssueActionable(issue: Issue): boolean {
@@ -43,22 +68,93 @@ export function issueMatchesTimeFilter(issue: Issue, filterTime: string): boolea
 	}
 }
 
-export function issueMatchesFilters(issue: Issue, filters: FilterState): boolean {
-	const query = filters.searchQuery.toLowerCase();
+export function issueMatchesFilters(issue: Issue, f: FilterState): boolean {
+	const query = f.search.trim().toLowerCase();
 	const matchesSearch = !query ||
 		issue.id.toLowerCase().includes(query) ||
 		issue.title.toLowerCase().includes(query) ||
-		issue.description.toLowerCase().includes(query);
-	const matchesPriority = filters.filterPriority === 'all' || issue.priority === filters.filterPriority;
-	const matchesType = filters.filterType === 'all' || issue.issue_type === filters.filterType;
-	const matchesTime = issueMatchesTimeFilter(issue, filters.filterTime);
-	const matchesStatus = filters.filterStatus === 'all' ||
-		(filters.filterStatus.startsWith('!') ? issue.status !== filters.filterStatus.slice(1) : issue.status === filters.filterStatus);
-	const matchesLabel = filters.filterLabel === 'all' || (issue.labels || []).includes(filters.filterLabel);
-	const matchesActionable = !filters.filterActionable || isIssueActionable(issue);
-	return matchesSearch && matchesPriority && matchesType && matchesTime && matchesStatus && matchesLabel && matchesActionable;
+		(issue.description || '').toLowerCase().includes(query);
+
+	const matchesStatus = f.statuses.length === 0 || f.statuses.includes(issue.status);
+	const matchesPriority = f.priorities.length === 0 || f.priorities.includes(issue.priority);
+	const matchesType = f.types.length === 0 || f.types.includes(issue.issue_type);
+
+	const matchesAssignee = f.assignees.length === 0 || f.assignees.some(a =>
+		a === UNASSIGNED ? !issue.assignee : issue.assignee === a
+	);
+
+	const issueLabels = issue.labels || [];
+	const matchesLabel = f.labels.length === 0 || (
+		f.labelMode === 'all'
+			? f.labels.every(l => issueLabels.includes(l))
+			: f.labels.some(l => issueLabels.includes(l))
+	);
+
+	const matchesTime = issueMatchesTimeFilter(issue, f.time);
+	const matchesActionable = !f.actionable || isIssueActionable(issue);
+
+	return matchesSearch && matchesStatus && matchesPriority && matchesType &&
+		matchesAssignee && matchesLabel && matchesTime && matchesActionable;
 }
 
-export function hasActiveFilters(filters: FilterState): boolean {
-	return filters.searchQuery !== '' || filters.filterPriority !== 'all' || filters.filterType !== 'all' || filters.filterTime !== 'all' || filters.filterStatus !== 'all' || filters.filterLabel !== 'all' || filters.filterActionable;
+export function hasActiveFilters(f: FilterState): boolean {
+	return f.search.trim() !== '' || f.statuses.length > 0 || f.priorities.length > 0 ||
+		f.types.length > 0 || f.assignees.length > 0 || f.labels.length > 0 ||
+		f.time !== 'all' || f.actionable;
+}
+
+/** Count of active filter dimensions, for badges. */
+export function countActiveFilters(f: FilterState): number {
+	return (f.search.trim() !== '' ? 1 : 0) +
+		(f.statuses.length > 0 ? 1 : 0) +
+		(f.priorities.length > 0 ? 1 : 0) +
+		(f.types.length > 0 ? 1 : 0) +
+		(f.assignees.length > 0 ? 1 : 0) +
+		(f.labels.length > 0 ? 1 : 0) +
+		(f.time !== 'all' ? 1 : 0) +
+		(f.actionable ? 1 : 0);
+}
+
+/**
+ * Coerce a (possibly legacy v1) recipe filters object into the current v2 shape.
+ * v1 used single-value fields (searchQuery/filterStatus/filterPriority/…) with
+ * an 'all' sentinel and a '!status' negation for status.
+ */
+export function normalizeFilterState(raw: unknown): FilterState {
+	const base = emptyFilterState();
+	if (!raw || typeof raw !== 'object') return base;
+	const r = raw as Record<string, unknown>;
+
+	// Already v2? (arrays are copied so the result is a safe clone)
+	if (Array.isArray(r.statuses) || Array.isArray(r.priorities) || 'labelMode' in r) {
+		return {
+			search: typeof r.search === 'string' ? r.search : '',
+			statuses: Array.isArray(r.statuses) ? [...(r.statuses as string[])] : [],
+			priorities: Array.isArray(r.priorities) ? [...(r.priorities as number[])] : [],
+			types: Array.isArray(r.types) ? [...(r.types as string[])] : [],
+			assignees: Array.isArray(r.assignees) ? [...(r.assignees as string[])] : [],
+			labels: Array.isArray(r.labels) ? [...(r.labels as string[])] : [],
+			labelMode: r.labelMode === 'all' ? 'all' : 'any',
+			time: typeof r.time === 'string' ? r.time : 'all',
+			actionable: !!r.actionable
+		};
+	}
+
+	// Legacy v1
+	base.search = typeof r.searchQuery === 'string' ? r.searchQuery : '';
+	if (r.filterPriority !== undefined && r.filterPriority !== 'all') base.priorities = [Number(r.filterPriority)];
+	if (typeof r.filterType === 'string' && r.filterType !== 'all') base.types = [r.filterType];
+	if (typeof r.filterLabel === 'string' && r.filterLabel !== 'all') base.labels = [r.filterLabel];
+	base.time = typeof r.filterTime === 'string' ? r.filterTime : 'all';
+	base.actionable = !!r.filterActionable;
+	const fs = r.filterStatus;
+	if (typeof fs === 'string' && fs !== 'all') {
+		if (fs.startsWith('!')) {
+			const excluded = fs.slice(1);
+			base.statuses = ALL_STATUSES.filter(s => s !== excluded);
+		} else {
+			base.statuses = [fs];
+		}
+	}
+	return base;
 }

@@ -1,3 +1,5 @@
+import type { FilterState } from './filters';
+
 export interface Dependency {
 	id: string;
 	title: string;
@@ -174,17 +176,12 @@ export interface Project {
 export interface ViewRecipe {
 	id: string;
 	name: string;
-	filters: {
-		searchQuery: string;
-		filterPriority: number | 'all';
-		filterType: string;
-		filterTime: string;
-		filterStatus: string;
-		filterLabel: string;
-		filterActionable: boolean;
-	};
-	columnSort: Record<string, 'priority' | 'created' | 'title'>;
+	filters: FilterState;
+	columnSort: Record<string, SortBy>;
 	collapsedColumns: string[];
 	viewMode: ViewMode;
+	/** Table view column config (order/visibility/width); absent for legacy recipes. */
+	table?: TableColumnConfig[];
+	tableSort?: TableSortState | null;
 	createdAt: string;
 }

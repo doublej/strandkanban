@@ -52,20 +52,15 @@
 	import { createIssueStore } from '$lib/stores/issue-store.svelte';
 	import { createCardDrag } from '$lib/drag-drop/card-drag.svelte';
 	import { createPageOps } from '$lib/stores/page-ops.svelte';
-	import { issueMatchesFilters as matchesFilters, hasActiveFilters as checkActiveFilters, type FilterState } from '$lib/filters';
+	import { issueMatchesFilters as matchesFilters, hasActiveFilters as checkActiveFilters, countActiveFilters, emptyFilterState, normalizeFilterState, type FilterState } from '$lib/filters';
+	import FilterSidebar from '$lib/components/FilterSidebar.svelte';
 	import { getManagerVisible, getManagerSessionName, isManagerSession } from '$lib/stores/manager.svelte';
 	import { startManager, switchManagerProject, setServerProject } from '$lib/stores/ws-connection.svelte';
 	import { getQueueItems, getQueuedTicketIds, fetchInitialQueue } from '$lib/stores/queue.svelte';
 
 	// --- UI State (page-only) ---
 	let bdVersion = $state<{ version: string; compatible: boolean } | null>(null);
-	let searchQuery = $state('');
-	let filterPriority = $state<number | 'all'>('all');
-	let filterType = $state<string>('all');
-	let filterTime = $state<string>('all');
-	let filterStatus = $state<string>('all');
-	let filterLabel = $state<string>('all');
-	let filterActionable = $state(false);
+	let filters = $state<FilterState>(emptyFilterState());
 	let isFilterPreviewing = $state(false);
 	let selectedId = $state<string | null>(null);
 	let activeColumnIndex = $state(0);
@@ -296,13 +291,12 @@
 	const activeAgentNames = $derived([...wsPanes.keys()]);
 
 	// --- Filters ---
-	const filterState = $derived<FilterState>({
-		searchQuery, filterPriority, filterType, filterTime, filterStatus, filterLabel, filterActionable
-	});
-
-	const issueMatchesFilters = (issue: Issue) => matchesFilters(issue, filterState);
-	const hasActiveFilters = $derived(checkActiveFilters(filterState));
+	const issueMatchesFilters = (issue: Issue) => matchesFilters(issue, filters);
+	const hasActiveFilters = $derived(checkActiveFilters(filters));
+	const activeFilterCount = $derived(countActiveFilters(filters));
 	const availableLabels = $derived([...new Set(issues.flatMap(i => i.labels || []))].sort());
+	const availableAssignees = $derived([...new Set(issues.map(i => i.assignee).filter((a): a is string => !!a))].sort());
+	const availableTypes = $derived([...new Set(issues.map(i => i.issue_type).filter(Boolean))].sort());
 	const filteredIssues = $derived(issues.filter((issue) => issueMatchesFilters(issue)));
 
 	// --- Zen focus review ---
@@ -602,16 +596,10 @@
 		ops.handlePopState(e);
 	}
 
-	function captureCurrentViewState(): ViewRecipe['filters'] & { columnSort: ViewRecipe['columnSort']; collapsedColumns: ViewRecipe['collapsedColumns']; viewMode: ViewMode } {
+	function captureCurrentViewState(): { filters: FilterState; columnSort: Record<string, SortBy>; collapsedColumns: string[]; viewMode: ViewMode } {
 		return {
-			searchQuery,
-			filterPriority,
-			filterType,
-			filterTime,
-			filterStatus,
-			filterLabel,
-			filterActionable,
-			columnSort: columnSortBy,
+			filters: normalizeFilterState(filters),
+			columnSort: { ...columnSortBy },
 			collapsedColumns: [...settings.collapsedColumns],
 			viewMode
 		};
@@ -622,15 +610,7 @@
 		const recipe: ViewRecipe = {
 			id: crypto.randomUUID(),
 			name,
-			filters: {
-				searchQuery: state.searchQuery,
-				filterPriority: state.filterPriority,
-				filterType: state.filterType,
-				filterTime: state.filterTime,
-				filterStatus: state.filterStatus,
-				filterLabel: state.filterLabel,
-				filterActionable: state.filterActionable
-			},
+			filters: state.filters,
 			columnSort: state.columnSort,
 			collapsedColumns: state.collapsedColumns,
 			viewMode: state.viewMode,
@@ -642,14 +622,8 @@
 	}
 
 	function applyRecipe(recipe: ViewRecipe) {
-		searchQuery = recipe.filters.searchQuery;
-		filterPriority = recipe.filters.filterPriority;
-		filterType = recipe.filters.filterType;
-		filterTime = recipe.filters.filterTime;
-		filterStatus = recipe.filters.filterStatus;
-		filterLabel = recipe.filters.filterLabel;
-		filterActionable = recipe.filters.filterActionable;
-		columnSortBy = recipe.columnSort;
+		filters = normalizeFilterState(recipe.filters);
+		columnSortBy = { ...recipe.columnSort };
 		viewMode = recipe.viewMode;
 
 		const savedCollapsed = new Set(recipe.collapsedColumns);
@@ -753,14 +727,9 @@
 	onsetColorScheme={(scheme) => { colorScheme = scheme; settings.colorScheme = scheme; }}
 />
 	<Header
-		bind:searchQuery
-		bind:filterPriority
-		bind:filterType
-		bind:filterTime
-		bind:filterStatus
-		bind:filterLabel
-		bind:filterActionable
-		{availableLabels}
+		bind:searchQuery={filters.search}
+		filterCount={activeFilterCount}
+		ontogglefilters={() => settings.sidebarCollapsed = !settings.sidebarCollapsed}
 		bind:viewMode
 		{isDarkMode}
 		{projectName}
@@ -791,6 +760,19 @@
 	{/if}
 
 	<div class="health-row"><HealthBadge /></div>
+
+	<div class="workspace">
+	<FilterSidebar
+		{filters}
+		{availableLabels}
+		{availableAssignees}
+		{availableTypes}
+		activeCount={activeFilterCount}
+		collapsed={settings.sidebarCollapsed}
+		ontogglecollapse={() => settings.sidebarCollapsed = !settings.sidebarCollapsed}
+		onclear={() => filters = emptyFilterState()}
+	/>
+	<div class="workspace-main">
 
 	{#if viewMode === 'kanban'}
 	<ColumnNav
@@ -914,6 +896,9 @@
 			<DiffView />
 		</div>
 	{/if}
+
+	</div><!-- /.workspace-main -->
+	</div><!-- /.workspace -->
 
 <!-- Agent Bar - Pinned to bottom -->
 <AgentBar
@@ -1072,6 +1057,22 @@
 
 	.app.has-chat-bar {
 		height: calc(100vh - 48px);
+	}
+
+	.workspace {
+		display: flex;
+		flex: 1;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.workspace-main {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
 	}
 
 	.app-body {

@@ -1,20 +1,15 @@
 <script lang="ts">
 	import type { ViewMode, ViewRecipe } from '$lib/types';
 	import SearchBar from './SearchBar.svelte';
-	import FilterControls from './FilterControls.svelte';
+	import Icon from './Icon.svelte';
 	import ViewSwitcher from './ViewSwitcher.svelte';
 	import RecipePicker from './RecipePicker.svelte';
 	import HeaderActions from './HeaderActions.svelte';
 
 	interface Props {
 		searchQuery: string;
-		filterPriority: number | 'all';
-		filterType: string;
-		filterTime: string;
-		filterStatus: string;
-		filterLabel: string;
-		filterActionable: boolean;
-		availableLabels: string[];
+		filterCount: number;
+		ontogglefilters: () => void;
 		viewMode: ViewMode;
 		isDarkMode: boolean;
 		totalIssues: number;
@@ -40,13 +35,8 @@
 
 	let {
 		searchQuery = $bindable(),
-		filterPriority = $bindable(),
-		filterType = $bindable(),
-		filterTime = $bindable(),
-		filterStatus = $bindable(),
-		filterLabel = $bindable(),
-		filterActionable = $bindable(),
-		availableLabels,
+		filterCount,
+		ontogglefilters,
 		viewMode = $bindable(),
 		isDarkMode,
 		totalIssues,
@@ -71,10 +61,9 @@
 	}: Props = $props();
 
 	let isSearchFocused = $state(false);
-	let isFilterHovering = $state(false);
 
 	$effect(() => {
-		onpreviewchange?.(isSearchFocused || isFilterHovering);
+		onpreviewchange?.(isSearchFocused);
 	});
 
 	const viewModes: { key: ViewMode; label: string }[] = [
@@ -128,16 +117,18 @@
 
 			<span class="toolbar-sep"></span>
 
-			<FilterControls
-				bind:filterPriority
-				bind:filterType
-				bind:filterTime
-				bind:filterStatus
-				bind:filterLabel
-				bind:filterActionable
-				{availableLabels}
-				onhoverchange={(hovering) => isFilterHovering = hovering}
-			/>
+			<button
+				class="filter-toggle"
+				class:active={filterCount > 0}
+				onclick={ontogglefilters}
+				title="Toggle filter sidebar"
+			>
+				<Icon name="sliders" size={14} />
+				<span class="filter-toggle-label">Filters</span>
+				{#if filterCount > 0}
+					<span class="filter-toggle-badge">{filterCount}</span>
+				{/if}
+			</button>
 
 			<HeaderActions
 				{isDarkMode}
@@ -184,6 +175,60 @@
 		align-items: center;
 		gap: 0.375rem;
 		flex-shrink: 0;
+	}
+
+	.filter-toggle {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		height: 1.75rem;
+		min-width: 1.75rem;
+		padding: 0 0.5rem;
+		background: transparent;
+		border: none;
+		border-radius: 0.25rem;
+		color: var(--text-tertiary);
+		font-family: inherit;
+		font-size: 0.75rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background 0.1s, color 0.1s;
+	}
+
+	.filter-toggle :global(svg) {
+		flex-shrink: 0;
+	}
+
+	.filter-toggle:hover {
+		background: rgba(255, 255, 255, 0.06);
+		color: var(--text-primary);
+	}
+
+	.filter-toggle.active {
+		background: rgba(255, 255, 255, 0.1);
+		color: var(--text-primary);
+	}
+
+	:global(.app.light) .filter-toggle:hover {
+		background: rgba(0, 0, 0, 0.04);
+	}
+
+	:global(.app.light) .filter-toggle.active {
+		background: rgba(0, 0, 0, 0.06);
+	}
+
+	.filter-toggle-badge {
+		min-width: 1rem;
+		height: 1rem;
+		padding: 0 0.25rem;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		background: var(--accent-primary);
+		border-radius: 0.25rem;
+		color: #fff;
+		font-size: 0.625rem;
+		font-weight: 600;
 	}
 
 	.toolbar-sep {
@@ -287,6 +332,10 @@
 
 		.toolbar-right {
 			gap: 0.125rem;
+		}
+
+		.filter-toggle-label {
+			display: none;
 		}
 
 		.toolbar-sep {
