@@ -478,7 +478,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		margin: 0 10px 10px;
+		margin: 0 1.25rem 1.25rem;
 		padding: 0.5rem 0.75rem;
 		background: var(--bg-primary);
 		border: 1px solid rgba(255, 255, 255, 0.08);
@@ -501,6 +501,15 @@
 		box-shadow:
 			0 0 0 0.5px rgba(0, 0, 0, 0.06),
 			0 2px 8px rgba(0, 0, 0, 0.08);
+	}
+
+	/* Match the board's mobile insets so the bar aligns with content above */
+	@media (max-width: 768px) {
+		.agent-bar-inner {
+			margin-left: max(var(--mobile-padding), env(safe-area-inset-left));
+			margin-right: max(var(--mobile-padding), env(safe-area-inset-right));
+			margin-bottom: max(var(--mobile-padding), env(safe-area-inset-bottom));
+		}
 	}
 
 	.agent-bar-status {
