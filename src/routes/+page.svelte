@@ -4,7 +4,7 @@
 	import { pushState as svelteKitPushState, replaceState as svelteKitReplaceState } from '$app/navigation';
 	import { setCurrentProject, appendProjectParam } from '$lib/project';
 	import { connect, disconnect, getPanes, getSessions, isConnected, addPane, removePane, sendToPane, killSession, clearAllSessions, endSession, clearSession, continueSession, compactSession, interrupt, getPersistedSdkSessionId, getAllPersistedSessions, deletePersistedSession, fetchSdkSessions, markPaneAsRead, getTotalUnreadCount, getUnreadCount, notifyAgentOfTicketUpdate, type Pane, type SdkSessionInfo } from '$lib/wsStore.svelte';
-	import type { Issue, Attachment, CardPosition, FlyingCard, SortBy, PaneSize, ViewMode, Project, ViewRecipe, TableColumnConfig, TableSortState } from '$lib/types';
+	import { coerceViewMode, type Issue, type Attachment, type CardPosition, type FlyingCard, type SortBy, type PaneSize, type ViewMode, type Project, type ViewRecipe, type TableColumnConfig, type TableSortState } from '$lib/types';
 	import {
 		columns,
 		getPriorityConfig,
@@ -52,6 +52,7 @@
 	import { issueMatchesFilters as matchesFilters, hasActiveFilters as checkActiveFilters, countActiveFilters, emptyFilterState, normalizeFilterState, type FilterState } from '$lib/filters';
 	import FilterSidebar from '$lib/components/FilterSidebar.svelte';
 	import TableView from '$lib/components/TableView.svelte';
+	import FlowView from '$lib/components/flow/FlowView.svelte';
 	import { reconcileTableColumns } from '$lib/table-columns';
 	import { getManagerVisible, getManagerSessionName, isManagerSession } from '$lib/stores/manager.svelte';
 	import { startManager, switchManagerProject, setServerProject } from '$lib/stores/ws-connection.svelte';
@@ -679,7 +680,7 @@
 	}) {
 		filters = normalizeFilterState(state.filters);
 		columnSortBy = { ...state.columnSort };
-		viewMode = state.viewMode === 'table' ? 'table' : 'kanban';
+		viewMode = coerceViewMode(state.viewMode);
 		if (state.table) settings.tableColumns = reconcileTableColumns(state.table);
 		if (state.tableSort !== undefined) settings.tableSort = state.tableSort;
 
@@ -959,6 +960,18 @@
 				onbulkdelete={bulkDeleteIssues}
 			/>
 		</div>
+	{:else if viewMode === 'flow'}
+		<div class="flow-layout" class:wipe-out={projectTransition === 'wipe-out'} class:wipe-in={projectTransition === 'wipe-in'}>
+			{#if ops.panelOpen}
+				{@render detailPanel()}
+			{/if}
+			<FlowView
+				issues={filteredIssues}
+				{selectedId}
+				isDark={isDarkMode}
+				onselect={(issue) => ops.openEditPanel(issue)}
+			/>
+		</div>
 	{/if}
 
 	</div><!-- /.workspace-main -->
@@ -1191,6 +1204,22 @@
 		flex: 0 0 clamp(480px, 40%, 760px);
 		min-width: 480px;
 		max-width: 760px;
+	}
+
+	.flow-layout {
+		display: flex;
+		flex: 1;
+		gap: 1rem;
+		padding: 1.25rem;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.flow-layout :global(.panel) {
+		flex: 0 0 clamp(420px, 34%, 620px);
+		min-width: 420px;
+		max-width: 620px;
 	}
 
 	.board::-webkit-scrollbar {

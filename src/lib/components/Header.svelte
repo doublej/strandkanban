@@ -68,7 +68,8 @@
 
 	const viewModes: { key: ViewMode; label: string }[] = [
 		{ key: 'kanban', label: 'board' },
-		{ key: 'table', label: 'table' }
+		{ key: 'table', label: 'table' },
+		{ key: 'flow', label: 'graph' }
 	];
 
 	const activeViewLabel = $derived(viewModes.find(m => m.key === viewMode)?.label ?? 'board');
