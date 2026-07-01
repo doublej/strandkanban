@@ -6,6 +6,18 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&display=swap');
 
 /* ═══════════════════════════════════════════════════════════════
+   Hide scrollbars app-wide (scrolling still works via wheel/trackpad/touch)
+   ═══════════════════════════════════════════════════════════════ */
+* {
+	scrollbar-width: none;      /* Firefox */
+	-ms-overflow-style: none;   /* legacy Edge/IE */
+}
+*::-webkit-scrollbar {
+	width: 0;
+	height: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════
    CTA Button System - 5 variants
    ═══════════════════════════════════════════════════════════════ */
 

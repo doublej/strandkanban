@@ -211,7 +211,7 @@
 		<div class="thead">
 			{#each visibleCols as c (c.key)}
 				{@const def = TABLE_COLUMN_MAP[c.key]}
-				<div class="th" style="width: {widthOf(c.key)}px;" class:num={def.align === 'right'}>
+				<div class="th" style="flex: {widthOf(c.key)} 1 0;" class:num={def.align === 'right'}>
 					<button class="th-label" class:sortable={def.sortable} class:sorted={sort?.field === c.key} onclick={() => toggleSort(c.key)}>
 						<span>{def.label}</span>
 						{#if sort?.field === c.key}
@@ -242,7 +242,7 @@
 				>
 					{#each visibleCols as c (c.key)}
 						{@const def = TABLE_COLUMN_MAP[c.key]}
-						<div class="td" style="width: {widthOf(c.key)}px;" class:num={def.align === 'right'}>
+						<div class="td" style="flex: {widthOf(c.key)} 1 0;" class:num={def.align === 'right'}>
 							{#if c.key === 'seq'}
 								<span class="mono muted" title={issue.id}>#{issue.seq}</span>
 							{:else if c.key === 'title'}
@@ -476,7 +476,8 @@
 	.table-scroll {
 		flex: 1;
 		min-height: 0;
-		overflow: auto;
+		overflow-x: hidden;
+		overflow-y: auto;
 	}
 
 	.thead {
@@ -486,14 +487,14 @@
 		z-index: 2;
 		background: var(--surface-panel);
 		border-bottom: 1px solid var(--border-default);
-		min-width: min-content;
+		width: 100%;
 	}
 
 	.th {
 		position: relative;
 		display: flex;
 		align-items: center;
-		flex-shrink: 0;
+		min-width: 0;
 		padding: 0 0.75rem;
 		height: 2.25rem;
 	}
@@ -558,7 +559,6 @@
 	.tr {
 		display: flex;
 		width: 100%;
-		min-width: min-content;
 		text-align: left;
 		background: transparent;
 		border: none;
@@ -646,7 +646,6 @@
 	.td {
 		display: flex;
 		align-items: center;
-		flex-shrink: 0;
 		gap: 0.375rem;
 		padding: 0.5rem 0.75rem;
 		font-size: 0.8125rem;
