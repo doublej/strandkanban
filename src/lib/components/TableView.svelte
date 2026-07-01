@@ -256,7 +256,7 @@
 					class="th"
 					role="columnheader"
 					tabindex="-1"
-					style="flex: {widthOf(c.key)} 1 0;"
+					style="width: {widthOf(c.key)}px;"
 					class:num={def.align === 'right'}
 					class:dragging={dragColKey === c.key}
 					class:drag-over={dragOverKey === c.key}
@@ -297,7 +297,7 @@
 				>
 					{#each visibleCols as c (c.key)}
 						{@const def = TABLE_COLUMN_MAP[c.key]}
-						<div class="td" style="flex: {widthOf(c.key)} 1 0;" class:num={def.align === 'right'}>
+						<div class="td" style="width: {widthOf(c.key)}px;" class:num={def.align === 'right'}>
 							{#if c.key === 'seq'}
 								<span class="mono muted" title={issue.id}>#{issue.seq}</span>
 							{:else if c.key === 'title'}
@@ -531,8 +531,7 @@
 	.table-scroll {
 		flex: 1;
 		min-height: 0;
-		overflow-x: hidden;
-		overflow-y: auto;
+		overflow: auto;
 	}
 
 	.thead {
@@ -542,14 +541,14 @@
 		z-index: 2;
 		background: var(--surface-panel);
 		border-bottom: 1px solid var(--border-default);
-		width: 100%;
+		min-width: min-content;
 	}
 
 	.th {
 		position: relative;
 		display: flex;
 		align-items: center;
-		min-width: 0;
+		flex-shrink: 0;
 		padding: 0 0.75rem;
 		height: 2.25rem;
 		cursor: grab;
@@ -624,6 +623,7 @@
 	.tr {
 		display: flex;
 		width: 100%;
+		min-width: min-content;
 		text-align: left;
 		background: transparent;
 		border: none;
@@ -715,7 +715,7 @@
 		padding: 0.5rem 0.75rem;
 		font-size: 0.8125rem;
 		color: var(--text-secondary);
-		min-width: 0;
+		flex-shrink: 0;
 		overflow: hidden;
 	}
 	.td.num {
