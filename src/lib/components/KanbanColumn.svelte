@@ -202,27 +202,29 @@
 	}
 
 	.column.collapsed {
-		flex: 0 0 40px;
-		min-width: 40px;
+		flex: 0 0 32px;
+		min-width: 32px;
 	}
 
 	/* Collapsed column header layout overrides (applied via parent) */
 	.column.collapsed :global(.column-header) {
+		position: relative;
 		flex-direction: column;
 		align-items: center;
-		justify-content: flex-start;
-		padding: 0.75rem 0.25rem;
+		justify-content: center;
+		padding: 0.75rem 0.125rem;
 		height: 100%;
 		cursor: pointer;
 		gap: 0.5rem;
 	}
 
 	.column.collapsed :global(.column-title) {
-		flex-direction: column;
+		flex-direction: row;
 		align-items: center;
-		writing-mode: vertical-rl;
-		text-orientation: mixed;
 		gap: 0.375rem;
+		transform: rotate(90deg);
+		transform-origin: center;
+		white-space: nowrap;
 	}
 
 	.column.collapsed :global(.column-title h2) {
@@ -239,10 +241,13 @@
 	}
 
 	.column.collapsed :global(.column-header-actions) {
+		position: absolute;
+		bottom: 0.5rem;
+		left: 0;
+		right: 0;
 		flex-direction: column;
 		align-items: center;
 		gap: 0.375rem;
-		margin-top: auto;
 	}
 
 	.column.collapsed :global(.sort-dropdown) {
