@@ -152,7 +152,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding: 0.5rem 1rem;
+		padding: 0.875rem 1.5rem 0.5rem;
 		gap: 1rem;
 	}
 
@@ -216,9 +216,10 @@
 	}
 
 	.filter-toggle-badge {
-		min-width: 1rem;
-		height: 1rem;
+		min-width: 1.25rem;
+		height: 1.25rem;
 		padding: 0 0.25rem;
+		margin-right: -0.375rem;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
