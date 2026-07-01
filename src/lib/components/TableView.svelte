@@ -11,7 +11,8 @@
 		formatTimestamp,
 		calculateImpactScore,
 		getImpactLevel,
-		isAgentAssignee
+		isAgentAssignee,
+		copyToClipboard
 	} from '$lib/utils';
 	import Icon from './Icon.svelte';
 
@@ -105,6 +106,44 @@
 		if (selectedIds.size === 0) return;
 		onbulkdelete([...selectedIds]);
 		clearSelection();
+	}
+
+	// --- Copy selected rows (IDs, or full details) in visible order ---
+	let copiedKind = $state<'ids' | 'details' | null>(null);
+	let copiedTimer: ReturnType<typeof setTimeout> | null = null;
+
+	function selectedInOrder(): Issue[] {
+		return rows.filter((r) => selectedIds.has(r.id));
+	}
+
+	function flashCopied(kind: 'ids' | 'details') {
+		if (copiedTimer) clearTimeout(copiedTimer);
+		copiedKind = kind;
+		copiedTimer = setTimeout(() => (copiedKind = null), 1500);
+	}
+
+	function formatFull(issue: Issue): string {
+		const lines = [`${issue.id}  ${issue.title}`];
+		const meta = [`status: ${issue.status}`, `priority: ${getPriorityConfig(issue.priority).label}`, `type: ${issue.issue_type}`];
+		if (issue.assignee) meta.push(`assignee: ${issue.assignee}`);
+		if (issue.labels?.length) meta.push(`labels: ${issue.labels.join(', ')}`);
+		lines.push(meta.join('  |  '));
+		if (issue.description?.trim()) lines.push('', issue.description.trim());
+		return lines.join('\n');
+	}
+
+	async function copyIds() {
+		const sel = selectedInOrder();
+		if (sel.length === 0) return;
+		await copyToClipboard(sel.map((i) => i.id).join('\n'));
+		flashCopied('ids');
+	}
+
+	async function copyDetails() {
+		const sel = selectedInOrder();
+		if (sel.length === 0) return;
+		await copyToClipboard(sel.map(formatFull).join('\n\n---\n\n'));
+		flashCopied('details');
 	}
 
 	// --- Column resize (live width while dragging, committed on release) ---
@@ -364,6 +403,12 @@
 					<option value="">Set priority…</option>
 					{#each PRIORITY_OPTS as p (p.value)}<option value={p.value}>{p.label}</option>{/each}
 				</select>
+				<button class="bulk-btn" onclick={copyIds} title="Copy selected IDs">
+					<Icon name={copiedKind === 'ids' ? 'check' : 'copy'} size={13} /> {copiedKind === 'ids' ? 'Copied' : 'IDs'}
+				</button>
+				<button class="bulk-btn" onclick={copyDetails} title="Copy selected issue details">
+					<Icon name={copiedKind === 'details' ? 'check' : 'copy'} size={13} /> {copiedKind === 'details' ? 'Copied' : 'Details'}
+				</button>
 				<button class="bulk-btn danger" onclick={bulkDelete}><Icon name="trash" size={13} /> Delete</button>
 				<button class="bulk-btn" onclick={clearSelection}>Clear</button>
 			</div>
