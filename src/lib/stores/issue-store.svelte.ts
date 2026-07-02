@@ -153,6 +153,9 @@ export function createIssueStore(callbacks: IssueStoreCallbacks) {
 
 	async function refreshIssues() {
 		try {
+			if (!initialLoaded && loadingStatus.phase !== 'loading') {
+				loadingStatus = { ...loadingStatus, phase: 'loading' };
+			}
 			const res = await fetch(appendProjectParam('/api/issues'));
 			const payload = await res.json();
 			if (!payload?.ok) {
@@ -191,6 +194,9 @@ export function createIssueStore(callbacks: IssueStoreCallbacks) {
 	}
 
 	function connectSSE(): EventSource {
+		if (!initialLoaded) {
+			loadingStatus = { ...loadingStatus, phase: 'connecting' };
+		}
 		const eventSource = new EventSource(appendProjectParam('/api/events/stream'));
 		sseSource = eventSource;
 

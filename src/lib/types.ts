@@ -149,7 +149,7 @@ export interface DiffResult {
 	commits: { hash: string; message: string; date: string }[];
 }
 
-export type LoadingPhase = 'disconnected' | 'ready' | 'error';
+export type LoadingPhase = 'disconnected' | 'connecting' | 'loading' | 'ready' | 'error';
 
 export interface LoadingStatus {
 	phase: LoadingPhase;

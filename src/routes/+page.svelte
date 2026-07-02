@@ -112,6 +112,7 @@
 	let currentProjectPath = $state('');
 	let projectColor = $state('#6366f1');
 	let projectTransition = $state<'idle' | 'wipe-out' | 'wipe-in'>('idle');
+	let switchStatus = $state<string | null>(null);
 	let collapsedColumns = $derived(settings.collapsedColumns);
 	let currentRecipeId = $state<string | null>(null);
 	let lastAppliedRecipeSnapshot = $state<string | null>(null);
@@ -594,6 +595,8 @@
 	async function switchProject(project: Project) {
 		if (project.path === currentProjectPath) return;
 		const WIPE_DURATION = 350;
+		const targetName = project.meta?.title || project.name;
+		switchStatus = `Switching to ${targetName}…`;
 		projectTransition = 'wipe-out';
 		issueStore.closeSse();
 
@@ -612,7 +615,8 @@
 			fetch('/api/cwd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: project.path }) }),
 			new Promise(r => setTimeout(r, WIPE_DURATION))
 		]);
-		if (!cwdRes.ok) { projectTransition = 'idle'; return; }
+		if (!cwdRes.ok) { projectTransition = 'idle'; switchStatus = null; return; }
+		switchStatus = 'Loading issues…';
 		const issuesRes = await fetch(appendProjectParam('/api/issues'));
 		const issuesPayload = await issuesRes.json();
 		const issuesData = issuesPayload?.ok ? issuesPayload.data : { issues: [] };
@@ -624,6 +628,7 @@
 		ops.editingIssue = null;
 		ops.isCreating = false;
 		projectTransition = 'wipe-in';
+		switchStatus = null;
 		issueStore.connectSSE();
 
 		// Update URL to include project param
@@ -1039,7 +1044,14 @@
 
 <FlyingCardComponent {teleports} />
 
-<InitialLoader status={loadingStatus} visible={!initialLoaded} />
+<InitialLoader status={loadingStatus} visible={!initialLoaded} {projectName} />
+
+{#if switchStatus}
+	<div class="switch-status" role="status" aria-live="polite">
+		<span class="switch-spinner"></span>
+		<span class="switch-text">{switchStatus}</span>
+	</div>
+{/if}
 
 {#if zenOpen}
 	<ZenReview
@@ -1105,6 +1117,49 @@
 <PwaInstallPrompt />
 
 <style>
+	.switch-status {
+		position: fixed;
+		top: 1rem;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 9998;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 0.875rem;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--bg-secondary, #1c1c1f) 82%, transparent);
+		border: 1px solid var(--border-subtle);
+		box-shadow: var(--shadow-lg);
+		backdrop-filter: blur(10px);
+		animation: switchStatusIn 160ms ease-out;
+	}
+
+	@keyframes switchStatusIn {
+		from { opacity: 0; transform: translate(-50%, -8px); }
+		to { opacity: 1; transform: translate(-50%, 0); }
+	}
+
+	.switch-spinner {
+		width: 13px;
+		height: 13px;
+		border: 2px solid var(--border-default, rgba(255, 255, 255, 0.15));
+		border-top-color: var(--accent-primary, #6366f1);
+		border-radius: 50%;
+		animation: switchSpin 0.7s linear infinite;
+	}
+
+	@keyframes switchSpin {
+		to { transform: rotate(360deg); }
+	}
+
+	.switch-text {
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: var(--text-primary);
+		white-space: nowrap;
+	}
+
 	.version-warning {
 		background: rgba(245, 158, 11, 0.15);
 		border-bottom: 1px solid rgba(245, 158, 11, 0.3);

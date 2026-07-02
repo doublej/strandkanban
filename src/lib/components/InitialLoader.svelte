@@ -1,10 +1,17 @@
 <script lang="ts">
 	import type { LoadingStatus } from '$lib/types';
+	import SkeletonBoard from './SkeletonBoard.svelte';
 
-	let { status, visible }: { status: LoadingStatus; visible: boolean } = $props();
+	let {
+		status,
+		visible,
+		projectName = ''
+	}: { status: LoadingStatus; visible: boolean; projectName?: string } = $props();
 
 	const phaseMessages: Record<string, string> = {
-		disconnected: 'Loading...',
+		disconnected: 'Starting up…',
+		connecting: 'Connecting to project…',
+		loading: 'Loading issues…',
 		ready: 'Ready',
 		error: 'Connection failed'
 	};
@@ -12,11 +19,18 @@
 
 {#if visible}
 <div class="loader" class:ready={status.phase === 'ready'} class:entering={status.phase === 'disconnected'}>
+	<div class="skeleton-bg">
+		<SkeletonBoard />
+	</div>
+
 	<div class="content">
 		<div class="spinner" class:error={status.phase === 'error'}></div>
 
 		<div class="info">
-			<p class="message">{phaseMessages[status.phase]}</p>
+			{#if projectName}
+				<p class="project">{projectName}</p>
+			{/if}
+			<p class="message">{phaseMessages[status.phase] ?? 'Loading…'}</p>
 
 			{#if status.issueCount > 0}
 				<p class="detail">{status.issueCount} issues loaded</p>
@@ -59,11 +73,35 @@
 		pointer-events: none;
 	}
 
+	.skeleton-bg {
+		position: absolute;
+		inset: 0;
+		opacity: 0.4;
+		pointer-events: none;
+		mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, transparent 30%, #000 85%);
+		-webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 45%, transparent 30%, #000 85%);
+	}
+
 	.content {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		gap: 20px;
+		padding: 28px 40px;
+		border-radius: 16px;
+		background: color-mix(in srgb, var(--bg-secondary, #1c1c1f) 70%, transparent);
+		border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+		box-shadow: var(--shadow-lg, 0 20px 60px rgba(0, 0, 0, 0.4));
+		backdrop-filter: blur(12px);
+	}
+
+	.project {
+		font-family: 'Inter', -apple-system, sans-serif;
+		font-size: 15px;
+		font-weight: 600;
+		color: var(--text-primary, #fff);
+		margin-bottom: 2px;
 	}
 
 	.spinner {
