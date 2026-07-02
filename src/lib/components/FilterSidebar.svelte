@@ -16,6 +16,8 @@
 		ontogglecollapse: () => void;
 		onclear: () => void;
 		queue?: Snippet;
+		queueCount?: number;
+		onexpand?: () => void;
 	}
 
 	let {
@@ -27,7 +29,9 @@
 		collapsed,
 		ontogglecollapse,
 		onclear,
-		queue
+		queue,
+		queueCount = 0,
+		onexpand
 	}: Props = $props();
 
 	const KNOWN_TYPES = ['task', 'bug', 'feature', 'enhancement', 'epic', 'chore'];
@@ -72,6 +76,18 @@
 			<Icon name="sliders" size={16} />
 			{#if activeCount > 0}<span class="rail-badge">{activeCount}</span>{/if}
 		</button>
+		{#if queueCount > 0}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<button
+				class="rail-btn queue-rail-btn"
+				onclick={ontogglecollapse}
+				ondragover={(e) => { e.preventDefault(); onexpand?.(); }}
+				title="Show queue ({queueCount})"
+			>
+				<Icon name="agent" size={16} />
+				<span class="rail-badge queue">{queueCount}</span>
+			</button>
+		{/if}
 	</aside>
 {:else}
 	<div
@@ -319,6 +335,15 @@
 		color: #fff;
 		font-size: 0.5625rem;
 		font-weight: 700;
+	}
+
+	.queue-rail-btn {
+		margin-top: 0.25rem;
+		color: #f59e0b;
+	}
+
+	.rail-badge.queue {
+		background: #f59e0b;
 	}
 
 	.sidebar-header {

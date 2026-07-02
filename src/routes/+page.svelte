@@ -856,6 +856,8 @@
 		ontogglecollapse={() => settings.sidebarCollapsed = !settings.sidebarCollapsed}
 		onclear={() => filters = emptyFilterState()}
 		queue={queuePanel}
+		queueCount={mappedAgentQueue.length + runningAgents.length}
+		onexpand={() => settings.sidebarCollapsed = false}
 	/>
 	<div class="workspace-main">
 
