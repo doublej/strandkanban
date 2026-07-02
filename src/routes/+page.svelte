@@ -345,6 +345,7 @@
 		setShowHotkeys: (v) => { showHotkeys = v; },
 		getShowProjectSwitcher: () => showProjectSwitcher,
 		setShowProjectSwitcher: (v) => { showProjectSwitcher = v; },
+		getOverlayOpen: () => showSettings || showPrompts || showWizard || showMutationLog || showProjectSwitcher,
 		getProjectCount: () => projects.length,
 		createIssue: ops.createIssue,
 		openCreatePanel: ops.openCreatePanel,

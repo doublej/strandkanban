@@ -16,6 +16,8 @@ export interface KeyboardNavContext {
 	setShowHotkeys: (v: boolean) => void;
 	getShowProjectSwitcher: () => boolean;
 	setShowProjectSwitcher: (v: boolean) => void;
+	/** True when a modal/overlay owns the keyboard; board hotkeys are suppressed. */
+	getOverlayOpen: () => boolean;
 	getProjectCount: () => number;
 	createIssue: () => void;
 	openCreatePanel: () => void;
@@ -50,7 +52,8 @@ function getCardAt(filteredIssues: Issue[], col: number, row: number): string | 
 function isInputElement(target: EventTarget | null): boolean {
 	return target instanceof HTMLInputElement ||
 		target instanceof HTMLTextAreaElement ||
-		target instanceof HTMLSelectElement;
+		target instanceof HTMLSelectElement ||
+		(target instanceof HTMLElement && target.isContentEditable);
 }
 
 function handleGlobalShortcuts(e: KeyboardEvent, ctx: KeyboardNavContext): boolean {
@@ -274,6 +277,8 @@ export function createKeyboardNav(ctx: KeyboardNavContext) {
 	function handleKeydown(e: KeyboardEvent) {
 		if (handleGlobalShortcuts(e, ctx)) return;
 		if (handleEscape(e, ctx)) return;
+		// A modal/overlay is open — it owns the keyboard; don't let board hotkeys fire behind it.
+		if (ctx.getOverlayOpen()) return;
 		if (isInputElement(e.target)) return;
 		if (handleNonInputShortcuts(e, ctx)) return;
 		if (handleColumnJump(e, ctx)) return;
