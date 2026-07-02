@@ -34,6 +34,30 @@ First launch may show a Gatekeeper prompt — approve it once.
 scheme/install.sh --uninstall
 ```
 
+## Clickable links in the terminal (Ghostty / iTerm2)
+
+Terminals only auto-detect `http(s)`/`file` URLs, not custom schemes. The
+portable, zero-config way to make `bdk://` links clickable is **OSC 8
+hyperlinks** — both Ghostty and iTerm2 open them on ⌘-click via the registered
+scheme handler.
+
+Emit one from any script:
+
+```bash
+# bdk-link <id> [label]
+bdk-link() { printf '\e]8;;bdk://%s\e\\%s\e]8;;\e\\\n' "$1" "${2:-$1}"; }
+bdk-link beads-kanban-877y
+```
+
+Per-terminal notes:
+
+- **Ghostty** — OSC 8 works out of the box (⌘-click). Bare `bdk://…` *text*
+  can't be auto-linked: the custom-regex `link` config is documented
+  "can't currently be set". Use OSC 8.
+- **iTerm2** — OSC 8 works (⌘-click). To also linkify bare `bdk://…` text, add a
+  Smart Selection rule: Settings → Profiles → Advanced → Smart Selection → Edit,
+  regex `\bbdk://[A-Za-z0-9._-]+`, action **Open URL** `\0`.
+
 ## Notes
 
 - Only the *most recently started* board is tracked for reuse
