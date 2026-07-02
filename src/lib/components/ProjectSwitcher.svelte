@@ -121,15 +121,24 @@
 					<div class="project-dot"></div>
 					<div class="project-info">
 						<div class="name-row">
-							<span class="project-name">{project.name}</span>
+							<span class="project-name">{project.meta?.title || project.name}</span>
 							{#if project.meta?.type}
 								<span class="tag">{project.meta.type}</span>
 							{/if}
 							{#if project.meta?.framework}
 								<span class="tag tag-alt">{project.meta.framework}</span>
 							{/if}
+							{#if project.meta?.runner}
+								<span class="tag tag-runner">{project.meta.runner}</span>
+							{/if}
+							{#if project.meta?.archived}
+								<span class="tag tag-archived">archived</span>
+							{/if}
 						</div>
-						<span class="project-desc">{project.meta?.description || project.path}</span>
+						<span class="project-path">{project.meta?.relativePath || project.path}</span>
+						{#if project.meta?.description}
+							<span class="project-desc">{project.meta.description}</span>
+						{/if}
 						<div class="meta-row">
 							{#if project.stats && project.stats.changed > 0 && !isCurrent}
 								<span class="meta-new">+{project.stats.changed} since visit</span>
@@ -137,6 +146,11 @@
 							{#if project.meta?.gitBranch}
 								<span class="meta-item git" class:dirty={project.meta.git === 'dirty'}>
 									<span class="git-dot"></span>{project.meta.gitBranch}
+								</span>
+							{/if}
+							{#if project.meta?.deploy?.length}
+								<span class="meta-item deploy">
+									<span class="deploy-icon">↗</span>{project.meta.deploy.join(' · ')}
 								</span>
 							{/if}
 							{#if project.stats?.lastActivity}
@@ -193,9 +207,9 @@
 	}
 
 	.switcher-modal {
-		width: 480px;
-		max-width: 92vw;
-		max-height: 80vh;
+		width: 640px;
+		max-width: 94vw;
+		max-height: 82vh;
 		background: var(--bg-secondary);
 		border: 1px solid var(--border-subtle);
 		border-radius: var(--radius-xl);
@@ -237,16 +251,17 @@
 	.projects-list {
 		display: flex;
 		flex-direction: column;
-		padding: 0.5rem;
-		max-height: 320px;
+		gap: 0.125rem;
+		padding: 0.625rem;
+		max-height: 480px;
 		overflow-y: auto;
 	}
 
 	.project-item {
 		display: flex;
 		align-items: flex-start;
-		gap: 0.625rem;
-		padding: 0.625rem 0.75rem;
+		gap: 0.75rem;
+		padding: 0.875rem 1rem;
 		border-radius: var(--radius-md);
 		cursor: pointer;
 		transition: background 100ms ease;
@@ -269,18 +284,18 @@
 	}
 
 	.project-dot {
-		width: 8px;
-		height: 8px;
+		width: 10px;
+		height: 10px;
 		border-radius: 50%;
 		background: var(--project-color);
 		flex-shrink: 0;
-		margin-top: 0.3rem;
+		margin-top: 0.4rem;
 	}
 
 	.project-info {
 		display: flex;
 		flex-direction: column;
-		gap: 0.1875rem;
+		gap: 0.25rem;
 		min-width: 0;
 		flex: 1;
 	}
@@ -293,9 +308,18 @@
 	}
 
 	.project-name {
-		font-size: 0.875rem;
+		font-size: 1rem;
 		font-weight: 600;
 		color: var(--text-primary);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.project-path {
+		font-family: 'IBM Plex Mono', ui-monospace, monospace;
+		font-size: 0.6875rem;
+		color: var(--text-tertiary);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -318,13 +342,25 @@
 		color: var(--text-secondary);
 	}
 
+	.tag-runner {
+		color: var(--accent, #6366f1);
+		border-color: color-mix(in srgb, var(--accent, #6366f1) 35%, transparent);
+	}
+
+	.tag-archived {
+		color: #f59e0b;
+		border-color: color-mix(in srgb, #f59e0b 35%, transparent);
+	}
+
 	.project-desc {
-		font-size: 0.6875rem;
-		line-height: 1.35;
+		font-size: 0.75rem;
+		line-height: 1.4;
 		color: var(--text-secondary);
-		white-space: nowrap;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		-webkit-box-orient: vertical;
 		overflow: hidden;
-		text-overflow: ellipsis;
 	}
 
 	.meta-row {
@@ -367,6 +403,12 @@
 
 	.git.dirty .git-dot {
 		background: #f59e0b;
+	}
+
+	.deploy-icon {
+		font-size: 0.6875rem;
+		line-height: 1;
+		opacity: 0.8;
 	}
 
 	.project-right {
