@@ -173,11 +173,30 @@ export interface MutationEntry {
 	newValue: string;
 }
 
+/** Beads activity for a project, derived from its .beads/issues.jsonl. */
+export interface ProjectStats {
+	active: number; // non-closed issues
+	total: number; // all issues
+	changed: number; // issues updated since lastAccess
+	lastActivity: string | null; // ISO of most recent issue update
+}
+
+/** Project metadata sourced from the atlas index (.atlas-cache.json). */
+export interface ProjectMeta {
+	description?: string;
+	type?: string; // e.g. node, rust, python
+	framework?: string; // e.g. sveltekit, tauri
+	git?: string; // 'clean' | 'dirty'
+	gitBranch?: string;
+}
+
 export interface Project {
 	path: string;
 	name: string;
 	lastAccess: string;
 	color: string;
+	stats?: ProjectStats;
+	meta?: ProjectMeta;
 }
 
 export interface ViewRecipe {

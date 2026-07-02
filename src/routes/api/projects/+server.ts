@@ -3,6 +3,7 @@ import { homedir } from 'os';
 import { join } from 'path';
 import type { RequestHandler } from './$types';
 import { ok, wrap, ApiError } from '$lib/server/response';
+import { enrichProjects } from '$lib/server/project-stats';
 
 const PROJECTS_FILE = join(homedir(), '.beads-kanban-projects.json');
 
@@ -45,7 +46,7 @@ export const GET: RequestHandler = wrap(async () => {
 		...p,
 		color: p.color || generateColor(p.path),
 	}));
-	return ok({ projects });
+	return ok({ projects: await enrichProjects(projects) });
 });
 
 export const POST: RequestHandler = wrap(async ({ request }) => {
@@ -67,5 +68,5 @@ export const POST: RequestHandler = wrap(async ({ request }) => {
 		});
 	}
 	await saveProjects(projects);
-	return ok({ projects });
+	return ok({ projects: await enrichProjects(projects) });
 });
