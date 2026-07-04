@@ -67,10 +67,17 @@ class HookExecutor {
     }
   }
 
+  /** Single-quote a value so it can't break out of the `bash -c` command string. */
+  private shellQuote(value: string): string {
+    return `'${value.replace(/'/g, `'\\''`)}'`;
+  }
+
   private interpolate(cmd: string, ctx: HookContext): string {
     return cmd.replace(/\{(\w+)\}/g, (_, key) => {
       const v = (ctx as Record<string, unknown>)[key];
-      return v === undefined || v === null ? "" : String(v);
+      // Shell-quote every substituted value: ticket titles/comments are
+      // attacker-influenced and flow straight into `bash -c` (see runOne).
+      return v === undefined || v === null ? "''" : this.shellQuote(String(v));
     });
   }
 
