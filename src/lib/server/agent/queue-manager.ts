@@ -23,6 +23,8 @@ export class AgentQueue {
 	private sessions: Map<string, AgentSession>;
 	private dispatchFn: DispatchFn | null = null;
 	private clients: Map<ServerWebSocket<WSData>, string | null> = new Map();
+	/** cwds with a non-worktree dispatch in flight (awaiting briefing/runAgent start). */
+	private dispatchingCwds = new Set<string>();
 
 	constructor(sessions: Map<string, AgentSession>) {
 		this.sessions = sessions;
@@ -137,12 +139,19 @@ export class AgentQueue {
 		if (this.items.length === 0) return;
 
 		const next = this.items[0];
-		if (!next.useWorktree && this.hasRunningWorkerInCwd(next.cwd)) return;
+		// Non-worktree workers are serialized per cwd. Guard against BOTH a
+		// running worker and an in-flight dispatch: buildBriefing/dispatchFn
+		// below await, and session.isRunning isn't set until runAgent starts,
+		// so without dispatchingCwds two concurrent callers could both pass
+		// this check and launch two workers into the same working tree.
+		if (!next.useWorktree && (this.hasRunningWorkerInCwd(next.cwd) || this.dispatchingCwds.has(next.cwd))) return;
 
 		// Dequeue and dispatch
 		this.items.shift();
 		this.broadcastState();
 
+		const trackCwd = !next.useWorktree;
+		if (trackCwd) this.dispatchingCwds.add(next.cwd);
 		try {
 			const briefing = await this.buildBriefing(next);
 			await this.dispatchFn(next, briefing);
@@ -150,6 +159,11 @@ export class AgentQueue {
 			this.items.unshift(next);
 			this.broadcastState();
 			log.error(`[queue] Failed to dispatch ${next.ticketId}:`, err);
+		} finally {
+			// Safe to release: by the time dispatchFn resolves, runAgent has run
+			// synchronously up to its first await and set isRunning=true, so
+			// hasRunningWorkerInCwd now covers this cwd.
+			if (trackCwd) this.dispatchingCwds.delete(next.cwd);
 		}
 	}
 
