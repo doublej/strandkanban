@@ -4,7 +4,9 @@
 	import Icon from '$lib/components/Icon.svelte';
 	import { Button, Kbd } from '$lib/components/ui';
 	import MarkdownContent from '$lib/components/MarkdownContent.svelte';
+	import ZenQuickActions from '$lib/components/ZenQuickActions.svelte';
 	import { getIssueColumn, getPriorityConfig, getTypeIcon } from '$lib/utils';
+	import type { TriageAction } from '$lib/zen-triage';
 	import type { Issue } from '$lib/types';
 
 	interface Props {
@@ -14,9 +16,10 @@
 		onnav: (index: number) => void;
 		onclose: () => void;
 		onopendetail: (issue: Issue) => void;
+		onquickaction: (issue: Issue, action: TriageAction) => void;
 	}
 
-	let { ids, index, issues, onnav, onclose, onopendetail }: Props = $props();
+	let { ids, index, issues, onnav, onclose, onopendetail, onquickaction }: Props = $props();
 
 	const total = $derived(ids.length);
 	const safeIndex = $derived(Math.min(Math.max(index, 0), Math.max(total - 1, 0)));
@@ -40,16 +43,34 @@
 		if (current) onopendetail(current);
 	}
 
+	// --- Quick triage (Q overlay) ---
+	let quickOpen = $state(false);
+	let flash = $state<TriageAction | null>(null);
+	let flashTimer: ReturnType<typeof setTimeout> | undefined;
+
+	function applyQuickAction(action: TriageAction) {
+		if (!current) return;
+		quickOpen = false;
+		onquickaction(current, action);
+		flash = action;
+		clearTimeout(flashTimer);
+		flashTimer = setTimeout(() => (flash = null), 1600);
+		if (atEnd) onclose();
+		else go(1);
+	}
+
 	// Capture-phase listener so Zen owns the keyboard while open and the
 	// board's window keydown handler never fires behind it.
 	function onKey(e: KeyboardEvent) {
+		if (quickOpen) return; // ZenQuickActions owns the keyboard while open
 		if (e.metaKey || e.ctrlKey || e.altKey) return;
 		const k = e.key;
 		let handled = true;
 		if (k === 'ArrowRight' || k === 'ArrowDown' || k === 'l' || k === 'j' || k === ' ') go(1);
 		else if (k === 'ArrowLeft' || k === 'ArrowUp' || k === 'h' || k === 'k') go(-1);
 		else if (k === 'Enter' || k === 'o') openDetail();
-		else if (k === 'Escape' || k === 'z' || k === 'Z' || k === 'q') onclose();
+		else if (k === 'q' || k === 'Q') { if (current) quickOpen = true; }
+		else if (k === 'Escape' || k === 'z' || k === 'Z') onclose();
 		else handled = false;
 		e.stopImmediatePropagation();
 		if (handled) e.preventDefault();
@@ -57,7 +78,10 @@
 
 	$effect(() => {
 		window.addEventListener('keydown', onKey, true);
-		return () => window.removeEventListener('keydown', onKey, true);
+		return () => {
+			window.removeEventListener('keydown', onKey, true);
+			clearTimeout(flashTimer);
+		};
 	});
 </script>
 
@@ -75,6 +99,17 @@
 		<Button variant="ghost" iconOnly icon="close" class="zen-exit" onclick={onclose} title="Exit (Esc)" />
 		<div class="zen-track"><span class="zen-fill"></span></div>
 	</header>
+
+	{#if flash}
+		<div
+			class="zen-flash"
+			style="--flash-tint: {flash.color};"
+			in:fly={{ y: -8, duration: reduced ? 0 : 200, easing: cubicOut }}
+		>
+			<Icon name={flash.icon} size={13} />
+			<span>{flash.label}</span>
+		</div>
+	{/if}
 
 	<div class="zen-stage">
 		{#key safeIndex}
@@ -128,6 +163,7 @@
 			</Button>
 			<div class="hints">
 				<span><Kbd>←</Kbd><Kbd>→</Kbd> cycle</span>
+				<span><Kbd>Q</Kbd> triage</span>
 				<span><Kbd>Esc</Kbd> exit</span>
 			</div>
 		</div>
@@ -137,6 +173,14 @@
 			<Icon name="chevron-right" size={16} />
 		</Button>
 	</footer>
+
+	{#if quickOpen && current}
+		<ZenQuickActions
+			issueId={current.id}
+			onselect={applyQuickAction}
+			oncancel={() => (quickOpen = false)}
+		/>
+	{/if}
 </div>
 
 <style>
@@ -221,6 +265,28 @@
 		width: var(--zen-fill, 0%);
 		background: linear-gradient(90deg, transparent, var(--zen-accent));
 		transition: width 360ms cubic-bezier(0.22, 1, 0.36, 1);
+	}
+
+	/* Quick-triage flash ------------------------------------------------ */
+	.zen-flash {
+		position: absolute;
+		top: 58px;
+		left: 50%;
+		transform: translateX(-50%);
+		z-index: 5;
+		display: inline-flex;
+		align-items: center;
+		gap: 7px;
+		padding: 6px 14px;
+		border-radius: 999px;
+		border: 1px solid color-mix(in srgb, var(--flash-tint) 45%, transparent);
+		background: color-mix(in srgb, var(--flash-tint) 14%, var(--surface-panel, #202024));
+		color: var(--text-primary);
+		font-size: 12px;
+		font-weight: 600;
+	}
+	.zen-flash :global(svg) {
+		color: var(--flash-tint);
 	}
 
 	/* Stage ------------------------------------------------------------ */

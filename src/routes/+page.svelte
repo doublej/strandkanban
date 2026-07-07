@@ -27,6 +27,8 @@
 	import KanbanColumn from '$lib/components/KanbanColumn.svelte';
 	import DetailPanel from '$lib/components/DetailPanel.svelte';
 	import ZenReview from '$lib/components/ZenReview.svelte';
+	import { setIssueStateApi } from '$lib/api';
+	import type { TriageAction } from '$lib/zen-triage';
 	import FlyingCardComponent from '$lib/components/FlyingCard.svelte';
 	import AgentBar from '$lib/components/AgentBar.svelte';
 	import InitialLoader from '$lib/components/InitialLoader.svelte';
@@ -320,6 +322,17 @@
 		const seeded = startIndex ?? (selectedId ? list.indexOf(selectedId) : -1);
 		zenIndex = seeded >= 0 ? seeded : 0;
 		zenOpen = true;
+	}
+
+	// Quick triage (Q in Zen): record the pick as a `triage:<value>` state
+	// label and reprioritize when the action carries one. Sequential awaits —
+	// bd writes to the same issue must not overlap.
+	async function handleZenQuickAction(issue: Issue, action: TriageAction) {
+		if (action.priority !== undefined && action.priority !== issue.priority) {
+			await ops.updateIssue(issue.id, { priority: action.priority });
+		}
+		await setIssueStateApi(issue.id, 'triage', action.value, `Zen triage: ${action.label}`);
+		fetchMutations();
 	}
 
 	// Deep-link entrypoint: ?zen=bd-1,bd-2,bd-3 opens focus review on load.
@@ -1063,6 +1076,7 @@
 		onnav={(i) => (zenIndex = i)}
 		onclose={() => (zenOpen = false)}
 		onopendetail={(issue) => { zenOpen = false; ops.openEditPanel(issue); }}
+		onquickaction={handleZenQuickAction}
 	/>
 {/if}
 </div>
