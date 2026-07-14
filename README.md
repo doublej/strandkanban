@@ -12,7 +12,7 @@ The name is literal. A strand is a string of beads.
 
 ## Status
 
-- strandkanban: version 0.4.1
+- strandkanban: version 0.5.0
 - Beads (`bd`): tested against version 1.1.x, needs version 1.0.0 or newer
 
 ## Quick start
