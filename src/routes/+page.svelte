@@ -55,6 +55,7 @@
 	import TableView from '$lib/components/TableView.svelte';
 	import SelectionGrid from '$lib/components/SelectionGrid.svelte';
 	import FlowView from '$lib/components/flow/FlowView.svelte';
+	import GridView from '$lib/components/GridView.svelte';
 	import { reconcileTableColumns } from '$lib/table-columns';
 	import { getManagerVisible, getManagerSessionName, isManagerSession } from '$lib/stores/manager.svelte';
 	import { startManager, switchManagerProject, setServerProject } from '$lib/stores/ws-connection.svelte';
@@ -997,6 +998,18 @@
 				onselect={(issue) => ops.openEditPanel(issue)}
 			/>
 		</div>
+	{:else if viewMode === 'grid'}
+		<div class="grid-layout" class:wipe-out={projectTransition === 'wipe-out'} class:wipe-in={projectTransition === 'wipe-in'}>
+			{#if ops.panelOpen}
+				{@render detailPanel()}
+			{/if}
+			<GridView
+				issues={filteredIssues}
+				{selectedId}
+				isDark={isDarkMode}
+				onselect={(issue) => ops.openEditPanel(issue)}
+			/>
+		</div>
 	{/if}
 
 	</div><!-- /.workspace-main -->
@@ -1310,6 +1323,22 @@
 		flex: 0 0 clamp(420px, 34%, 620px);
 		min-width: 420px;
 		max-width: 620px;
+	}
+
+	.grid-layout {
+		display: flex;
+		flex: 1;
+		gap: 1rem;
+		padding: 1.25rem;
+		min-width: 0;
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.grid-layout :global(.panel) {
+		flex: 0 0 clamp(380px, 30%, 520px);
+		min-width: 380px;
+		max-width: 520px;
 	}
 
 	.board::-webkit-scrollbar {

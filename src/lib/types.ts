@@ -107,9 +107,9 @@ export interface RopeDragState {
 
 export type SortBy = 'priority' | 'created' | 'title';
 export type PaneSize = 'compact' | 'medium' | 'large';
-export type ViewMode = 'kanban' | 'table' | 'flow';
+export type ViewMode = 'kanban' | 'table' | 'flow' | 'grid';
 
-const VIEW_MODES: ViewMode[] = ['kanban', 'table', 'flow'];
+const VIEW_MODES: ViewMode[] = ['kanban', 'table', 'flow', 'grid'];
 
 /** Coerce an untrusted string (localStorage/recipe) into a valid ViewMode. */
 export function coerceViewMode(value: unknown): ViewMode {

@@ -10,10 +10,11 @@
 		viewMode = $bindable()
 	}: Props = $props();
 
-	const viewModes: { key: ViewMode; icon: 'view-board' | 'view-table' | 'view-graph'; label: string }[] = [
+	const viewModes: { key: ViewMode; icon: 'view-board' | 'view-table' | 'view-graph' | 'view-grid'; label: string }[] = [
 		{ key: 'kanban', icon: 'view-board', label: 'board' },
 		{ key: 'table', icon: 'view-table', label: 'table' },
-		{ key: 'flow', icon: 'view-graph', label: 'graph' }
+		{ key: 'flow', icon: 'view-graph', label: 'graph' },
+		{ key: 'grid', icon: 'view-grid', label: 'heatmap' }
 	];
 </script>
 

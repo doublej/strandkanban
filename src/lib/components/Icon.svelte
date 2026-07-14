@@ -12,7 +12,7 @@
 		// Issue Types
 		| 'task' | 'bug' | 'feature' | 'epic' | 'chore'
 		// Views
-		| 'view-board' | 'view-tree' | 'view-graph' | 'view-stats' | 'view-diff' | 'view-table'
+		| 'view-board' | 'view-tree' | 'view-graph' | 'view-stats' | 'view-diff' | 'view-table' | 'view-grid'
 		// Dependency Types
 		| 'dep-blocks' | 'dep-related' | 'dep-parent' | 'dep-discovered'
 		// Theme & Settings
@@ -43,7 +43,7 @@
 		// Issue Types
 		CheckSquare, Bug, Sparkles, Layers, Wrench,
 		// Views
-		LayoutGrid, GitBranch, Network, BarChart3, Table2,
+		LayoutGrid, GitBranch, Network, BarChart3, Table2, Grid3x3,
 		// Dependency Types
 		Ban, ArrowLeftRight, CornerDownRight, Diamond,
 		// Theme & Settings
@@ -118,6 +118,7 @@
 		'view-stats': BarChart3,
 		'view-diff': History,
 		'view-table': Table2,
+		'view-grid': Grid3x3,
 		// Dependency Types
 		'dep-blocks': Ban,
 		'dep-related': ArrowLeftRight,
