@@ -1,12 +1,12 @@
 /**
- * Tracks which project cwds this beads-kanban session has touched via `bd sql`.
+ * Tracks which project cwds this strandkanban session has touched via `bd sql`.
  * Used by the dolt reaper to limit kills to processes spawned from this session.
  */
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 
-export const CACHE_DIR = join(homedir(), '.cache', 'beads-kanban');
+export const CACHE_DIR = join(homedir(), '.cache', 'strandkanban');
 
 function fileFor(parentPid: number): string {
 	return join(CACHE_DIR, `touched-cwds-${parentPid}.json`);

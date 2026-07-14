@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * CLI entry point for bdk (beads-kanban).
+ * CLI entry point for bdk (strandkanban).
  * Validates target directory, checks bd CLI, writes .beads-cwd, starts dev server.
  *
  * Subcommands:
@@ -27,7 +27,7 @@ import { homedir } from 'os'
 const MIN_BD_VERSION = '1.0.0'
 const AGENT_PORT = 9347
 const APP_DIR = dirname(new URL('.', import.meta.url).pathname)
-const CACHE_DIR = join(homedir(), '.cache', 'beads-kanban')
+const CACHE_DIR = join(homedir(), '.cache', 'strandkanban')
 /** Tracks the most-recently-started board so `bdk open` can reuse it instead of spawning another. */
 const ACTIVE_SERVER_FILE = join(CACHE_DIR, 'active-server.json')
 
@@ -228,8 +228,8 @@ function killDoltPids(orphans: DoltOrphan[]): { killed: DoltOrphan[]; failed: { 
 }
 
 function printReapResult(label: string, killed: DoltOrphan[], failed: { orphan: DoltOrphan; err: string }[]): void {
-	for (const o of killed) console.log(`[beads-kanban] ${label} reaped pid=${o.pid} cwd=${o.cwd}`)
-	for (const f of failed) console.error(`[beads-kanban] ${label} failed pid=${f.orphan.pid} cwd=${f.orphan.cwd}: ${f.err}`)
+	for (const o of killed) console.log(`[strandkanban] ${label} reaped pid=${o.pid} cwd=${o.cwd}`)
+	for (const f of failed) console.error(`[strandkanban] ${label} failed pid=${f.orphan.pid} cwd=${f.orphan.cwd}: ${f.err}`)
 }
 
 function reapTouched(): { killed: DoltOrphan[]; failed: { orphan: DoltOrphan; err: string }[]; cleared: number } {
@@ -266,7 +266,7 @@ function reapScanCwd(dir: string): { killed: DoltOrphan[]; failed: { orphan: Dol
 function printReapHelp(): void {
 	console.log(`Usage: bdk reap [--touched|--all|--scan-cwd <dir>]
 
-  --touched          Default. Reap dolt servers from cache files of dead beads-kanban sessions.
+  --touched          Default. Reap dolt servers from cache files of dead strandkanban sessions.
   --all              Reap any orphan dolt sql-server whose cwd contains /.beads/dolt. Use with care.
   --scan-cwd <dir>   Reap only dolt servers whose cwd is inside <dir>.
 `)
@@ -286,7 +286,7 @@ async function runReap(args: string[]): Promise<number> {
 	if (allFlag) {
 		const { killed, failed } = reapAll()
 		printReapResult('all', killed, failed)
-		console.log(`[beads-kanban] reaped ${killed.length} dolt server(s); ${failed.length} failed`)
+		console.log(`[strandkanban] reaped ${killed.length} dolt server(s); ${failed.length} failed`)
 		return failed.length === 0 ? 0 : 1
 	}
 	if (scanIdx >= 0) {
@@ -302,13 +302,13 @@ async function runReap(args: string[]): Promise<number> {
 		}
 		const { killed, failed } = reapScanCwd(resolved)
 		printReapResult('scan-cwd', killed, failed)
-		console.log(`[beads-kanban] reaped ${killed.length} dolt server(s) under ${resolved}; ${failed.length} failed`)
+		console.log(`[strandkanban] reaped ${killed.length} dolt server(s) under ${resolved}; ${failed.length} failed`)
 		return failed.length === 0 ? 0 : 1
 	}
 	// default: --touched
 	const { killed, failed, cleared } = reapTouched()
 	printReapResult('touched', killed, failed)
-	console.log(`[beads-kanban] reaped ${killed.length} dolt server(s); cleared ${cleared} stale cache file(s); ${failed.length} failed`)
+	console.log(`[strandkanban] reaped ${killed.length} dolt server(s); cleared ${cleared} stale cache file(s); ${failed.length} failed`)
 	return failed.length === 0 ? 0 : 1
 }
 
@@ -326,7 +326,7 @@ function rotateIfLarge(file: string): void {
 		if (existsSync(backup)) unlinkSync(backup)
 		renameSync(file, backup)
 	} catch (err) {
-		console.error(`[beads-kanban] log rotation failed for ${file}: ${err instanceof Error ? err.message : String(err)}`)
+		console.error(`[strandkanban] log rotation failed for ${file}: ${err instanceof Error ? err.message : String(err)}`)
 	}
 }
 
@@ -342,9 +342,9 @@ function reapOnShutdown(parentPid: number): void {
 		try {
 			const orphans = findOrphanedDoltPids(cwds)
 			const { killed, failed } = killDoltPids(orphans)
-			console.error(`[beads-kanban] reaped ${killed.length} dolt server(s)${failed.length ? `; ${failed.length} failed` : ''}`)
+			console.error(`[strandkanban] reaped ${killed.length} dolt server(s)${failed.length ? `; ${failed.length} failed` : ''}`)
 		} catch (err) {
-			console.error(`[beads-kanban] auto-reap error: ${err instanceof Error ? err.message : String(err)}`)
+			console.error(`[strandkanban] auto-reap error: ${err instanceof Error ? err.message : String(err)}`)
 		}
 	}
 	if (existsSync(file)) {
@@ -566,7 +566,7 @@ Usage:
   bdk open <bdk://id>   Focus an issue (reuses a running board; handles the bdk:// scheme)
   bdk zen <ids>         Open distraction-free focus review for the given issue ids
   bdk reap [opts]       Reap orphan 'dolt sql-server' processes (see 'bdk reap --help')
-  bdk --version         Show the installed beads-kanban version
+  bdk --version         Show the installed strandkanban version
   bdk help              Show this help
 
 Examples:

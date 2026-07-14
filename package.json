@@ -1,5 +1,5 @@
 {
-  "name": "beads-kanban",
+  "name": "strandkanban",
   "version": "0.4.1",
   "description": "Kanban board UI for the Beads issue tracker with drag-and-drop and agent integration",
   "type": "module",
@@ -16,7 +16,7 @@
     "vite.config.ts"
   ],
   "bin": {
-    "beads-kanban": "./bin/bdk",
+    "strandkanban": "./bin/bdk",
     "bdk": "./bin/bdk"
   },
   "scripts": {

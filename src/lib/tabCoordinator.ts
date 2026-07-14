@@ -1,7 +1,7 @@
 // Tab coordination for WebSocket sharing across browser tabs
 // Uses BroadcastChannel API for leader election and state sync
 
-const CHANNEL_NAME = 'beads-kanban-ws';
+const CHANNEL_NAME = 'strandkanban-ws';
 const HEARTBEAT_INTERVAL = 2000;
 const LEADER_TIMEOUT = 4000;
 

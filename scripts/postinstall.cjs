@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Postinstall validation for beads-kanban.
+ * Postinstall validation for strandkanban.
  * Warns (doesn't fail) if prerequisites are missing.
  */
 
@@ -17,7 +17,7 @@ function checkCommand(cmd, name, installInstructions) {
   }
 }
 
-console.log('📦 Validating beads-kanban installation...');
+console.log('📦 Validating strandkanban installation...');
 
 // Check Node version
 const nodeMajor = parseInt(process.versions.node.split('.')[0]);

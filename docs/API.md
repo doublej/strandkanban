@@ -264,7 +264,7 @@ Switch the stored cwd. Validates that `path` exists, is a directory, and contain
 
 ### `GET /api/projects` *(global)*
 
-List of recently opened projects (stored in `~/.beads-kanban-projects.json`).
+List of recently opened projects (stored in `~/.strandkanban-projects.json`).
 
 - **Response** — `{ projects: { path, name, lastAccess, color }[] }`
 

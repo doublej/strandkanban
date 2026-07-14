@@ -61,6 +61,6 @@ Per-terminal notes:
 ## Notes
 
 - Only the *most recently started* board is tracked for reuse
-  (`~/.cache/beads-kanban/active-server.json`). Ids from other projects will
+  (`~/.cache/strandkanban/active-server.json`). Ids from other projects will
   open on the active board and toast "not found" — that's expected.
 - The handler logs to `/tmp/bdk-scheme.log` for debugging.

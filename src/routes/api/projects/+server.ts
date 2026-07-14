@@ -5,7 +5,7 @@ import type { RequestHandler } from './$types';
 import { ok, wrap, ApiError } from '$lib/server/response';
 import { enrichProjects } from '$lib/server/project-stats';
 
-const PROJECTS_FILE = join(homedir(), '.beads-kanban-projects.json');
+const PROJECTS_FILE = join(homedir(), '.strandkanban-projects.json');
 
 interface Project {
 	path: string;

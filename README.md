@@ -1,4 +1,4 @@
-# beads-kanban
+# strandkanban
 
 Local Kanban UI for [Beads](https://github.com/gastownhall/beads) issue tracking. It starts a SvelteKit board for any project with `.beads/`, reads through `bd sql --json`, and writes through the `bd` CLI so Beads stays the source of truth.
 
@@ -10,13 +10,13 @@ brew install beads
 # or: curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash
 
 # 2. Start a board for a project
-npx github:doublej/beads-kanban /path/to/project
+npx github:doublej/strandkanban /path/to/project
 ```
 
 Use the short command after a global install:
 
 ```bash
-npm install -g github:doublej/beads-kanban
+npm install -g github:doublej/strandkanban
 bdk /path/to/project
 ```
 
@@ -40,8 +40,8 @@ bdk --version
 ## Install From Source
 
 ```bash
-git clone https://github.com/doublej/beads-kanban
-cd beads-kanban
+git clone https://github.com/doublej/strandkanban
+cd strandkanban
 bun install
 bun run build:cli
 ./bin/bdk /path/to/project

@@ -2,7 +2,7 @@
 	import { base } from '$app/paths';
 
 	let copied = $state(false);
-	const cloneCommand = 'npx github:doublej/beads-kanban /path/to/project';
+	const cloneCommand = 'npx github:doublej/strandkanban /path/to/project';
 
 	function copyCommand() {
 		navigator.clipboard.writeText(cloneCommand);
@@ -189,7 +189,7 @@
 <svelte:window onkeydown={onTheaterKey} />
 
 <svelte:head>
-	<title>beads-kanban</title>
+	<title>strandkanban</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
 	<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -198,12 +198,12 @@
 <main>
 	<header class="animate-in">
 		<nav>
-			<a href="{base}/" class="nav-logo">beads-kanban</a>
+			<a href="{base}/" class="nav-logo">strandkanban</a>
 			<div class="nav-links">
 				<a href="#features" class="nav-link">Features</a>
 				<a href="#architecture" class="nav-link">Architecture</a>
 				<a href="#getting-started" class="nav-link">Install</a>
-				<a href="https://github.com/doublej/beads-kanban" class="nav-link" target="_blank" rel="noopener">GitHub</a>
+				<a href="https://github.com/doublej/strandkanban" class="nav-link" target="_blank" rel="noopener">GitHub</a>
 			</div>
 		</nav>
 	</header>
@@ -407,14 +407,14 @@
 					<span class="step-num">2</span>
 					<div class="step-content">
 						<strong>Run once</strong>
-						<p>Run <code>npx github:doublej/beads-kanban /path/to/project</code>. The launcher checks <code>bd</code>, initializes <code>.beads/</code> if you approve, and starts the board.</p>
+						<p>Run <code>npx github:doublej/strandkanban /path/to/project</code>. The launcher checks <code>bd</code>, initializes <code>.beads/</code> if you approve, and starts the board.</p>
 					</div>
 				</li>
 				<li>
 					<span class="step-num">3</span>
 					<div class="step-content">
 						<strong>Install the shortcut</strong>
-						<p>Run <code>npm install -g github:doublej/beads-kanban</code> to get the shorter <code>bdk</code> command.</p>
+						<p>Run <code>npm install -g github:doublej/strandkanban</code> to get the shorter <code>bdk</code> command.</p>
 					</div>
 				</li>
 				<li>
@@ -448,7 +448,7 @@
 
 	<footer class="animate-in" style="animation-delay: 1000ms;">
 		<p>Built on <a href="https://github.com/gastownhall/beads" target="_blank" rel="noopener">Beads</a></p>
-		<p><a href="https://github.com/doublej/beads-kanban" target="_blank" rel="noopener">GitHub</a></p>
+		<p><a href="https://github.com/doublej/strandkanban" target="_blank" rel="noopener">GitHub</a></p>
 	</footer>
 </main>
 

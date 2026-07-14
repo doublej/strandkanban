@@ -3,7 +3,7 @@ import { unstable_v2_prompt } from '@anthropic-ai/claude-agent-sdk';
 import { log } from '$lib/server/logger';
 import { ok, wrap, ApiError } from '$lib/server/response';
 
-const PROMPT = `Name a coding agent for "beads-kanban" (task tracker with bead/string theme).
+const PROMPT = `Name a coding agent for "strandkanban" (task tracker with bead/string theme).
 
 Pick ONE random vibe and invent a funny name:
 - BEAD PUNS: "bead" = "be/beat" wordplay

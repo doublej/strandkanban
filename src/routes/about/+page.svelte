@@ -10,13 +10,13 @@
 </script>
 
 <svelte:head>
-	<title>About - beads-kanban</title>
+	<title>About - strandkanban</title>
 </svelte:head>
 
 <div class="page" class:light={!isDarkMode}>
 	<header class="header">
 		<a href="/" class="logo">
-			<h1>beads-kanban</h1>
+			<h1>strandkanban</h1>
 		</a>
 		<nav>
 			<a href="/">Board</a>
@@ -26,12 +26,12 @@
 	</header>
 
 	<main class="content">
-		<h2>About beads-kanban</h2>
+		<h2>About strandkanban</h2>
 
 		<section>
-			<h3>What is beads-kanban?</h3>
+			<h3>What is strandkanban?</h3>
 			<p>
-				beads-kanban is a local-first kanban board designed for AI-assisted development workflows.
+				strandkanban is a local-first kanban board designed for AI-assisted development workflows.
 				It integrates directly with the <strong>Beads</strong> issue tracking system, providing a visual
 				interface to manage tasks tracked in your local repository.
 			</p>
@@ -40,7 +40,7 @@
 		<section>
 			<h3>How is this different from Vibekanban?</h3>
 			<p>
-				While both are kanban-style interfaces, beads-kanban has key differences:
+				While both are kanban-style interfaces, strandkanban has key differences:
 			</p>
 			<ul>
 				<li><strong>Local-first:</strong> All data lives in your repository via beads, not in a cloud database</li>

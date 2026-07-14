@@ -7,6 +7,6 @@ export default defineConfig({
 	server: {
 		hmr: false,
 		host: '0.0.0.0',
-		allowedHosts: ['m2.local', 'beads-kanban.local']
+		allowedHosts: ['m2.local', 'strandkanban.local']
 	}
 });

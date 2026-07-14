@@ -1,8 +1,8 @@
-// Session persistence to localStorage for beads-kanban agent sessions
+// Session persistence to localStorage for strandkanban agent sessions
 import type { AgentSession, ChatMessage } from './stores/ws-types';
 
-const STORAGE_KEY = 'beads-kanban-sessions';
-const SDK_SESSION_KEY = 'beads-kanban-sdk-sessions';
+const STORAGE_KEY = 'strandkanban-sessions';
+const SDK_SESSION_KEY = 'strandkanban-sdk-sessions';
 
 function getSdkMap(): Record<string, string> {
 	return JSON.parse(localStorage.getItem(SDK_SESSION_KEY) ?? '{}');

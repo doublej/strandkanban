@@ -13,7 +13,7 @@ set -euo pipefail
 
 APP_NAME="Beads Kanban URL"
 APP_PATH="$HOME/Applications/${APP_NAME}.app"
-BUNDLE_ID="com.doublej.beads-kanban.url"
+BUNDLE_ID="com.doublej.strandkanban.url"
 
 # Repo root = parent of this script's dir.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
