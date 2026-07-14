@@ -23,26 +23,29 @@
 			<div class="keyboard-help-header">
 				<h2>Keyboard Shortcuts</h2>
 				<button class="keyboard-help-close" onclick={handleClose}>
-					<kbd>esc</kbd>
+					<kbd>Esc</kbd>
 				</button>
 			</div>
 			<div class="keyboard-help-content">
 				<div class="shortcut-group">
 					<h3>Navigation</h3>
 					<div class="shortcut"><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd><span>Navigate</span></div>
-					<div class="shortcut"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd><span>Column</span></div>
+					<div class="shortcut"><kbd>H</kbd><kbd>J</kbd><kbd>K</kbd><kbd>L</kbd><span>Navigate</span></div>
+					<div class="shortcut"><kbd>1-5</kbd><span>Column</span></div>
 				</div>
 				<div class="shortcut-group">
 					<h3>Actions</h3>
-					<div class="shortcut"><kbd>n</kbd><span>New</span></div>
-					<div class="shortcut"><kbd>↵</kbd><span>Open</span></div>
-					<div class="shortcut"><kbd>x</kbd><span>Delete</span></div>
-					<div class="shortcut"><kbd>⌘K</kbd><span>Search</span></div>
+					<div class="shortcut"><kbd>N</kbd><span>New</span></div>
+					<div class="shortcut"><kbd>↵</kbd><kbd>O</kbd><span>Open</span></div>
+					<div class="shortcut"><kbd>X</kbd><kbd>Del</kbd><span>Delete</span></div>
+					<div class="shortcut"><kbd>⌘K</kbd><kbd>/</kbd><span>Search</span></div>
 				</div>
 				<div class="shortcut-group">
 					<h3>General</h3>
-					<div class="shortcut"><kbd>t</kbd><span>Theme</span></div>
+					<div class="shortcut"><kbd>T</kbd><span>Theme</span></div>
+					<div class="shortcut"><kbd>Z</kbd><span>Zen review</span></div>
 					<div class="shortcut"><kbd>⌘`</kbd><span>Projects</span></div>
+					<div class="shortcut"><kbd>Esc</kbd><span>Close / back</span></div>
 					<div class="shortcut"><kbd>?</kbd><span>Help</span></div>
 				</div>
 			</div>

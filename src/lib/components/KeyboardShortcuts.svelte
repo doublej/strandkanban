@@ -16,7 +16,7 @@
 		</button>
 	</div>
 	{#if !settings.alwaysShowHotkeys}
-		<div class="setting-hint">Hold <kbd>Alt</kbd> to preview hints on the board</div>
+		<div class="setting-hint">Hold <kbd>Alt</kbd> to highlight hotkey hints on the board</div>
 	{/if}
 	<div class="shortcuts-preview">
 		<div class="shortcut-row">
