@@ -26,6 +26,13 @@ CLAUDE-MANAGER.md
 # RepoMap tag cache
 .repomap.tags.cache.v1/
 
+# Playwright / test artifacts
+.playwright-mcp/
+test-results/
+
+# Scheduler lock
+.claude/scheduled_tasks.lock
+
 # Beads database — keep only README + .gitignore tracked
 .beads/*
 !.beads/.gitignore
