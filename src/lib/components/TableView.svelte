@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { Issue, TableColumnConfig, TableColumnKey, TableSortState } from '$lib/types';
+	import type { Issue, TableColumnConfig, TableColumnKey, TableSortState, Column } from '$lib/types';
 	import { TABLE_COLUMN_MAP, defaultTableColumns } from '$lib/table-columns';
 	import {
-		columns as statusColumns,
+		columns as defaultStatusColumns,
 		getIssueColumn,
 		getPriorityConfig,
 		getTypeIcon,
@@ -30,6 +30,7 @@
 		onbulkdelete: (ids: string[]) => void;
 		onupdate: (id: string, updates: Partial<Issue>) => void;
 		oncreate?: () => void;
+		statusColumns?: Column[];
 	}
 
 	let {
@@ -45,7 +46,8 @@
 		onbulkupdate,
 		onbulkdelete,
 		onupdate,
-		oncreate
+		oncreate,
+		statusColumns = defaultStatusColumns
 	}: Props = $props();
 
 	const PRIORITY_OPTS = [0, 1, 2, 3, 4].map((p) => ({ value: p, label: getPriorityConfig(p).label }));

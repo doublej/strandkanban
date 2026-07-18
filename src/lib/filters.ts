@@ -3,7 +3,27 @@ import type { Issue } from './types';
 /** Sentinel assignee token meaning "no assignee". */
 export const UNASSIGNED = '@unassigned';
 
-export const ALL_STATUSES = ['open', 'in_progress', 'hooked', 'blocked', 'closed'] as const;
+/** Default statuses in display order. */
+export const DEFAULT_STATUSES = ['open', 'in_progress', 'hooked', 'blocked', 'closed'] as const;
+
+/** @deprecated Use DEFAULT_STATUSES or getAllStatuses(issues) instead. */
+export const ALL_STATUSES = DEFAULT_STATUSES;
+
+/**
+ * Get all unique statuses from issues, maintaining display order with known statuses first,
+ * then any custom statuses found in the data, with 'closed' always last.
+ */
+export function getAllStatuses(issues: { status: string }[]): string[] {
+	const knownOrder = ['open', 'in_progress', 'hooked', 'blocked'];
+	const knownSet = new Set([...knownOrder, 'closed']);
+	const custom = new Set<string>();
+	for (const issue of issues) {
+		if (!knownSet.has(issue.status)) {
+			custom.add(issue.status);
+		}
+	}
+	return [...knownOrder, ...custom, 'closed'];
+}
 
 /**
  * Multi-select filter state. Empty arrays mean "no constraint" (match all).

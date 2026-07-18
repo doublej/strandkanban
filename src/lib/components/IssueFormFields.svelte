@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Issue, AgentModel, AgentEffort } from '$lib/types';
+	import type { Issue, AgentModel, AgentEffort, Column } from '$lib/types';
 	import { getPriorityConfig, getTypeIcon, columns } from '$lib/utils';
 	import Icon from './Icon.svelte';
 	import IssueSearch from './IssueSearch.svelte';
@@ -15,6 +15,7 @@
 		column?: { key: string; label: string; icon: string; accent: string };
 		activeAgents?: string[];
 		onsetcolumn?: (columnKey: string) => void;
+		statusColumns?: Column[];
 	}
 
 	let {
@@ -26,6 +27,7 @@
 		column,
 		activeAgents = [],
 		onsetcolumn,
+		statusColumns = columns,
 	}: Props = $props();
 
 	function addDepToCreate(issue: Issue) {
@@ -131,7 +133,7 @@
 	<div class="field">
 		<span class="field-label">Status</span>
 		<div class="pill-group">
-			{#each columns as col}
+			{#each statusColumns as col}
 				<button class="pill pill-status" class:active={column?.key === col.key} style="--pill-color: {col.accent}" onclick={() => onsetcolumn?.(col.key)}>
 					<Icon name={col.icon} size={11} /><span class="pill-text">{col.label}</span>
 				</button>

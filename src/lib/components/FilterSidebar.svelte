@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { FilterState } from '$lib/filters';
+	import type { Column } from '$lib/types';
 	import { UNASSIGNED } from '$lib/filters';
 	import { columns, getPriorityConfig, getTypeIcon } from '$lib/utils';
 	import Icon from './Icon.svelte';
@@ -11,6 +12,7 @@
 		availableLabels: string[];
 		availableAssignees: string[];
 		availableTypes: string[];
+		statusColumns?: Column[];
 		activeCount: number;
 		collapsed: boolean;
 		ontogglecollapse: () => void;
@@ -25,6 +27,7 @@
 		availableLabels,
 		availableAssignees,
 		availableTypes,
+		statusColumns = columns,
 		activeCount,
 		collapsed,
 		ontogglecollapse,
@@ -117,7 +120,7 @@
 			<section class="section">
 				<div class="section-label">Status</div>
 				<div class="chips">
-					{#each columns as c (c.key)}
+					{#each statusColumns as c (c.key)}
 						<button
 							class="chip"
 							class:active={filters.statuses.includes(c.status)}

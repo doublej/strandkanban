@@ -7,6 +7,7 @@
 	import { coerceViewMode, type Issue, type Attachment, type CardPosition, type FlyingCard, type SortBy, type PaneSize, type ViewMode, type Project, type ViewRecipe, type TableColumnConfig, type TableSortState } from '$lib/types';
 	import {
 		columns,
+		getColumnsWithCustom,
 		getPriorityConfig,
 		getDepTypeConfig,
 		getTypeIcon,
@@ -209,6 +210,7 @@
 	});
 
 	let issues = $derived(issueStore.issues);
+	let statusColumns = $derived(getColumnsWithCustom(issues));
 	let animatingIds = $derived(issueStore.animatingIds);
 	let loadingStatus = $derived(issueStore.loadingStatus);
 	let initialLoaded = $derived(issueStore.initialLoaded);
@@ -865,6 +867,7 @@
 		{availableLabels}
 		{availableAssignees}
 		{availableTypes}
+		{statusColumns}
 		activeCount={activeFilterCount}
 		collapsed={settings.sidebarCollapsed}
 		ontogglecollapse={() => settings.sidebarCollapsed = !settings.sidebarCollapsed}
@@ -976,6 +979,7 @@
 				sort={settings.tableSort}
 				{selectedId}
 				selectedIds={tableSelectedIds}
+				{statusColumns}
 				onselect={(issue) => ops.openEditPanel(issue)}
 				onselectionchange={(ids) => tableSelectedIds = ids}
 				oncreate={ops.openCreatePanel}
@@ -1117,6 +1121,7 @@
 		allIssues={issues}
 		activeAgents={activeAgentNames}
 		agentEnabled={settings.agentEnabled}
+		{statusColumns}
 		comments={ops.comments}
 		bind:newLabelInput={ops.newLabelInput}
 		bind:newComment={ops.newComment}

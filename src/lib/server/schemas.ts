@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { ApiError } from './response';
 
 const Priority = z.number().int().min(0).max(4);
-const Status = z.enum(['open', 'in_progress', 'hooked', 'blocked', 'closed']);
+const Status = z.string().min(1);
 
 export const CreateIssueSchema = z.object({
 	title: z.string().min(1, 'title required'),

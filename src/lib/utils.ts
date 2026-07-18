@@ -10,8 +10,49 @@ export const columns: Column[] = [
 	{ key: 'closed', status: 'closed', label: 'Complete', icon: 'check-circle', accent: '#10b981' }
 ];
 
+/** Known status keys for quick lookup. */
+const KNOWN_STATUSES = new Set(columns.map(c => c.status));
+
+/** Pastel accent colors for dynamically discovered statuses. */
+const CUSTOM_STATUS_ACCENTS = ['#06b6d4', '#ec4899', '#84cc16', '#f97316', '#a855f7', '#14b8a6'];
+
+/**
+ * Build an extended columns list that includes any custom statuses found in issues.
+ * Custom statuses are inserted before 'closed' and styled with circle-dot icon and pastel accents.
+ */
+export function getColumnsWithCustom(issues: Issue[]): Column[] {
+	const customStatuses = new Set<string>();
+	for (const issue of issues) {
+		if (!KNOWN_STATUSES.has(issue.status)) {
+			customStatuses.add(issue.status);
+		}
+	}
+	if (customStatuses.size === 0) return columns;
+
+	// Insert custom columns before 'closed'
+	const closedIndex = columns.findIndex(c => c.status === 'closed');
+	const result = columns.slice(0, closedIndex);
+	let colorIndex = 0;
+	for (const status of customStatuses) {
+		const accent = CUSTOM_STATUS_ACCENTS[colorIndex % CUSTOM_STATUS_ACCENTS.length];
+		const label = status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+		result.push({ key: status, status: status as Column['status'], label, icon: 'circle-dot', accent });
+		colorIndex++;
+	}
+	result.push(...columns.slice(closedIndex));
+	return result;
+}
+
+/**
+ * Get the column config for an issue. For custom statuses not in the default columns,
+ * returns a dynamically generated column config.
+ */
 export function getIssueColumn(issue: Issue): Column {
-	return columns.find(c => c.status === issue.status) || columns[0];
+	const found = columns.find(c => c.status === issue.status);
+	if (found) return found;
+	// Generate config for custom status
+	const label = issue.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+	return { key: issue.status, status: issue.status as Column['status'], label, icon: 'circle-dot', accent: '#06b6d4' };
 }
 
 export function getColumnMoveUpdates(issue: Issue, targetColumnKey: string): { status?: Issue['status'] } {

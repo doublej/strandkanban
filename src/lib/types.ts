@@ -18,7 +18,7 @@ export interface Issue {
 	design?: string;
 	acceptance_criteria?: string;
 	notes?: string;
-	status: 'open' | 'in_progress' | 'hooked' | 'blocked' | 'closed';
+	status: string;
 	priority: 0 | 1 | 2 | 3 | 4;
 	issue_type: string;
 	created_at?: string;
@@ -71,7 +71,7 @@ export type ColumnIconName = 'circle' | 'circle-dot' | 'circle-slash' | 'check-c
 
 export interface Column {
 	key: string;
-	status: Issue['status'];
+	status: string;
 	label: string;
 	icon: ColumnIconName;
 	accent: string;

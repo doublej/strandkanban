@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { Issue, Comment, Attachment } from '$lib/types';
-	import { getPriorityConfig, getTypeIcon, formatTimestamp, getIssueColumn, isAgentAssignee as checkAgentAssignee, getDueInfo, formatMinutes, isStale, parseStateLabels } from '$lib/utils';
+	import type { Issue, Comment, Attachment, Column } from '$lib/types';
+	import { getPriorityConfig, getTypeIcon, formatTimestamp, getIssueColumn, isAgentAssignee as checkAgentAssignee, getDueInfo, formatMinutes, isStale, parseStateLabels, columns as defaultColumns } from '$lib/utils';
 	import Icon from './Icon.svelte';
 	import { copyState } from '$lib/stores/copy-state.svelte';
 	import IssueFormFields from './IssueFormFields.svelte';
@@ -22,6 +22,7 @@
 		allIssues?: Issue[];
 		activeAgents?: string[];
 		agentEnabled?: boolean;
+		statusColumns?: Column[];
 		comments: Comment[];
 		attachments: Attachment[];
 		loadingAttachments: boolean;
@@ -65,6 +66,7 @@
 		allIssues = [],
 		activeAgents = [],
 		agentEnabled = true,
+		statusColumns = defaultColumns,
 		comments,
 		attachments,
 		loadingAttachments,
@@ -259,7 +261,7 @@
 		</header>
 
 		<div class="body">
-			<IssueFormFields mode="create" bind:createForm {updatecreateform} {allIssues} />
+			<IssueFormFields mode="create" bind:createForm {updatecreateform} {allIssues} {statusColumns} />
 		</div>
 
 		<DetailPanelFooter mode="create" {agentEnabled} {oncreate} {oncreateandstartagent} {onclose} />
@@ -442,7 +444,7 @@
 
 			{:else}
 				<!-- EDIT MODE -->
-				<IssueFormFields mode="edit" bind:editingIssue {column} {activeAgents} {onsetcolumn} />
+				<IssueFormFields mode="edit" bind:editingIssue {column} {activeAgents} {onsetcolumn} {statusColumns} />
 				<IssueLabelsEditor {editingIssue} bind:newLabelInput {onaddlabel} {onremovelabel} {updatenewlabel} />
 			{/if}
 
