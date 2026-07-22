@@ -277,12 +277,24 @@ export async function pullDolt(cwd?: string): Promise<BdResult> {
 	return run('bd dolt pull', cwd, BD_NETWORK_TIMEOUT_MS)
 }
 
+interface BdDoctorCheck {
+	name?: string
+	status?: string
+	message?: string
+}
+
 export async function runDoctor(cwd?: string): Promise<BdDoctorReport> {
 	const result = await run('bd doctor --fix --json', cwd)
 	if (!result.success || !result.stdout) return { ok: false, findings: [], error: result.error }
 	try {
-		const parsed = unwrapBdJson<{ findings?: BdDoctorFinding[] }>(result.stdout)
-		const findings = Array.isArray(parsed?.findings) ? parsed.findings : []
+		// bd 1.1 prints human-readable fix progress before the JSON payload — slice to the first JSON line
+		const jsonStart = result.stdout.search(/^\{/m)
+		const raw = jsonStart >= 0 ? result.stdout.slice(jsonStart) : result.stdout
+		const parsed = unwrapBdJson<{ checks?: BdDoctorCheck[] }>(raw)
+		const checks = Array.isArray(parsed?.checks) ? parsed.checks : []
+		const findings = checks
+			.filter((c) => c.status === 'warning' || c.status === 'error')
+			.map((c) => ({ severity: c.status, message: c.name ? `${c.name}: ${c.message ?? ''}` : c.message }))
 		return { ok: true, findings }
 	} catch (err) {
 		return { ok: false, findings: [], error: err instanceof Error ? err.message : String(err) }
