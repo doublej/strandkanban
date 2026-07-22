@@ -277,6 +277,17 @@ export async function pullDolt(cwd?: string): Promise<BdResult> {
 	return run('bd dolt pull', cwd, BD_NETWORK_TIMEOUT_MS)
 }
 
+/**
+ * bd 1.0.5+ made JSONL auto-export opt-in (Dolt is the canonical store). The app
+ * depends on a fresh .beads/issues.jsonl for project stats, board diffs, and
+ * change detection, so opt back in when a project has it disabled.
+ */
+export async function ensureAutoExport(cwd?: string): Promise<void> {
+	const current = await run('bd config get export.auto', cwd)
+	if (current.success && current.stdout === 'true') return
+	await run('bd config set export.auto true', cwd)
+}
+
 interface BdDoctorCheck {
 	name?: string
 	status?: string
