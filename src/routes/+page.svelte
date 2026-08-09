@@ -342,7 +342,12 @@
 	// The param is consumed (stripped) so a refresh/close doesn't force it back.
 	function consumeZenParam(raw: string) {
 		const wanted = raw.split(',').map((s) => s.trim()).filter(Boolean);
-		const valid = wanted.filter((id) => issues.some((i) => i.id === id));
+		// Accept the short form people actually write (`uhgp.17`) as well as the
+		// prefixed id bd stores (`myproject-uhgp.17`) — same leniency as `bd show`.
+		const valid = wanted
+			.map((id) => issues.find((i) => i.id === id) ?? issues.find((i) => i.id.endsWith(`-${id}`)))
+			.filter((i) => i !== undefined)
+			.map((i) => i.id);
 		const list = valid.length ? valid : wanted;
 		if (list.length) openZenReview(list, 0);
 		if (browser) {
