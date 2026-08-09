@@ -542,20 +542,34 @@ function readTargetCwd(): string {
 	return resolve(process.cwd())
 }
 
+/** `strand://zen/<id[,id]>` — focus review for one or more issues, the URL form of `strand zen`. */
+function parseZenRef(arg: string): string[] {
+	const raw = arg.trim().replace(/^strand:\/\//i, '').split(/[?#]/)[0].replace(/^\/+|\/+$/g, '')
+	const m = /^zen\/(.+)$/i.exec(raw)
+	if (!m) return []
+	let ids = m[1]
+	try { ids = decodeURIComponent(ids) } catch { /* leave as-is if not encoded */ }
+	return parseIds([ids])
+}
+
 async function runOpen(arg: string | undefined): Promise<void> {
 	if (!arg || arg === '-h' || arg === '--help') {
-		console.log(`Usage: strand open <strand://id | id>
+		console.log(`Usage: strand open <strand://id | id | strand://zen/id[,id]>
 
   Focus the board on an issue. Reuses a running board if one is up,
   otherwise starts one against the last-targeted project.
     strand open strand://pm-1
-    strand open pm-1`)
+    strand open pm-1
+    strand open strand://zen/pm-1,pm-2   # same as: strand zen pm-1,pm-2`)
 		if (!arg) process.exitCode = 2
 		return
 	}
-	const id = parseIssueRef(arg)
-	if (!id) fail(`Could not parse an issue id from: ${arg}`)
-	const openPath = `/?issue=${encodeURIComponent(id)}`
+	const zenIds = parseZenRef(arg)
+	const id = zenIds.length ? '' : parseIssueRef(arg)
+	if (!zenIds.length && !id) fail(`Could not parse an issue id from: ${arg}`)
+	const openPath = zenIds.length
+		? `/?zen=${zenIds.map(encodeURIComponent).join(',')}`
+		: `/?issue=${encodeURIComponent(id)}`
 
 	// Reuse a live board if one is running.
 	const active = readActiveServer()

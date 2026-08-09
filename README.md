@@ -52,7 +52,7 @@ The launcher handles setup for you:
 - **More views.** Switch between the board, a table, the dependency graph, and a grid overview. Open zen mode for a focused review of selected issues.
 - **Search and filters.** Filter by text, priority, type, label, time, and whether an issue is actionable.
 - **Notifications.** Get browser push and desktop notifications when issues change.
-- **Deep links.** Open `strand://issue-id` links to jump straight to an issue on a running board.
+- **Deep links.** Open `strand://issue-id` links to jump straight to an issue on a running board, or `strand://zen/id,id` to drop into focus review.
 
 The board has five columns: Backlog, In Progress, Hooked, Blocked, and Complete. They map to the Beads statuses `open`, `in_progress`, `hooked`, `blocked`, and `closed`.
 
@@ -124,7 +124,8 @@ Then launch with `strand /path/to/project`. The CLI starts the agent server on p
 
 ```bash
 scheme/install.sh
-open 'strand://some-issue-id'
+open 'strand://some-issue-id'          # focus one issue
+open 'strand://zen/some-id,other-id'   # focus review, same as `strand zen`
 ```
 
 The script registers a small URL handler that forwards links to `strand open`. See [scheme/README.md](scheme/README.md) for uninstall and terminal hyperlink notes.

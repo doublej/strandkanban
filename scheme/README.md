@@ -3,8 +3,12 @@
 Clickable links that open the Kanban board on a specific issue:
 
 ```
-strand://<issue-id>      e.g. strand://beads-kanban-41k
+strand://<issue-id>          e.g. strand://beads-kanban-41k
+strand://zen/<id[,id ...]>   e.g. strand://zen/beads-kanban-41k,beads-kanban-877y
 ```
+
+The `zen/` form opens distraction-free focus review — the URL equivalent of
+`strand zen <ids>`.
 
 ## How it works
 
