@@ -124,6 +124,10 @@
 			const rect = el.getBoundingClientRect();
 			return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
 		},
+		measureCardHeight: (id) => {
+			const cardEl = document.querySelector(`[data-card-id="${id}"]`);
+			return cardEl?.getBoundingClientRect().height ?? 80;
+		},
 		measureTargetPosition: (targetColumn, height) => {
 			// Find the column element
 			const columnEl = document.querySelector(`[data-column-key="${targetColumn}"] .cards`);

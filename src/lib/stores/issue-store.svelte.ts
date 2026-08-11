@@ -19,6 +19,8 @@ export interface IssueStoreCallbacks {
 	onStatusChange: (issue: Issue, oldStatus: string) => void;
 	getCardPosition: (id: string) => { x: number; y: number; w: number; h: number } | null;
 	getPlaceholderPosition: (id: string) => { x: number; y: number; w: number; h: number } | null;
+	/** Rendered height of a card, or a fallback when it isn't on screen. */
+	measureCardHeight: (id: string) => number;
 	measureTargetPosition: (targetColumn: string, height: number) => { x: number; y: number; w: number; h: number } | null;
 	addPlaceholder: (id: string, targetColumn: string, height: number) => void;
 	addFlyingCard: (id: string, from: { x: number; y: number; w: number; h: number }, to: { x: number; y: number; w: number; h: number }, issue: Issue) => void;
@@ -108,8 +110,7 @@ export function createIssueStore(callbacks: IssueStoreCallbacks, initialIssues: 
 		// PRE-FLIGHT: Measure positions before any DOM changes
 		const measurements = statusChanges.map(({ id, newStatus }) => {
 			const fromPos = callbacks.getCardPosition(id);
-			const cardEl = document.querySelector(`[data-card-id="${id}"]`);
-			const height = cardEl?.getBoundingClientRect().height ?? 80;
+			const height = callbacks.measureCardHeight(id);
 			const toPos = callbacks.measureTargetPosition(newStatus, height);
 			return { id, fromPos, toPos, newStatus, height };
 		});
