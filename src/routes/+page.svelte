@@ -50,11 +50,20 @@
 		setCurrentProject(data.cwd);
 	}
 
+	// `session` is created further down (it needs issueStore + agentPanes), but on the
+	// SERVER `$derived`/`$derived.by` run eagerly at store-creation time — agent-panes'
+	// `managerSession` calls this getter inside `createAgentPanes`, hitting `session` in
+	// its TDZ and 500ing every SSR render. The client never saw it because `$derived` is
+	// lazy there. Hold the ref in a `let` and fall back to the server-resolved cwd, which
+	// is exactly what `session.currentProjectPath` initializes to.
+	let sessionRef: ReturnType<typeof createProjectSession> | undefined;
+	const getCurrentProjectPath = () => sessionRef?.currentProjectPath ?? data.cwd ?? '';
+
 	// --- View preferences (filters, view mode, recipes, theme) ---
-	const viewState = createViewState({ getCurrentProjectPath: () => session.currentProjectPath });
+	const viewState = createViewState({ getCurrentProjectPath });
 
 	// --- Agent panes (WS snapshot + per-pane UI state) ---
-	const agentPanes = createAgentPanes({ getCurrentProjectPath: () => session.currentProjectPath });
+	const agentPanes = createAgentPanes({ getCurrentProjectPath });
 
 	// --- Card teleport animation ---
 	const boardAnimation = createBoardAnimation();
@@ -78,7 +87,7 @@
 		issueStore,
 		getIssues: () => issues,
 		getWsPanes: () => agentPanes.wsPanes,
-		getCurrentProjectPath: () => session.currentProjectPath,
+		getCurrentProjectPath,
 		getSelectedId: () => selectedId,
 		setSelectedId: (id) => { selectedId = id; },
 		getExpandedPanes: () => agentPanes.expandedPanes,
@@ -116,6 +125,7 @@
 			ops.isCreating = false;
 		}
 	});
+	sessionRef = session;
 
 	let serverQueue = $derived(getQueueItems());
 	let queuedTicketIds = $derived(getQueuedTicketIds());
