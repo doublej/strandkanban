@@ -9,7 +9,7 @@ import { buildSystemPrompt } from "./system-prompt";
 import type { AgentQueue } from "./queue-manager";
 import { hookExecutor } from "./hook-executor";
 import { markWorktreeCompleted } from "./worktree-registry";
-import { createClaudeProvider } from "./providers/claude";
+import { getProvider } from "./providers";
 import type { McpStdioSpec } from "./providers/types";
 import { log } from "../logger";
 
@@ -67,7 +67,7 @@ export async function runAgent(session: AgentSession, briefing: string, opts: Ru
 
   let runError: unknown = null;
 
-  const provider = createClaudeProvider({ sessions: opts.sessions, queue: opts.queue });
+  const provider = getProvider(session.provider, { sessions: opts.sessions, queue: opts.queue });
   const run = await provider.start({
     cwd: session.cwd,
     runId: session.id,

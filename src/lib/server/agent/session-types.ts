@@ -1,6 +1,6 @@
 import type { ServerWebSocket } from "bun";
 import type { WSData } from "./http-server";
-import type { AgentRun } from "./providers/types";
+import type { AgentRun, ProviderId } from "./providers/types";
 
 export type AgentSession = {
   id: string;
@@ -22,6 +22,8 @@ export type AgentSession = {
   allowedTools?: string[];
   disallowedTools?: string[];
   model?: string;
+  /** Which adapter runs this session. Claude when unset. */
+  provider?: ProviderId;
   /** Current permission mode. Defaults to bypassPermissions (fully autonomous). */
   permissionMode?: string;
   /** Live provider run handle for runtime control (send, setModel, setPermissionMode, interrupt). */
@@ -31,7 +33,7 @@ export type AgentSession = {
 };
 
 export type ClientMessage =
-  | { type: "start"; cwd: string; agentName?: string; systemPromptAppend?: string; briefing: string; allowedTools?: string[]; disallowedTools?: string[]; resumeSessionId?: string; model?: string; isManager?: boolean }
+  | { type: "start"; cwd: string; agentName?: string; systemPromptAppend?: string; briefing: string; allowedTools?: string[]; disallowedTools?: string[]; resumeSessionId?: string; model?: string; isManager?: boolean; provider?: ProviderId }
   | { type: "resume"; sessionId: string }
   | { type: "continue"; text: string }
   | { type: "message"; text: string }

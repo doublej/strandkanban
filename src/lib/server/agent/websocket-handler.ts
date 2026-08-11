@@ -87,6 +87,7 @@ export function createWebSocketHandlers(config: WebSocketConfig) {
             systemPromptAppend: msg.systemPromptAppend,
             sdkSessionId: msg.resumeSessionId,
             model: msg.model,
+            provider: msg.provider,
             abortController: new AbortController(),
             inputQueue: [],
             fileSnapshots: new Map(),

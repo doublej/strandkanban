@@ -1,0 +1,328 @@
+[
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "userMessage",
+        "id": "019ff25c-7c41-7d93-9872-44fc2b7a56e3",
+        "clientId": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Do exactly two things, then stop and reply \"done\": (1) run the shell command `echo hello-fixture`, (2) call the beads-agent update_issue tool with issue_id \"zz-nonexistent-999\" and status \"open\". Both are expected; report the outcome briefly.",
+            "text_elements": []
+          }
+        ]
+      },
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turnId": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+      "startedAtMs": 1786477575233
+    }
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "userMessage",
+        "id": "019ff25c-7c41-7d93-9872-44fc2b7a56e3",
+        "clientId": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Do exactly two things, then stop and reply \"done\": (1) run the shell command `echo hello-fixture`, (2) call the beads-agent update_issue tool with issue_id \"zz-nonexistent-999\" and status \"open\". Both are expected; report the outcome briefly.",
+            "text_elements": []
+          }
+        ]
+      },
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turnId": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+      "completedAtMs": 1786477575233
+    }
+  },
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "reasoning",
+        "id": "rs_0573337b32e610bd016a7b7c08f93c81918cd83569af8a74d9",
+        "summary": [],
+        "content": []
+      },
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turnId": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+      "startedAtMs": 1786477576979
+    }
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "reasoning",
+        "id": "rs_0573337b32e610bd016a7b7c08f93c81918cd83569af8a74d9",
+        "summary": [],
+        "content": []
+      },
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turnId": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+      "completedAtMs": 1786477582694
+    }
+  },
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "commandExecution",
+        "id": "exec-ed6e5861-6f0e-4275-b888-a9ec2c085eba",
+        "pluginId": null,
+        "scriptPath": null,
+        "command": "/bin/zsh -lc 'echo hello-fixture'",
+        "cwd": "/repo",
+        "processId": "69792",
+        "source": "unifiedExecStartup",
+        "status": "inProgress",
+        "commandActions": [
+          {
+            "type": "unknown",
+            "command": "echo hello-fixture"
+          }
+        ],
+        "aggregatedOutput": null,
+        "exitCode": null,
+        "durationMs": null
+      },
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turnId": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+      "startedAtMs": 1786477590569
+    }
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "commandExecution",
+        "id": "exec-ed6e5861-6f0e-4275-b888-a9ec2c085eba",
+        "pluginId": null,
+        "scriptPath": null,
+        "command": "/bin/zsh -lc 'echo hello-fixture'",
+        "cwd": "/repo",
+        "processId": "69792",
+        "source": "unifiedExecStartup",
+        "status": "completed",
+        "commandActions": [
+          {
+            "type": "unknown",
+            "command": "echo hello-fixture"
+          }
+        ],
+        "aggregatedOutput": "hello-fixture\n",
+        "exitCode": 0,
+        "durationMs": 0
+      },
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turnId": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+      "completedAtMs": 1786477590575
+    }
+  },
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "mcpToolCall",
+        "id": "exec-dfebba1a-33c9-4978-ab1b-ff583975cda6",
+        "server": "beads-agent",
+        "tool": "update_issue",
+        "status": "inProgress",
+        "arguments": {
+          "issue_id": "zz-nonexistent-999",
+          "status": "open"
+        },
+        "appContext": null,
+        "pluginId": null,
+        "readOnlyHint": null,
+        "result": null,
+        "error": null,
+        "durationMs": null
+      },
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turnId": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+      "startedAtMs": 1786477590633
+    }
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "mcpToolCall",
+        "id": "exec-dfebba1a-33c9-4978-ab1b-ff583975cda6",
+        "server": "beads-agent",
+        "tool": "update_issue",
+        "status": "failed",
+        "arguments": {
+          "issue_id": "zz-nonexistent-999",
+          "status": "open"
+        },
+        "appContext": null,
+        "pluginId": null,
+        "readOnlyHint": null,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Error: Error: Error resolving zz-nonexistent-999: no issue found matching \"zz-nonexistent-999\""
+            }
+          ],
+          "structuredContent": null,
+          "_meta": null
+        },
+        "error": null,
+        "durationMs": 714
+      },
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turnId": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+      "completedAtMs": 1786477591353
+    }
+  },
+  {
+    "method": "thread/tokenUsage/updated",
+    "params": {
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turnId": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 20385,
+          "inputTokens": 20013,
+          "cachedInputTokens": 11008,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 372,
+          "reasoningOutputTokens": 219
+        },
+        "last": {
+          "totalTokens": 20385,
+          "inputTokens": 20013,
+          "cachedInputTokens": 11008,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 372,
+          "reasoningOutputTokens": 219
+        },
+        "modelContextWindow": 258400
+      }
+    }
+  },
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "reasoning",
+        "id": "rs_0573337b32e610bd016a7b7c1a96e481919db5c5d3bdb6ad9d",
+        "summary": [],
+        "content": []
+      },
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turnId": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+      "startedAtMs": 1786477594872
+    }
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "reasoning",
+        "id": "rs_0573337b32e610bd016a7b7c1a96e481919db5c5d3bdb6ad9d",
+        "summary": [],
+        "content": []
+      },
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turnId": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+      "completedAtMs": 1786477594873
+    }
+  },
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_0573337b32e610bd016a7b7c1acbac8191864f744203a29fff",
+        "text": "",
+        "phase": "final_answer",
+        "memoryCitation": null
+      },
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turnId": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+      "startedAtMs": 1786477594875
+    }
+  },
+  {
+    "method": "item/agentMessage/delta",
+    "params": {
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turnId": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+      "itemId": "msg_0573337b32e610bd016a7b7c1acbac8191864f744203a29fff",
+      "delta": "done"
+    }
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_0573337b32e610bd016a7b7c1acbac8191864f744203a29fff",
+        "text": "done",
+        "phase": "final_answer",
+        "memoryCitation": null
+      },
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turnId": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+      "completedAtMs": 1786477595395
+    }
+  },
+  {
+    "method": "thread/tokenUsage/updated",
+    "params": {
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turnId": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 40853,
+          "inputTokens": 40466,
+          "cachedInputTokens": 30208,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 387,
+          "reasoningOutputTokens": 227
+        },
+        "last": {
+          "totalTokens": 20468,
+          "inputTokens": 20453,
+          "cachedInputTokens": 19200,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 15,
+          "reasoningOutputTokens": 8
+        },
+        "modelContextWindow": 258400
+      }
+    }
+  },
+  {
+    "method": "turn/completed",
+    "params": {
+      "threadId": "019ff25c-605f-7c41-bf0c-9de308fe9a0f",
+      "turn": {
+        "id": "019ff25c-7a2d-7393-a106-619d0e061f2b",
+        "items": [
+          {
+            "type": "agentMessage",
+            "id": "msg_0573337b32e610bd016a7b7c1acbac8191864f744203a29fff",
+            "text": "done",
+            "phase": "final_answer",
+            "memoryCitation": null
+          }
+        ],
+        "itemsView": "summary",
+        "status": "completed",
+        "error": null,
+        "startedAt": 1786477574,
+        "completedAt": 1786477595,
+        "durationMs": 20826
+      }
+    }
+  }
+]
