@@ -147,7 +147,6 @@ function syncActiveSessions(scopeCwd: string | null, activeSessions: ActiveRemot
 			messages: [],
 			currentDelta: '',
 			pane_type: 'agent',
-			backend: 'claude',
 			ticketId: remote.ticketId,
 			worktreePath: remote.worktreePath,
 			serverId: remote.sessionId,

@@ -63,7 +63,6 @@ export function createAgentOps(ctx: AgentOpsContext, panel: IssuePanel) {
 			messages: [],
 			currentDelta: '',
 			pane_type: 'agent',
-			backend: 'claude',
 			ticketId
 		});
 		setSessions(new Map(sessions));

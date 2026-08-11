@@ -51,6 +51,7 @@ queue.setDispatchFn(async (item, briefing) => {
     worktreePath: item.useWorktree ? sessionCwd : undefined,
     agentName: item.agentName,
     model: item.model,
+    provider: item.provider,
     abortController: new AbortController(),
     inputQueue: [],
     fileSnapshots: new Map(),

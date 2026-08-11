@@ -72,6 +72,15 @@ export function createWebSocketHandlers(config: WebSocketConfig) {
 
       switch (msg.type) {
         case "start": {
+          // Manager orchestration is Claude-only: the tools in manager-tools.ts are
+          // in-process Claude SDK servers holding the live queue, and the memory
+          // protocol in manager-prompt.ts is CLAUDE-MANAGER.md. Refuse here rather
+          // than start a manager that cannot dispatch anything.
+          if (msg.isManager && msg.provider && msg.provider !== "claude") {
+            sendToWs(ws, { type: "error", error: `Manager sessions require the claude provider (got "${msg.provider}").` });
+            return;
+          }
+
           const sessionId = crypto.randomUUID();
           ws.data.sessionId = sessionId;
 

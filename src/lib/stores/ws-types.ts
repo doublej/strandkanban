@@ -1,5 +1,8 @@
 // Type definitions for WebSocket agent sessions
 import type { QueueItem } from '$lib/server/agent/queue-types';
+import type { ProviderId } from '$lib/server/agent/providers/types';
+
+export type { ProviderId };
 
 export type NotificationType = 'comment' | 'dependency' | 'attachment' | 'status' | 'priority' | 'assignee' | 'label';
 
@@ -93,7 +96,8 @@ export interface AgentSession {
 	/** Summary of the most recent completed run (turns, per-model usage, denials). */
 	lastRun?: RunSummary;
 	pane_type: string;
-	backend: string;
+	/** Adapter running this session. Claude when unset; persisted so a resume returns to it. */
+	provider?: ProviderId;
 	lastReadCount?: number;
 	ticketId?: string;
 	worktreePath?: string;

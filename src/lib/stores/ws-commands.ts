@@ -1,7 +1,7 @@
 // Per-session commands: leader-tab implementations plus the public wrappers
 // that forward to the leader when this tab is a follower.
 import { tabCoordinator } from '../tabCoordinator';
-import type { AgentSession, NotificationType } from './ws-types';
+import type { AgentSession, NotificationType, ProviderId } from './ws-types';
 import { getSessions, setSessions, getIsTabLeader, updateSession } from './agent-sessions.svelte';
 import { fetchSessionHistory } from '../session-persistence';
 import {
@@ -23,7 +23,7 @@ import { settings } from './settings.svelte';
 
 // --- Internal functions (called by leader tab) ---
 
-async function startSessionInternal(name: string, cwd: string, briefing: string, systemPromptAppend?: string, resumeSessionId?: string, ticketId?: string, model?: string, isManager?: boolean) {
+async function startSessionInternal(name: string, cwd: string, briefing: string, systemPromptAppend?: string, resumeSessionId?: string, ticketId?: string, model?: string, isManager?: boolean, provider?: ProviderId) {
 	console.log('[agent] startSession:', name, 'cwd:', cwd, resumeSessionId ? `resuming: ${resumeSessionId}` : '', ticketId ? `ticket: ${ticketId}` : '', isManager ? 'MANAGER' : '');
 
 	const sessions = getSessions();
@@ -36,7 +36,8 @@ async function startSessionInternal(name: string, cwd: string, briefing: string,
 		messages: existing?.messages ?? [],
 		currentDelta: '',
 		pane_type: 'agent',
-		backend: 'claude',
+		// A resume keeps the provider it started on; sessions survive reload via localStorage.
+		provider: provider ?? existing?.provider,
 		sdkSessionId: resumeSessionId,
 		ticketId: ticketId ?? existing?.ticketId,
 		isManager,
@@ -57,7 +58,7 @@ async function startSessionInternal(name: string, cwd: string, briefing: string,
 	const ws = await getOrCreateSocket(name);
 	if (!ws) return;
 
-	sendWhenOpen(name, ws, { type: 'start', cwd, agentName: name, briefing, systemPromptAppend, resumeSessionId, model, isManager });
+	sendWhenOpen(name, ws, { type: 'start', cwd, agentName: name, briefing, systemPromptAppend, resumeSessionId, model, isManager, provider: session.provider });
 }
 
 function sendMessageInternal(name: string, text: string) {
@@ -228,11 +229,11 @@ function leaderOrForward<A extends unknown[]>(
 	};
 }
 
-export function startSession(name: string, cwd: string, briefing: string, systemPromptAppend?: string, resumeSessionId?: string, ticketId?: string, model?: string, isManager?: boolean) {
+export function startSession(name: string, cwd: string, briefing: string, systemPromptAppend?: string, resumeSessionId?: string, ticketId?: string, model?: string, isManager?: boolean, provider?: ProviderId) {
 	if (getIsTabLeader()) {
-		startSessionInternal(name, cwd, briefing, systemPromptAppend, resumeSessionId, ticketId, model, isManager);
+		startSessionInternal(name, cwd, briefing, systemPromptAppend, resumeSessionId, ticketId, model, isManager, provider);
 	} else {
-		tabCoordinator.requestAction({ action: 'startSession', sessionName: name, args: [cwd, briefing, systemPromptAppend, resumeSessionId, ticketId, model, isManager] });
+		tabCoordinator.requestAction({ action: 'startSession', sessionName: name, args: [cwd, briefing, systemPromptAppend, resumeSessionId, ticketId, model, isManager, provider] });
 	}
 }
 
