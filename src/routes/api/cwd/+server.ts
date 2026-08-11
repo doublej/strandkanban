@@ -1,7 +1,7 @@
 import type { RequestHandler } from './$types';
 import { existsSync, statSync } from 'fs';
 import { resolve } from 'path';
-import { getStoredCwd, setStoredCwd } from '$lib/db';
+import { getStoredCwd, setStoredCwd } from '$lib/server/cwd';
 import { ok, wrap, ApiError } from '$lib/server/response';
 import { parseBody, SetCwdSchema } from '$lib/server/schemas';
 

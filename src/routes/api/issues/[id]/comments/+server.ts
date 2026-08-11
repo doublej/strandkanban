@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
-import { getComments, getIssueById } from '$lib/db';
 import { requireProjectCwd } from '$lib/server/cwd';
+import { beads } from '$lib/server/beads/client';
 import { addComment } from '$lib/bd';
 import { notificationStore } from '$lib/notifications/notification-store.svelte';
 import { hookExecutor } from '$lib/server/agent/hook-executor';
@@ -9,7 +9,7 @@ import { parseBody, AddCommentSchema } from '$lib/server/schemas';
 
 export const GET: RequestHandler = wrap(async ({ params, url }) => {
 	const cwd = requireProjectCwd(url);
-	const comments = getComments(params.id, cwd);
+	const comments = await beads(cwd).comments(params.id);
 	return ok({ comments });
 });
 
@@ -19,7 +19,7 @@ export const POST: RequestHandler = wrap(async ({ params, request, url }) => {
 	const result = await addComment(params.id, text, cwd);
 	if (!result.success) throw new ApiError(result.error || 'Failed to add comment');
 
-	const issue = getIssueById(params.id, cwd);
+	const issue = await beads(cwd).issue(params.id);
 	if (issue) {
 		notificationStore.emit('comment_added', issue, { cwd });
 		await hookExecutor.executeHooks('CommentAdded', {

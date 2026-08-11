@@ -1,6 +1,7 @@
 import type { PageServerLoad } from './$types';
 import type { Issue } from '$lib/types';
-import { countIssues, getAllIssues, resolveProjectCwd } from '$lib/db';
+import { resolveProjectCwd } from '$lib/server/cwd';
+import { beads } from '$lib/server/beads/client';
 
 /** Above this, serializing the board into the HTML costs more than it saves (19MB of
  *  document + hydration on a 2200-issue project). The client's fetch fills it instead —
@@ -15,6 +16,7 @@ const SSR_SEED_MAX_ISSUES = 400;
  */
 export const load: PageServerLoad = async ({ url }) => {
 	const cwd = resolveProjectCwd(url);
+	const bd = beads(cwd);
 	// ?zen= renders a fullscreen overlay over a board nobody sees yet, so export only the
 	// linked issues and leave the board to the client's fetch. Seeding the whole board
 	// here costs a full export plus megabytes of HTML before Zen can paint.
@@ -22,8 +24,8 @@ export const load: PageServerLoad = async ({ url }) => {
 	let issues: Issue[] = [];
 	let zenIssues: Issue[] = [];
 	try {
-		if (zenIds?.length) zenIssues = getAllIssues(cwd, zenIds);
-		else if (countIssues(cwd) <= SSR_SEED_MAX_ISSUES) issues = getAllIssues(cwd, undefined, { slim: true });
+		if (zenIds?.length) zenIssues = await bd.issues(zenIds);
+		else if ((await bd.count()) <= SSR_SEED_MAX_ISSUES) issues = await bd.issues(undefined, { slim: true });
 	} catch {
 		// bd unavailable/unhealthy in the server env — fall through to empty; the
 		// client's existing fetch/retry path repopulates the board.

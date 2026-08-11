@@ -1,7 +1,7 @@
 import { execSync } from 'child_process';
 import type { RequestHandler } from './$types';
-import { getAllIssues } from '$lib/db';
 import { requireProjectCwd } from '$lib/server/cwd';
+import { beads } from '$lib/server/beads/client';
 import type { DiffChange, DiffResult } from '$lib/types';
 import { ok, wrap, ApiError } from '$lib/server/response';
 
@@ -87,7 +87,7 @@ export const GET: RequestHandler = wrap(async ({ url }) => {
 		throw new ApiError('Invalid revision format', 400, 'VALIDATION');
 	}
 
-	const currentIssues = getAllIssues(cwd);
+	const currentIssues = await beads(cwd).issues();
 	const currentMap = new Map(currentIssues.map((i) => [
 		i.id, { id: i.id, title: i.title, status: i.status, priority: i.priority, issue_type: i.issue_type },
 	]));

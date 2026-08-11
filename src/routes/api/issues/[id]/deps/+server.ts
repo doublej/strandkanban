@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
-import { getIssueById } from '$lib/db';
 import { requireProjectCwd } from '$lib/server/cwd';
+import { beads } from '$lib/server/beads/client';
 import { addDependency, removeDependency } from '$lib/bd';
 import { notificationStore } from '$lib/notifications/notification-store.svelte';
 import { hookExecutor } from '$lib/server/agent/hook-executor';
@@ -14,7 +14,7 @@ export const POST: RequestHandler = wrap(async ({ params, request, url }) => {
 	const result = await addDependency(params.id, depends_on, dep_type ?? 'blocks', cwd);
 	if (!result.success) throw new ApiError(result.error || 'Failed to create dependency');
 
-	const issue = getIssueById(params.id, cwd);
+	const issue = await beads(cwd).issue(params.id);
 	if (issue) {
 		notificationStore.emit('dependency_added', issue, { cwd });
 		await hookExecutor.executeHooks('DependencyAdded', {

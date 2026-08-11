@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
-import { getRecentEvents } from '$lib/db';
 import { requireProjectCwd } from '$lib/server/cwd';
+import { beads } from '$lib/server/beads/client';
 import { ok, wrap } from '$lib/server/response';
 
 /**
@@ -11,6 +11,6 @@ export const GET: RequestHandler = wrap(async ({ url }) => {
 	const cwd = requireProjectCwd(url);
 	const limit = Math.min(Number(url.searchParams.get('limit')) || 100, 500);
 	const since = Number(url.searchParams.get('since')) || 0;
-	const { events, unsupported } = getRecentEvents(limit, cwd);
+	const { events, unsupported } = await beads(cwd).recentEvents(limit);
 	return ok({ events: events.filter((e) => e.timestamp > since), unsupported });
 });

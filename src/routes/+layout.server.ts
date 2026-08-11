@@ -1,7 +1,7 @@
 import type { LayoutServerLoad } from './$types';
 import { join } from 'path';
 import { readFileSync } from 'fs';
-import { resolveProjectCwd } from '$lib/db';
+import { resolveProjectCwd } from '$lib/server/cwd';
 
 function getProjectName(projectDir: string): string {
 	const fallback = projectDir.split('/').pop() || projectDir;

@@ -4,7 +4,7 @@
  */
 import Database from 'better-sqlite3';
 import { join } from 'path';
-import { getStoredCwd } from './db';
+import { getStoredCwd } from './server/cwd';
 
 const APP_DB_NAME = 'beads-app.db';
 

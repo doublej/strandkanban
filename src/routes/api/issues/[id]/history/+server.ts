@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
 import { requireProjectCwd } from '$lib/server/cwd';
-import { historyIssue, unwrapBdJson } from '$lib/bd';
+import { beads } from '$lib/server/beads/client';
 import { ok, wrap } from '$lib/server/response';
 
 interface Snapshot {
@@ -45,15 +45,7 @@ function diffSnapshots(newer: Snapshot, older: Snapshot): string[] {
 
 export const GET: RequestHandler = wrap(async ({ params, url }) => {
 	const cwd = requireProjectCwd(url);
-	const result = await historyIssue(params.id, 20, cwd);
-	if (!result.success || !result.stdout) return ok({ entries: [] as HistoryEntry[] });
-
-	let raw: RawEntry[];
-	try {
-		raw = unwrapBdJson<RawEntry[]>(result.stdout) ?? [];
-	} catch {
-		return ok({ entries: [] as HistoryEntry[] });
-	}
+	const raw = await beads(cwd).readJson<RawEntry[]>(['history', params.id, '--json', '--limit', '20']);
 	if (!Array.isArray(raw) || raw.length === 0) return ok({ entries: [] as HistoryEntry[] });
 
 	// Snapshots are newest-first; diff each against the next-older. Oldest is the creation.

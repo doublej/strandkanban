@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
-import { getIssueById } from '$lib/db';
 import { requireProjectCwd } from '$lib/server/cwd';
+import { beads } from '$lib/server/beads/client';
 import { updateIssue, deleteIssue, addLabel, removeLabel, setMetadata, unsetMetadata } from '$lib/bd';
 import { notificationStore } from '$lib/notifications/notification-store.svelte';
 import { hookExecutor } from '$lib/server/agent/hook-executor';
@@ -17,7 +17,7 @@ export const PATCH: RequestHandler = wrap(async ({ params, request, url }) => {
 	} = body;
 
 	const cwd = requireProjectCwd(url);
-	const beforeIssue = getIssueById(params.id, cwd);
+	const beforeIssue = await beads(cwd).issue(params.id);
 
 	const updateRes = await updateIssue(
 		params.id,
@@ -47,7 +47,7 @@ export const PATCH: RequestHandler = wrap(async ({ params, request, url }) => {
 		if (!result.success) throw new ApiError(result.error || 'Update failed');
 	}
 
-	const afterIssue = getIssueById(params.id, cwd);
+	const afterIssue = await beads(cwd).issue(params.id);
 	if (beforeIssue && afterIssue) {
 		const baseCtx = {
 			id: afterIssue.id,
@@ -97,7 +97,7 @@ export const PATCH: RequestHandler = wrap(async ({ params, request, url }) => {
 
 export const DELETE: RequestHandler = wrap(async ({ params, url }) => {
 	const cwd = requireProjectCwd(url);
-	const issue = getIssueById(params.id, cwd);
+	const issue = await beads(cwd).issue(params.id);
 
 	const result = await deleteIssue(params.id, cwd);
 	if (!result.success) throw new ApiError(result.error || 'Delete failed');

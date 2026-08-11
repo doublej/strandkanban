@@ -1,6 +1,6 @@
 import { spawn } from "child_process";
 import { bdEnv, unwrapBdJson } from "$lib/bd";
-import { invalidateExport } from "$lib/db";
+import { beads } from "../beads/client";
 
 export async function runBd(cwd: string, args: string[]): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -21,7 +21,7 @@ export async function runBd(cwd: string, args: string[]): Promise<string> {
 		// bd may have mutated the DB either way — drop the cached export before settling,
 		// so whoever reacts to this promise reads fresh rows.
 		proc.on("close", (code) => {
-			invalidateExport(cwd);
+			beads(cwd).invalidate();
 			if (code === 0) {
 				resolve(unwrapEnvelopeText(stdout.trim()));
 			} else {
@@ -30,7 +30,7 @@ export async function runBd(cwd: string, args: string[]): Promise<string> {
 		});
 
 		proc.on("error", (err) => {
-			invalidateExport(cwd);
+			beads(cwd).invalidate();
 			reject(err);
 		});
 	});

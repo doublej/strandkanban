@@ -4,7 +4,8 @@
  */
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { getStoredCwd, invalidateExport } from './db'
+import { getStoredCwd } from './server/cwd'
+import { beads } from './server/beads/client'
 
 const execAsync = promisify(exec)
 
@@ -88,8 +89,9 @@ async function run(cmd: string, cwd?: string, timeoutMs?: number): Promise<BdRes
 		// Every write helper routes through here, so this is the one place the export cache
 		// must be dropped. `finally`: a failed bd may still have mutated. Read-only commands
 		// (--version, lint) invalidate too — costs one extra export, never wrong data.
-		const { stdout, stderr } = await execAsync(cmd, { cwd: cwd ?? getStoredCwd(), env: bdEnv(), timeout: timeoutMs })
-			.finally(() => invalidateExport(cwd))
+		const effectiveCwd = cwd ?? getStoredCwd()
+		const { stdout, stderr } = await execAsync(cmd, { cwd: effectiveCwd, env: bdEnv(), timeout: timeoutMs })
+			.finally(() => beads(effectiveCwd).invalidate())
 		return { success: true, stdout: stdout.trim(), warning: stderr || undefined }
 	} catch (err: unknown) {
 		const e = err as { stderr?: string; message?: string; killed?: boolean; signal?: string }
