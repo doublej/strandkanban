@@ -41,7 +41,9 @@
 		onsetcolumnsort: (columnKey: string, sortBy: 'priority' | 'created' | 'title') => void;
 		oncardclick: (issue: Issue) => void;
 		oncarddragstart: (e: DragEvent, issueId: string) => void;
-		oncarddragend: () => void;
+		// Wired straight to `ondragend`, so it does receive the event — the old `() => void`
+		// signature just hid that from callers.
+		oncarddragend: (e: DragEvent) => void;
 		oncardcontextmenu: (e: MouseEvent, issue: Issue) => void;
 		oncopyid: (id: string, text: string) => void;
 		onaddclick?: () => void;

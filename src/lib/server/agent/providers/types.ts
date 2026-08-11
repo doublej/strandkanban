@@ -66,6 +66,10 @@ export type AgentEvent =
       permissionMode?: string;
       tools?: string[];
       plugins?: PluginInfo[];
+      /** Stamped by agent-runner from the resolved adapter — adapters leave these unset. */
+      provider?: ProviderId;
+      permissionModes?: string[];
+      costUsd?: boolean;
     }
   | { type: "text_delta"; text: string }
   | { type: "thinking_delta"; thinking: string }

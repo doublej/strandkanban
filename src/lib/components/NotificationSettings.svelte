@@ -43,7 +43,8 @@
 		label_modified: { label: 'Labels Modified', desc: 'Labels added or removed' },
 		attachment_added: { label: 'Attachment Added', desc: 'File attachments uploaded' },
 		issue_created: { label: 'Issue Created', desc: 'New issues created' },
-		issue_closed: { label: 'Issue Closed', desc: 'Issues closed or deleted' }
+		issue_closed: { label: 'Issue Closed', desc: 'Issues closed' },
+		issue_deleted: { label: 'Issue Deleted', desc: 'Issues permanently deleted' }
 	};
 
 	function toggleEvent(event: NotificationEventType) {

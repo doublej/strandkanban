@@ -76,7 +76,12 @@ export function createAgentPanes(ctx: AgentPanesContext) {
 	});
 	const runningAgents = $derived.by(() => {
 		const sessions = Array.from(getSessions().values());
-		return sessions.filter(s => s.ticketId && !s.ended && (s.projectCwd ?? s.cwd) === ctx.getCurrentProjectPath());
+		// ponytail: the original filter also tested `!s.ended`, but `ended` has never been a
+		// field on a session — `session_ended` only clears `streaming`/`serverId` — so that
+		// clause was always true and is dropped here to keep behaviour identical. If ended
+		// sessions really should drop out of "running agents", test `s.serverId` instead;
+		// that is a behaviour change and wants its own commit.
+		return sessions.filter(s => s.ticketId && (s.projectCwd ?? s.cwd) === ctx.getCurrentProjectPath());
 	});
 	const worktreeTicketIds = $derived.by(() => {
 		const ids = new Set<string>();

@@ -107,7 +107,17 @@ export async function runAgent(session: AgentSession, briefing: string, opts: Ru
         case "capabilities":
           // Adopt the provider's effective permission mode so the client reflects reality.
           session.permissionMode = session.permissionMode ?? (event.permissionMode as AgentSession["permissionMode"]);
-          break;
+          // Stamp the static provider capabilities here rather than in each adapter:
+          // the UI hides the permission switcher on an empty list and the cost chip
+          // when the provider reports no USD, so a forgetful adapter would silently
+          // render a control that cannot work.
+          sendToClient(session, {
+            ...event,
+            provider: provider.id,
+            permissionModes: provider.permissionModes,
+            costUsd: provider.costUsd,
+          });
+          continue;
         case "usage":
           session.usage = {
             inputTokens: event.inputTokens,

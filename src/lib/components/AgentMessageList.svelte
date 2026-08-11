@@ -40,6 +40,9 @@
 	// --- Run summary (per-model usage, turns, denials, guardrail outcome) ---
 	const runModels = $derived(Object.entries(pane.lastRun?.modelUsage ?? {}));
 	const runIsError = $derived(!!pane.lastRun && pane.lastRun.subtype !== 'success');
+	// codex reports token counts but never USD, so a literal 0 would render as "$0.000".
+	// Unset means a session from an older daemon, i.e. Claude, which does report cost.
+	const showsCost = $derived(pane.capabilities?.costUsd !== false);
 
 	function fmtTokens(n: number): string {
 		return n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : String(n);
@@ -217,7 +220,7 @@
 		<div class="run-summary" class:error={runIsError}>
 			<div class="run-summary-head">
 				<span class="run-stat">{pane.lastRun.numTurns ?? 0} turns</span>
-				{#if pane.lastRun.costUsd != null}<span class="run-stat">${pane.lastRun.costUsd.toFixed(3)}</span>{/if}
+				{#if showsCost && pane.lastRun.costUsd != null}<span class="run-stat">${pane.lastRun.costUsd.toFixed(3)}</span>{/if}
 				{#if pane.lastRun.denials}<span class="run-stat denials">{pane.lastRun.denials} denied</span>{/if}
 				{#if runIsError}<span class="run-stat err">{subtypeLabel(pane.lastRun.subtype)}</span>{/if}
 			</div>
@@ -227,7 +230,7 @@
 						<span class="run-model" title="in {u.inputTokens} · out {u.outputTokens} · cache {u.cacheReadInputTokens}">
 							<span class="run-model-name">{shortModel(name)}</span>
 							<span class="run-model-tok">{fmtTokens(u.inputTokens + u.outputTokens)}</span>
-							{#if u.costUSD}<span class="run-model-cost">${u.costUSD.toFixed(3)}</span>{/if}
+							{#if showsCost && u.costUSD}<span class="run-model-cost">${u.costUSD.toFixed(3)}</span>{/if}
 						</span>
 					{/each}
 				</div>

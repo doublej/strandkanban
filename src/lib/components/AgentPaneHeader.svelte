@@ -78,6 +78,9 @@
 		{#if pane.worktreePath}
 			<span class="worktree-badge" title="Running in worktree: {pane.worktreePath}">worktree</span>
 		{/if}
+		{#if pane.provider && pane.provider !== 'claude'}
+			<span class="provider-badge" title="Running on {pane.provider}">{pane.provider}</span>
+		{/if}
 		{#if pane.permissionMode === 'plan'}
 			<span class="mode-badge" title="Plan mode — agent plans but does not execute tools">PLAN</span>
 		{/if}
@@ -265,6 +268,17 @@
 		color: rgba(251, 146, 60, 0.9);
 	}
 	:global(.app.light) .worktree-badge { background: rgba(234, 88, 12, 0.1); color: rgb(194, 65, 12); }
+
+	.provider-badge {
+		font: 600 8px/1 'IBM Plex Mono', monospace;
+		text-transform: uppercase;
+		letter-spacing: 0.03em;
+		padding: 2px 5px;
+		border-radius: 3px;
+		background: rgba(167, 139, 250, 0.16);
+		color: rgba(167, 139, 250, 0.95);
+	}
+	:global(.app.light) .provider-badge { background: rgba(124, 58, 237, 0.1); color: rgb(109, 40, 217); }
 
 	.mode-badge {
 		font: 700 8px/1 'IBM Plex Mono', monospace;

@@ -37,12 +37,13 @@
 </script>
 
 {#if ops.contextMenu}
+	{@const menu = ops.contextMenu}
 	<ContextMenu
-		x={ops.contextMenu.x}
-		y={ops.contextMenu.y}
-		issue={ops.contextMenu.issue}
-		onSetPriority={(p) => ops.setIssuePriority(ops.contextMenu.issue.id, p)}
-		onStartRopeDrag={(e) => ops.startRopeDrag(e, ops.contextMenu.issue.id)}
+		x={menu.x}
+		y={menu.y}
+		issue={menu.issue}
+		onSetPriority={(p) => ops.setIssuePriority(menu.issue.id, p)}
+		onStartRopeDrag={(e) => ops.startRopeDrag(e, menu.issue.id)}
 		onClose={ops.closeContextMenu}
 	/>
 {/if}

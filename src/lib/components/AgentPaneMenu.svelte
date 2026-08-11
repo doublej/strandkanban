@@ -33,6 +33,24 @@
 	const caps = $derived(pane.capabilities);
 	const currentMode = $derived(pane.permissionMode ?? caps?.permissionMode ?? 'bypassPermissions');
 	const currentModel = $derived(caps?.currentModel);
+	// The provider decides which modes exist. codex and opencode report none, so the
+	// whole section disappears rather than offering a switch that does nothing.
+	// Sessions from an older daemon send no list — fall back to what Claude has always shown.
+	const permissionModes = $derived(caps?.permissionModes ?? ['bypassPermissions', 'plan']);
+
+	const MODE_LABELS: Record<string, string> = {
+		bypassPermissions: 'Auto',
+		plan: 'Plan only',
+		acceptEdits: 'Accept edits',
+		default: 'Ask'
+	};
+	const MODE_ICONS: Record<string, string> = {
+		bypassPermissions: 'M7 1l5 2v4c0 3-2 5-5 6-3-1-5-3-5-6V3l5-2z',
+		plan: 'M3 2h6l2 2v8H3V2z',
+		acceptEdits: 'M2.5 9.5l3 3 6-8',
+		default: 'M7 10.5v.01M7 8V7a2 2 0 10-2-2'
+	};
+	const MODE_ICON_FALLBACK = 'M2.5 7h9';
 </script>
 
 <div class="menu-dropdown" role="menu" tabindex="0" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()}>
@@ -94,26 +112,21 @@
 		{/if}
 	</div>
 	{#if caps}
-		<div class="menu-divider"></div>
-		<div class="menu-section">
-			<span class="menu-label">Permissions</span>
-			<button class="menu-item" class:active={currentMode === 'bypassPermissions'} onclick={(e) => { e.stopPropagation(); setPermissionMode(pane.name, 'bypassPermissions'); }}>
-				<svg class="menu-icon" viewBox="0 0 14 14" width="12" height="12">
-					<path d="M7 1l5 2v4c0 3-2 5-5 6-3-1-5-3-5-6V3l5-2z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
-					<path d="M4.5 7l1.8 1.8L9.5 5.3" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
-				<span>Auto</span>
-				{#if currentMode === 'bypassPermissions'}<span class="menu-badge">on</span>{/if}
-			</button>
-			<button class="menu-item" class:active={currentMode === 'plan'} onclick={(e) => { e.stopPropagation(); setPermissionMode(pane.name, 'plan'); }}>
-				<svg class="menu-icon" viewBox="0 0 14 14" width="12" height="12">
-					<path d="M3 2h6l2 2v8H3V2z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
-					<path d="M5 6h4M5 8.5h4" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/>
-				</svg>
-				<span>Plan only</span>
-				{#if currentMode === 'plan'}<span class="menu-badge">on</span>{/if}
-			</button>
-		</div>
+		{#if permissionModes.length > 0}
+			<div class="menu-divider"></div>
+			<div class="menu-section">
+				<span class="menu-label">Permissions</span>
+				{#each permissionModes as mode (mode)}
+					<button class="menu-item" class:active={currentMode === mode} onclick={(e) => { e.stopPropagation(); setPermissionMode(pane.name, mode); }}>
+						<svg class="menu-icon" viewBox="0 0 14 14" width="12" height="12">
+							<path d={MODE_ICONS[mode] ?? MODE_ICON_FALLBACK} fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+						<span>{MODE_LABELS[mode] ?? mode}</span>
+						{#if currentMode === mode}<span class="menu-badge">on</span>{/if}
+					</button>
+				{/each}
+			</div>
+		{/if}
 		{#if caps.models && caps.models.length > 0}
 			<div class="menu-divider"></div>
 			<div class="menu-section">

@@ -56,7 +56,7 @@
 	onpaneltouchstart={cardDrag.handlePanelTouchStart}
 	onpaneltouchmove={cardDrag.handlePanelTouchMove}
 	onpaneltouchend={cardDrag.handlePanelTouchEnd}
-	updatecreateform={(key, value) => ops.createForm[key] = value}
+	updatecreateform={(key, value) => { (ops.createForm as Record<string, unknown>)[key] = value; }}
 	updatenewlabel={(value) => ops.newLabelInput = value}
 	ondismissclosedwarning={() => ops.issueClosedExternally = false}
 	updatenewcomment={(value) => ops.newComment = value}

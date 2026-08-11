@@ -61,6 +61,11 @@ export interface AgentCapabilities {
 	permissionMode?: string;
 	tools?: string[];
 	plugins?: PluginInfo[];
+	/** Adapter running this session, plus its static capabilities. Absent on
+	 *  sessions started by an older daemon — treat that as Claude. */
+	provider?: ProviderId;
+	permissionModes?: string[];
+	costUsd?: boolean;
 }
 
 export interface ActiveRemoteSession {
