@@ -11,6 +11,8 @@ export interface ChatMessage {
 	toolName?: string;
 	toolInput?: Record<string, unknown>;
 	toolResult?: string;
+	/** Provider tool-call id, used to back-patch the matching tool result. */
+	toolUseId?: string;
 	timestamp?: string;
 	notificationType?: NotificationType;
 	systemSubtype?: SystemMessageSubtype;

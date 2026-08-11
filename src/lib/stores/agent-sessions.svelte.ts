@@ -9,15 +9,10 @@ import {
 import type {
 	AgentSession,
 	ActiveRemoteSession,
-	ChatMessage,
 	ServerMessage,
-	StreamEvent,
-	AssistantMessage,
-	ToolResult,
-	ToolCallEvent,
-	ToolResultEvent,
 	SystemMessageSubtype,
 } from './ws-types';
+import { makeMsg, isSessionGoneError, reduceServerMessage } from '../agent/message-reducer';
 import { setQueueItems } from './queue.svelte';
 
 // --- Shared state ---
@@ -113,11 +108,6 @@ export function setSessionError(sessionName: string, errorMessage: string) {
 	});
 }
 
-// --- Message helpers ---
-function makeMsg(role: ChatMessage['role'], content: string, extra: Partial<ChatMessage> = {}): ChatMessage {
-	return { role, content, timestamp: new Date().toISOString(), ...extra };
-}
-
 function applySessions(next: Map<string, AgentSession>) {
 	sessions = next;
 	if (isTabLeader && broadcastCallback) {
@@ -186,6 +176,8 @@ function syncActiveSessions(scopeCwd: string | null, activeSessions: ActiveRemot
 }
 
 // --- Message handler factory ---
+// State reduction lives in $lib/agent/message-reducer (pure, tested).
+// Everything below is the side effects that reduction can't own.
 export function createMessageHandler(sessionName: string) {
 	return (event: MessageEvent) => {
 		const msg = JSON.parse(event.data) as ServerMessage;
@@ -195,258 +187,44 @@ export function createMessageHandler(sessionName: string) {
 			syncActiveSessions(msg.cwd, msg.sessions);
 			return;
 		}
+		if (msg.type === 'queue_state') {
+			setQueueItems(msg.items as any[]);
+			return;
+		}
 
 		const session = sessions.get(sessionName);
 		if (!session) return;
 
+		const patch = reduceServerMessage(session, msg);
+		if (patch) updateSession(sessionName, patch);
+
 		switch (msg.type) {
-			case 'queue_state':
-				setQueueItems(msg.items as any[]);
-				return;
-
-			case 'session_started':
-				updateSession(sessionName, { serverId: msg.sessionId, streaming: true });
-				break;
-
-			case 'session_resumed': {
-				updateSession(sessionName, { serverId: msg.sessionId, streaming: true });
+			case 'session_resumed':
 				// Populate history from SDK session JSONL if messages are empty
 				if (msg.sdkSessionId && session.messages.length === 0 && session.cwd) {
-					import('../session-persistence').then(({ fetchSessionHistory }) => {
-						fetchSessionHistory(session.cwd!, msg.sdkSessionId!).then((messages) => {
-							if (messages.length === 0) return;
-							const current = sessions.get(sessionName);
-							if (!current || current.messages.length > 0) return;
-							updateSession(sessionName, { messages });
-						});
-					});
+					loadHistory(sessionName, session.cwd, msg.sdkSessionId);
 				}
-				break;
-			}
-
+				return;
 			case 'sdk_session':
-				updateSession(sessionName, {
-					sdkSessionId: msg.sdkSessionId,
-					slashCommands: msg.slashCommands
-				});
 				persistSdkSessionId(sessionName, msg.sdkSessionId);
-				break;
-
-			case 'agent_capabilities':
-				updateSession(sessionName, {
-					capabilities: {
-						models: msg.models ?? [],
-						mcpServers: msg.mcpServers ?? [],
-						currentModel: msg.currentModel,
-						permissionMode: msg.permissionMode,
-						tools: msg.tools,
-						plugins: msg.plugins,
-					},
-					permissionMode: msg.permissionMode ?? session.permissionMode,
-				});
-				break;
-
-			case 'model_changed':
-				updateSession(sessionName, {
-					capabilities: session.capabilities
-						? { ...session.capabilities, currentModel: msg.model }
-						: undefined,
-				});
-				break;
-
-			case 'permission_mode_changed':
-				updateSession(sessionName, {
-					permissionMode: msg.mode,
-					capabilities: session.capabilities
-						? { ...session.capabilities, permissionMode: msg.mode }
-						: undefined,
-				});
-				break;
-
-			case 'compacted':
-				updateSession(sessionName, { compacted: true });
-				break;
-
-			case 'system_message':
-				updateSession(sessionName, {
-					messages: [...session.messages, makeMsg('system', msg.content, { systemSubtype: msg.subtype })]
-				});
-				break;
-
-			case 'usage':
-				updateSession(sessionName, {
-					usage: {
-						inputTokens: msg.inputTokens,
-						outputTokens: msg.outputTokens,
-						cacheRead: msg.cacheRead,
-						cacheCreation: msg.cacheCreation,
-					}
-				});
-				break;
-
-			case 'session_ended':
-				updateSession(sessionName, { streaming: false, serverId: undefined });
-				break;
-
+				return;
 			case 'session_cleared':
-				updateSession(sessionName, {
-					messages: [],
-					currentDelta: '',
-					currentThinking: '',
-					sdkSessionId: undefined,
-					compacted: false
-				});
 				clearPersistedSdkSessionId(sessionName);
-				break;
-
-			case 'stream':
-				handleStream(sessionName, session, msg.data);
-				break;
-
-			case 'done': {
-				let messages = session.messages;
-				if (session.currentThinking) {
-					messages = [...messages, makeMsg('assistant', session.currentThinking, { thinking: true })];
-				}
-				if (session.currentDelta) {
-					messages = [...messages, makeMsg('assistant', session.currentDelta)];
-				}
-				const r = msg.result;
-				updateSession(sessionName, {
-					streaming: false,
-					messages,
-					currentDelta: '',
-					currentThinking: '',
-					cost: r.total_cost_usd,
-					diffs: msg.diffs,
-					lastRun: {
-						subtype: r.subtype,
-						numTurns: r.num_turns,
-						costUsd: r.total_cost_usd,
-						modelUsage: r.modelUsage,
-						denials: Array.isArray(r.permission_denials) ? r.permission_denials.length : 0,
-						errors: r.errors
-					}
-				});
-				break;
-			}
-
-			case 'error': {
-				const isSessionGone = msg.error?.includes('Session not found') || msg.error?.includes('No active session');
-				updateSession(sessionName, {
-					streaming: false,
-					serverId: isSessionGone ? undefined : session.serverId,
-					messages: [...session.messages, makeMsg('assistant', `Error: ${msg.error}`)]
-				});
-				if (isSessionGone && sessionGoneCallback) {
-					sessionGoneCallback(sessionName);
-				}
-				break;
-			}
-
-			case 'interrupted':
-				updateSession(sessionName, {
-					streaming: false,
-					messages: [...session.messages, makeMsg('assistant', '[Interrupted]')]
-				});
-				break;
+				return;
+			case 'error':
+				if (isSessionGoneError(msg.error)) sessionGoneCallback?.(sessionName);
+				return;
 		}
 	};
 }
 
-// --- Stream handling ---
-function handleStream(
-	name: string,
-	session: AgentSession,
-	data: StreamEvent | AssistantMessage | ToolResult | ToolCallEvent | ToolResultEvent | { type: string }
-) {
-	if (data.type === 'stream_event') {
-		const ev = (data as StreamEvent).event;
-		if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta' && ev.delta.text) {
-			updateSession(name, { currentDelta: session.currentDelta + ev.delta.text });
-		} else if (ev.type === 'content_block_delta' && ev.delta?.type === 'thinking_delta' && ev.delta.thinking) {
-			updateSession(name, { currentThinking: (session.currentThinking ?? '') + ev.delta.thinking });
-		}
-	} else if (data.type === 'tool_call') {
-		const toolCall = data as ToolCallEvent;
-		updateSession(name, {
-			messages: [...session.messages, makeMsg('tool', `Using ${toolCall.tool_name}`, { toolName: toolCall.tool_name, toolInput: toolCall.input })],
-			currentDelta: ''
+function loadHistory(sessionName: string, cwd: string, sdkSessionId: string) {
+	import('../session-persistence').then(({ fetchSessionHistory }) => {
+		fetchSessionHistory(cwd, sdkSessionId).then((messages) => {
+			if (messages.length === 0) return;
+			const current = sessions.get(sessionName);
+			if (!current || current.messages.length > 0) return;
+			updateSession(sessionName, { messages });
 		});
-	} else if (data.type === 'tool_result') {
-		const toolResult = data as ToolResultEvent;
-		let lastToolIdx = -1;
-		for (let i = session.messages.length - 1; i >= 0; i--) {
-			if (session.messages[i].role === 'tool' && session.messages[i].toolName === toolResult.tool_name) {
-				lastToolIdx = i;
-				break;
-			}
-		}
-		if (lastToolIdx >= 0) {
-			const messages = [...session.messages];
-			messages[lastToolIdx] = { ...messages[lastToolIdx], toolResult: toolResult.result };
-			updateSession(name, { messages });
-		}
-	} else if (data.type === 'assistant') {
-		const msg = data as AssistantMessage;
-		const content = msg.message?.content;
-		if (Array.isArray(content)) {
-			// Accumulate all blocks into a single update so a multi-block message
-			// (e.g. thinking + text + tool_use) doesn't clobber itself via stale state.
-			const newMessages: ChatMessage[] = [];
-			for (const block of content) {
-				if (block.type === 'thinking' && block.thinking) {
-					newMessages.push(makeMsg('assistant', block.thinking, { thinking: true }));
-				} else if (block.type === 'text' && block.text) {
-					newMessages.push(makeMsg('assistant', block.text));
-				} else if (block.type === 'tool_use' && block.name) {
-					newMessages.push(makeMsg('tool', `Using ${block.name}`, { toolName: block.name, toolInput: block.input }));
-				}
-			}
-			if (newMessages.length > 0) {
-				updateSession(name, {
-					messages: [...session.messages, ...newMessages],
-					currentDelta: '',
-					currentThinking: ''
-				});
-			}
-		}
-	} else if (data.type === 'user') {
-		const userMsg = data as ToolResult;
-		if (userMsg.message?.content && Array.isArray(userMsg.message.content)) {
-			for (const block of userMsg.message.content) {
-				if (block.type === 'tool_result' && block.tool_use_id) {
-					let lastToolIdx = -1;
-					for (let i = session.messages.length - 1; i >= 0; i--) {
-						if (session.messages[i].role === 'tool' && !session.messages[i].toolResult) {
-							lastToolIdx = i;
-							break;
-						}
-					}
-					if (lastToolIdx >= 0) {
-						const messages = [...session.messages];
-						const resultText = block.text || '';
-						messages[lastToolIdx] = { ...messages[lastToolIdx], toolResult: resultText };
-						updateSession(name, { messages });
-					}
-					continue;
-				}
-			}
-		}
-		if (userMsg.message?.content) {
-			const rawContent = userMsg.message.content;
-			const content = typeof rawContent === 'string'
-				? rawContent
-				: Array.isArray(rawContent)
-					? rawContent.filter(b => b.type === 'text' && b.text).map(b => b.text).join('\n')
-					: String(rawContent);
-			if (!content) return;
-			const alreadyHas = session.messages.some(m => m.role === 'user' && m.content === content);
-			if (!alreadyHas) {
-				updateSession(name, {
-					messages: [...session.messages, makeMsg('user', content)]
-				});
-			}
-		}
-	}
+	});
 }
