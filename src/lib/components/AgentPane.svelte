@@ -95,7 +95,7 @@
 	data-pane={pane.name}
 	{style}
 	onclick={onSetActive}
-	onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && onSetActive(e as any)}
+	onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSetActive(); }}
 	role="button"
 	tabindex="0"
 >

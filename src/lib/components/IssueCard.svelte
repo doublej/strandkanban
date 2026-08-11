@@ -19,7 +19,7 @@
 		registerCard: (node: HTMLElement, id: string) => void;
 		onclick: () => void;
 		ondragstart: (e: DragEvent) => void;
-		ondragend: () => void;
+		ondragend: (e: DragEvent) => void;
 		oncontextmenu: (e: MouseEvent) => void;
 		oncopyid: (id: string) => void;
 	}

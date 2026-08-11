@@ -7,7 +7,7 @@
 		x: number;
 		y: number;
 		issue: Issue;
-		onSetPriority: (priority: number) => void;
+		onSetPriority: (priority: Issue['priority']) => void;
 		onStartRopeDrag: (e: MouseEvent) => void;
 		onClose: () => void;
 	}
@@ -54,7 +54,7 @@
 			tabindex="0"
 			aria-label="Drag to link issues"
 		>
-			<Icon name="git-branch" size={14} class="rope-icon" />
+			<Icon name="link" size={14} class="rope-icon" />
 			<span>Drag to link</span>
 		</div>
 	</div>
