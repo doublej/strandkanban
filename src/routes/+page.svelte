@@ -2,28 +2,19 @@
 	import { browser } from '$app/environment';
 	import { untrack } from 'svelte';
 	import { setCurrentProject } from '$lib/project';
-	import { connect, disconnect, addPane, removePane, sendToPane, endSession, clearSession, continueSession, compactSession, interrupt, getPersistedSdkSessionId, fetchSdkSessions, markPaneAsRead, getTotalUnreadCount, getUnreadCount } from '$lib/wsStore.svelte';
 	import type { Issue } from '$lib/types';
 	import { getColumnsWithCustom, sortIssuesBy } from '$lib/utils';
 	import Header from '$lib/components/Header.svelte';
-	import ContextMenu from '$lib/components/ContextMenu.svelte';
-	import RopeDrag from '$lib/components/RopeDrag.svelte';
-	import DepTypePicker from '$lib/components/DepTypePicker.svelte';
-	import CwdConflictDialog from '$lib/components/CwdConflictDialog.svelte';
-	import KeyboardHelp from '$lib/components/KeyboardHelp.svelte';
 	import ZenReview from '$lib/components/ZenReview.svelte';
 	import FlyingCardComponent from '$lib/components/FlyingCard.svelte';
-	import AgentBar from '$lib/components/AgentBar.svelte';
 	import InitialLoader from '$lib/components/InitialLoader.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import QueuePanel from '$lib/components/QueuePanel.svelte';
 	import PwaInstallPrompt from '$lib/components/PwaInstallPrompt.svelte';
-	import SettingsPane from '$lib/components/SettingsPane.svelte';
-	import SetupWizard from '$lib/components/SetupWizard.svelte';
-	import ThemeTransition from '$lib/components/ThemeTransition.svelte';
-	import ProjectSwitcher from '$lib/components/ProjectSwitcher.svelte';
 	import FilterSidebar from '$lib/components/FilterSidebar.svelte';
 	import ViewLayout from '$lib/components/ViewLayout.svelte';
+	import AppDialogs from '$lib/components/AppDialogs.svelte';
+	import AgentBarHost from '$lib/components/AgentBarHost.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { notificationStore } from '$lib/notifications/notification-store.svelte';
 	import { createKeyboardNav } from '$lib/keyboard/kanban-nav';
@@ -35,7 +26,6 @@
 	import { createAgentPanes } from '$lib/stores/agent-panes.svelte';
 	import { createProjectSession } from '$lib/stores/project-session.svelte';
 	import { createZen } from '$lib/stores/zen.svelte';
-	import { startManager } from '$lib/stores/ws-connection.svelte';
 	import { getQueueItems, getQueuedTicketIds } from '$lib/stores/queue.svelte';
 
 	let { data } = $props();
@@ -184,24 +174,6 @@
 	});
 	const { handleKeydown, handleKeyup, handleWindowBlur } = keyboardNav;
 
-	async function startAgentServer() {
-		try {
-			await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'start' }) });
-		} catch (err) {
-			console.error('Failed to start agent server:', err);
-		}
-	}
-
-	async function restartAgentServer() {
-		try {
-			disconnect();
-			await fetch('/api/agent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'restart' }) });
-			setTimeout(() => connect(), 800);
-		} catch (err) {
-			console.error('Failed to restart agent server:', err);
-		}
-	}
-
 	$effect(() => {
 		untrack(() => notificationStore.init());
 	});
@@ -224,61 +196,15 @@
 
 <div class="app scheme-{viewState.colorScheme}" class:light={!viewState.isDarkMode} class:panel-open={ops.panelOpen} class:show-hotkeys={showHotkeys || settings.alwaysShowHotkeys} class:has-chat-bar={agentPanes.wsConnected && agentPanes.showActivityBar} style="--project-color: {session.projectColor}; --chat-bar-space: {agentPanes.chatBarReserve}px">
 
-{#if ops.contextMenu}
-	<ContextMenu
-		x={ops.contextMenu.x}
-		y={ops.contextMenu.y}
-		issue={ops.contextMenu.issue}
-		onSetPriority={(p) => ops.setIssuePriority(ops.contextMenu.issue.id, p)}
-		onStartRopeDrag={(e) => ops.startRopeDrag(e, ops.contextMenu.issue.id)}
-		onClose={ops.closeContextMenu}
-	/>
-{/if}
-
-<RopeDrag ropeDrag={ops.ropeDrag} />
-
-<DepTypePicker pendingDep={ops.pendingDep} onconfirm={ops.confirmDependency} oncancel={ops.cancelDependency} />
-
-<CwdConflictDialog conflict={ops.cwdConflict} onresolve={ops.resolveConflict} ondismiss={ops.dismissConflict} />
-
-<ThemeTransition
-	active={viewState.themeTransitionActive}
-	toLight={viewState.themeTransitionToLight}
-	onswitch={viewState.switchTheme}
-	ondone={viewState.completeThemeTransition}
-/>
-
-<ProjectSwitcher
-	bind:show={showProjectSwitcher}
-	projects={session.projects}
-	currentPath={session.currentProjectPath}
-	onselect={session.switchProject}
-	onclose={() => showProjectSwitcher = false}
-/>
-
-<KeyboardHelp bind:show={showKeyboardHelp} />
-<SetupWizard bind:show={showWizard} isDarkMode={viewState.isDarkMode} projectName={session.projectName} ontoggleTheme={viewState.toggleTheme} oncomplete={() => {}} />
-<SettingsPane
-	bind:show={showSettings}
+<AppDialogs
+	{ops}
+	{viewState}
+	{session}
+	bind:showProjectSwitcher
+	bind:showKeyboardHelp
+	bind:showWizard
+	bind:showSettings
 	bind:showPrompts
-	bind:agentEnabled={settings.agentEnabled}
-	bind:agentHost={settings.agentHost}
-	bind:agentPort={settings.agentPort}
-	bind:agentFirstMessage={settings.agentFirstMessage}
-	bind:agentSystemPrompt={settings.agentSystemPrompt}
-	bind:agentWorkflow={settings.agentWorkflow}
-	bind:agentTicketDelivery={settings.agentTicketDelivery}
-	bind:agentTicketNotification={settings.agentTicketNotification}
-	bind:agentModel={settings.agentModel}
-	bind:agentToolsExpanded={settings.agentToolsExpanded}
-	bind:showAgentBar={settings.showAgentBar}
-	bind:conflictStrategy={settings.conflictStrategy}
-	bind:managerEnabled={settings.managerEnabled}
-	bind:managerModel={settings.managerModel}
-	isDarkMode={viewState.isDarkMode}
-	colorScheme={viewState.colorScheme}
-	ontoggleTheme={viewState.toggleTheme}
-	onsetColorScheme={(scheme) => viewState.colorScheme = scheme}
 />
 	<Header
 		bind:searchQuery={viewState.filters.search}
@@ -350,59 +276,12 @@
 	</div><!-- /.workspace -->
 
 <!-- Agent Bar - Pinned to bottom -->
-<AgentBar
-	wsConnected={agentPanes.wsConnected}
-	showActivityBar={agentPanes.showActivityBar}
-	wsPanes={agentPanes.wsPanes}
-	bind:expandedPanes={agentPanes.expandedPanes}
-	bind:newPaneName={agentPanes.newPaneName}
-	bind:resumePrompt={agentPanes.resumePrompt}
-	bind:showSessionPicker={agentPanes.showSessionPicker}
-	bind:sdkSessions={agentPanes.sdkSessions}
-	bind:loadingSdkSessions={agentPanes.loadingSdkSessions}
-	bind:sessionSearchQuery={agentPanes.sessionSearchQuery}
-	filteredSessions={agentPanes.filteredSessions}
-	searchedSessions={agentPanes.searchedSessions}
-	paneSizes={agentPanes.paneSizes}
-	panePositions={agentPanes.panePositions}
-	paneCustomSizes={agentPanes.paneCustomSizes}
-	bind:paneMessageInputs={agentPanes.paneMessageInputs}
-	draggingPane={agentPanes.draggingPane}
-	resizingPane={agentPanes.resizingPane}
+<AgentBarHost
+	{agentPanes}
+	{ops}
+	{session}
 	loadingStatus={issueStore.loadingStatus}
-	agentEnabled={settings.agentEnabled}
 	isDarkMode={viewState.isDarkMode}
-	agentToolsExpanded={settings.agentToolsExpanded}
-	currentProjectPath={session.currentProjectPath}
-	agentFirstMessage={settings.agentFirstMessage}
-	combinedSystemPrompt={settings.combinedSystemPrompt}
-	agentSystemPrompt={settings.agentSystemPrompt}
-	{getPersistedSdkSessionId}
-	{getUnreadCount}
-	{getTotalUnreadCount}
-	extractTicketIdFromName={ops.extractTicketIdFromName}
-	onaddpane={addPane}
-	onremovepane={removePane}
-	onsendtopane={sendToPane}
-	onstartagentserver={startAgentServer}
-	onrestartagentserver={restartAgentServer}
-	onfetchsdksessions={fetchSdkSessions}
-	onendSession={endSession}
-	onclearSession={clearSession}
-	oncontinueSession={continueSession}
-	oncompactSession={compactSession}
-	onmarkPaneAsRead={markPaneAsRead}
-	onopenTicketFromPane={ops.openTicketFromPane}
-	oninterrupt={interrupt}
-	managerEnabled={settings.managerEnabled}
-	managerSession={agentPanes.managerSession}
-	onstartmanager={() => startManager(session.currentProjectPath)}
-	onstartDrag={agentPanes.startDrag}
-	onstartResize={agentPanes.startResize}
-	oncyclePaneSize={agentPanes.cyclePaneSize}
-	onhandleMouseMove={ops.handleMouseMove}
-	onhandleMouseUp={ops.handleMouseUp}
-	onbasesizechange={(px) => agentPanes.chatBarReserve = px}
 />
 
 <FlyingCardComponent teleports={boardAnimation.teleports} />
