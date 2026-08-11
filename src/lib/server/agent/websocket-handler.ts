@@ -1,9 +1,8 @@
 import type { ServerWebSocket } from "bun";
-import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { WSData } from "./http-server";
 import type { AgentSession, ClientMessage } from "./session-types";
 import { SESSION_TIMEOUT_MS } from "./session-types";
-import { runAgent, sendToClient } from "./agent-runner";
+import { runAgent, sendToClient, sendInput } from "./agent-runner";
 import { calculateSessionUsage } from "./sdk-sessions";
 import type { AgentQueue } from "./queue-manager";
 import { pruneStale } from "./worktree-registry";
@@ -160,49 +159,20 @@ export function createWebSocketHandlers(config: WebSocketConfig) {
 
       switch (msg.type) {
         case "message": {
-          const userMsg: SDKUserMessage = {
-            type: "user",
-            session_id: session.id,
-            parent_tool_use_id: null,
-            message: { role: "user", content: msg.text },
-          };
-
-          sendToClient(session, { type: "stream", data: userMsg });
-
-          if (session.inputResolver) {
-            session.inputResolver(userMsg);
-          } else {
-            session.inputQueue.push(userMsg);
-          }
+          sendToClient(session, { type: "user_text", text: msg.text });
+          sendInput(session, msg.text);
           return;
         }
 
-        case "inject_context": {
-          const contextMsg: SDKUserMessage = {
-            type: "user",
-            session_id: session.id,
-            parent_tool_use_id: null,
-            message: { role: "user", content: `<system-reminder>${msg.context}</system-reminder>` },
-          };
-
-          if (session.inputResolver) {
-            session.inputResolver(contextMsg);
-          } else {
-            session.inputQueue.push(contextMsg);
-          }
+        case "inject_context":
+          sendInput(session, `<system-reminder>${msg.context}</system-reminder>`);
           return;
-        }
 
         case "interrupt":
-          // Prefer a graceful SDK interrupt: it stops the current turn while keeping
-          // the session alive/resumable. Fall back to aborting the whole query.
-          if (session.agentQuery) {
-            try {
-              await session.agentQuery.interrupt();
-            } catch (err) {
-              log.warn("[agent] graceful interrupt failed, aborting:", err);
-              session.abortController.abort();
-            }
+          // Prefer a graceful provider interrupt: it stops the current turn while
+          // keeping the session alive/resumable. Fall back to aborting the run.
+          if (session.agentRun) {
+            await session.agentRun.interrupt();
           } else {
             session.abortController.abort();
           }
@@ -212,7 +182,7 @@ export function createWebSocketHandlers(config: WebSocketConfig) {
         case "set_model":
           session.model = msg.model;
           try {
-            await session.agentQuery?.setModel(msg.model);
+            await session.agentRun?.setModel(msg.model);
             sendToClient(session, { type: "model_changed", model: msg.model });
           } catch (err) {
             sendToClient(session, { type: "error", error: `Failed to switch model: ${err}` });
@@ -222,7 +192,7 @@ export function createWebSocketHandlers(config: WebSocketConfig) {
         case "set_permission_mode":
           session.permissionMode = msg.mode;
           try {
-            await session.agentQuery?.setPermissionMode(msg.mode);
+            await session.agentRun?.setPermissionMode(msg.mode);
             sendToClient(session, { type: "permission_mode_changed", mode: msg.mode });
           } catch (err) {
             sendToClient(session, { type: "error", error: `Failed to switch permission mode: ${err}` });
@@ -243,7 +213,6 @@ export function createWebSocketHandlers(config: WebSocketConfig) {
           session.abortController = new AbortController();
           session.sdkSessionId = undefined;
           session.inputQueue = [];
-          session.inputResolver = undefined;
           session.fileSnapshots.clear();
           session.touchedFiles.clear();
           sendToWs(ws, { type: "session_cleared", sessionId });
@@ -270,21 +239,9 @@ export function createWebSocketHandlers(config: WebSocketConfig) {
           return;
         }
 
-        case "compact": {
-          const compactMsg: SDKUserMessage = {
-            type: "user",
-            session_id: session.id,
-            parent_tool_use_id: null,
-            message: { role: "user", content: "/compact" },
-          };
-
-          if (session.inputResolver) {
-            session.inputResolver(compactMsg);
-          } else {
-            session.inputQueue.push(compactMsg);
-          }
+        case "compact":
+          sendInput(session, "/compact");
           return;
-        }
 
         case "queue_enqueue":
           queue.enqueue(msg.item);

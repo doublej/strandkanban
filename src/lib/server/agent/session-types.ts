@@ -1,8 +1,6 @@
-import type { SDKUserMessage, Query, PermissionMode } from "@anthropic-ai/claude-agent-sdk";
 import type { ServerWebSocket } from "bun";
 import type { WSData } from "./http-server";
-
-export type { PermissionMode };
+import type { AgentRun } from "./providers/types";
 
 export type AgentSession = {
   id: string;
@@ -14,8 +12,8 @@ export type AgentSession = {
   systemPromptAppend?: string;
   sdkSessionId?: string;
   abortController: AbortController;
-  inputQueue: SDKUserMessage[];
-  inputResolver?: (msg: SDKUserMessage) => void;
+  /** Turns queued before a run exists; drained into the run once it starts. */
+  inputQueue: string[];
   fileSnapshots: Map<string, string | null>;
   touchedFiles: Set<string>;
   ws: ServerWebSocket<WSData> | null;
@@ -25,9 +23,9 @@ export type AgentSession = {
   disallowedTools?: string[];
   model?: string;
   /** Current permission mode. Defaults to bypassPermissions (fully autonomous). */
-  permissionMode?: PermissionMode;
-  /** Live SDK Query handle for runtime control requests (setModel, setPermissionMode, interrupt). */
-  agentQuery?: Query;
+  permissionMode?: string;
+  /** Live provider run handle for runtime control (send, setModel, setPermissionMode, interrupt). */
+  agentRun?: AgentRun;
   isManager?: boolean;
   usage: { inputTokens: number; outputTokens: number; cacheRead: number; cacheCreation: number };
 };
@@ -44,7 +42,7 @@ export type ClientMessage =
   | { type: "compact" }
   | { type: "permission"; allow: boolean; message?: string }
   | { type: "set_model"; model?: string }
-  | { type: "set_permission_mode"; mode: PermissionMode }
+  | { type: "set_permission_mode"; mode: string }
   | { type: "queue_enqueue"; item: import("./queue-types").QueueItem }
   | { type: "queue_cancel"; ticketId: string }
   | { type: "queue_reorder"; fromIndex: number; toIndex: number }

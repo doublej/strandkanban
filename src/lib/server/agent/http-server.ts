@@ -2,7 +2,7 @@ import type { Server, ServerWebSocket } from "bun";
 import { createWorktree, listWorktrees, removeWorktree } from "./worktree";
 import type { AgentQueue } from "./queue-manager";
 import type { AgentSession } from "./session-types";
-import type { SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
+import { sendInput } from "./agent-runner";
 
 export type WSData = { sessionId?: string };
 
@@ -210,13 +210,6 @@ async function handleAgentMessage(sessionId: string, req: Request, config: HttpC
   const body = (await req.json()) as { text?: string };
   if (!body.text) return errorResponse("text required", 400);
 
-  const userMsg: SDKUserMessage = {
-    type: "user",
-    session_id: session.id,
-    parent_tool_use_id: null,
-    message: { role: "user", content: body.text },
-  };
-  if (session.inputResolver) session.inputResolver(userMsg);
-  else session.inputQueue.push(userMsg);
+  sendInput(session, body.text);
   return jsonResponse({ delivered: true });
 }
