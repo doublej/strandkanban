@@ -1,0 +1,114 @@
+[
+ {
+  "id": "evt_ff25f4f5a0022TkOvju43YTAm1",
+  "type": "session.next.prompt.admitted",
+  "durable": {
+   "aggregateID": "ses_00da0b4beffef6w33C6qSBqS2F",
+   "seq": 1,
+   "version": 1
+  },
+  "data": {
+   "timestamp": 1786477760346,
+   "sessionID": "ses_00da0b4beffef6w33C6qSBqS2F",
+   "messageID": "msg_ff25f4f5a001vIjNjY6upH12BC",
+   "prompt": {
+    "text": "Reply with exactly: pong"
+   },
+   "delivery": "steer"
+  }
+ },
+ {
+  "id": "evt_ff25f4f6c001FNtf3ArYuGtcil",
+  "type": "session.next.prompted",
+  "durable": {
+   "aggregateID": "ses_00da0b4beffef6w33C6qSBqS2F",
+   "seq": 2,
+   "version": 1
+  },
+  "data": {
+   "timestamp": 1786477760346,
+   "sessionID": "ses_00da0b4beffef6w33C6qSBqS2F",
+   "messageID": "msg_ff25f4f5a001vIjNjY6upH12BC",
+   "prompt": {
+    "text": "Reply with exactly: pong"
+   },
+   "delivery": "steer"
+  }
+ },
+ {
+  "id": "evt_ff25f5785002bx1my6hbpeOPpb",
+  "type": "session.next.step.started",
+  "durable": {
+   "aggregateID": "ses_00da0b4beffef6w33C6qSBqS2F",
+   "seq": 3,
+   "version": 1
+  },
+  "data": {
+   "timestamp": 1786477762437,
+   "sessionID": "ses_00da0b4beffef6w33C6qSBqS2F",
+   "assistantMessageID": "msg_ff25f57850014hgNS2THSn7u9K",
+   "agent": "build",
+   "model": {
+    "id": "nemotron-3.5-lightning-free",
+    "providerID": "opencode",
+    "variant": "default"
+   }
+  }
+ },
+ {
+  "id": "evt_ff25f5787001goYmSwDh0x8tIJ",
+  "type": "session.next.text.started",
+  "durable": {
+   "aggregateID": "ses_00da0b4beffef6w33C6qSBqS2F",
+   "seq": 4,
+   "version": 1
+  },
+  "data": {
+   "timestamp": 1786477762439,
+   "sessionID": "ses_00da0b4beffef6w33C6qSBqS2F",
+   "assistantMessageID": "msg_ff25f57850014hgNS2THSn7u9K",
+   "textID": "text-0"
+  }
+ },
+ {
+  "id": "evt_ff25f57a5001RwFkCtfzA80Zvv",
+  "type": "session.next.text.ended",
+  "durable": {
+   "aggregateID": "ses_00da0b4beffef6w33C6qSBqS2F",
+   "seq": 5,
+   "version": 1
+  },
+  "data": {
+   "timestamp": 1786477762469,
+   "sessionID": "ses_00da0b4beffef6w33C6qSBqS2F",
+   "assistantMessageID": "msg_ff25f57850014hgNS2THSn7u9K",
+   "textID": "text-0",
+   "text": "pong"
+  }
+ },
+ {
+  "id": "evt_ff25f57aa0013QiL5K5H7Yypvk",
+  "type": "session.next.step.ended",
+  "durable": {
+   "aggregateID": "ses_00da0b4beffef6w33C6qSBqS2F",
+   "seq": 6,
+   "version": 2
+  },
+  "data": {
+   "timestamp": 1786477762474,
+   "sessionID": "ses_00da0b4beffef6w33C6qSBqS2F",
+   "assistantMessageID": "msg_ff25f57850014hgNS2THSn7u9K",
+   "finish": "stop",
+   "cost": 0,
+   "tokens": {
+    "input": 3627,
+    "output": 2,
+    "reasoning": 40,
+    "cache": {
+     "read": 0,
+     "write": 0
+    }
+   }
+  }
+ }
+]
