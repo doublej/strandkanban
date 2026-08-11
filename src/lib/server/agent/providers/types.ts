@@ -102,6 +102,8 @@ export type StartOptions = {
   isManager?: boolean;
   resumeSessionId?: string;
   permissionMode?: string;
+  /** codex only: OS sandbox for the thread. Providers without one ignore it. */
+  sandbox?: string;
   systemPromptAppend?: string;
   allowedTools?: string[];
   disallowedTools?: string[];

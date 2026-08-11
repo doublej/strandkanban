@@ -78,6 +78,7 @@ export async function runAgent(session: AgentSession, briefing: string, opts: Ru
     multiTurn: session.isManager,
     resumeSessionId: opts.resumeSdkSession,
     permissionMode: session.permissionMode,
+    sandbox: session.sandbox,
     systemPromptAppend: session.isManager ? buildManagerPrompt() : buildSystemPrompt(session),
     allowedTools: opts.allowedTools,
     disallowedTools: session.isManager

@@ -97,6 +97,8 @@ export function createWebSocketHandlers(config: WebSocketConfig) {
             sdkSessionId: msg.resumeSessionId,
             model: msg.model,
             provider: msg.provider,
+            permissionMode: msg.permissionMode,
+            sandbox: msg.sandbox,
             abortController: new AbortController(),
             inputQueue: [],
             fileSnapshots: new Map(),

@@ -26,6 +26,8 @@ export type AgentSession = {
   provider?: ProviderId;
   /** Current permission mode. Defaults to bypassPermissions (fully autonomous). */
   permissionMode?: string;
+  /** Codex OS sandbox for this session. Ignored by the providers that have none. */
+  sandbox?: string;
   /** Live provider run handle for runtime control (send, setModel, setPermissionMode, interrupt). */
   agentRun?: AgentRun;
   isManager?: boolean;
@@ -33,7 +35,7 @@ export type AgentSession = {
 };
 
 export type ClientMessage =
-  | { type: "start"; cwd: string; agentName?: string; systemPromptAppend?: string; briefing: string; allowedTools?: string[]; disallowedTools?: string[]; resumeSessionId?: string; model?: string; isManager?: boolean; provider?: ProviderId }
+  | { type: "start"; cwd: string; agentName?: string; systemPromptAppend?: string; briefing: string; allowedTools?: string[]; disallowedTools?: string[]; resumeSessionId?: string; model?: string; isManager?: boolean; provider?: ProviderId; permissionMode?: string; sandbox?: string }
   | { type: "resume"; sessionId: string }
   | { type: "continue"; text: string }
   | { type: "message"; text: string }

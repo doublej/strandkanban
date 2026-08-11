@@ -1,5 +1,7 @@
 import { browser } from '$app/environment';
 import type { NotificationMode, NotificationEventSettings } from '$lib/notifications/types';
+import type { ProviderId } from '$lib/server/agent/providers/types';
+import type { CodexSandbox } from '$lib/agent/provider-options';
 import { coerceViewMode, type ViewRecipe, type ViewMode, type SortBy, type TableColumnConfig, type TableSortState } from '$lib/types';
 import { defaultTableColumns, reconcileTableColumns } from '$lib/table-columns';
 
@@ -144,7 +146,15 @@ function createSettings() {
 	let agentTicketDelivery = $state(DEFAULT_AGENT_TICKET_DELIVERY);
 	let agentTicketNotification = $state(DEFAULT_AGENT_TICKET_NOTIFICATION);
 	let agentToolsExpanded = $state(false);
-	let agentModel = $state('');
+	// Model is per provider: `sonnet` means nothing to opencode (which needs
+	// providerID/model) and nothing to codex, so one shared field would silently
+	// degrade to the server default on every provider switch.
+	let agentModels = $state<Record<ProviderId, string>>({ claude: '', codex: '', opencode: '' });
+	let agentProvider = $state<ProviderId>('claude');
+	/** Claude-only — codex and opencode report `permissionModes: []`. */
+	let agentPermissionMode = $state('bypassPermissions');
+	/** Codex-only — the other two have no OS sandbox to configure. */
+	let codexSandbox = $state<CodexSandbox>('danger-full-access');
 	let conflictStrategy = $state<'ask' | 'worktree' | 'queue' | 'same'>('ask');
 	let showAgentBar = $state(true);
 	let managerEnabled = $state(false);
@@ -185,7 +195,12 @@ function createSettings() {
 		agentTicketDelivery = loadString('agentTicketDelivery', agentTicketDelivery);
 		agentTicketNotification = loadString('agentTicketNotification', agentTicketNotification);
 		agentToolsExpanded = loadBool('agentToolsExpanded', agentToolsExpanded);
-		agentModel = loadString('agentModel', agentModel);
+		// The pre-provider `agentModel` key was always a Claude model — seed Claude's
+		// slot from it so an upgrade doesn't reset people to the default model.
+		agentModels = loadObject('agentModels', { ...agentModels, claude: loadString('agentModel', '') });
+		agentProvider = loadString('agentProvider', agentProvider) as ProviderId;
+		agentPermissionMode = loadString('agentPermissionMode', agentPermissionMode);
+		codexSandbox = loadString('codexSandbox', codexSandbox) as CodexSandbox;
 		conflictStrategy = loadString('conflictStrategy', 'ask') as 'ask' | 'worktree' | 'queue' | 'same';
 		showAgentBar = loadBool('showAgentBar', showAgentBar);
 		managerEnabled = loadBool('managerEnabled', managerEnabled);
@@ -208,6 +223,11 @@ function createSettings() {
 			: window.matchMedia('(max-width: 768px)').matches;
 		tableColumns = reconcileTableColumns(loadObject<TableColumnConfig[] | null>('tableColumns', null));
 		tableSort = loadObject<TableSortState | null>('tableSort', null);
+	}
+
+	function setAgentModel(provider: ProviderId, value: string) {
+		agentModels = { ...agentModels, [provider]: value };
+		persist('agentModels', JSON.stringify(agentModels));
 	}
 
 	function toggleColumnCollapse(key: string) {
@@ -270,8 +290,18 @@ function createSettings() {
 		set agentTicketNotification(v: string) { agentTicketNotification = v; persist('agentTicketNotification', v); },
 		get agentToolsExpanded() { return agentToolsExpanded; },
 		set agentToolsExpanded(v: boolean) { agentToolsExpanded = v; persist('agentToolsExpanded', String(v)); },
-		get agentModel() { return agentModel; },
-		set agentModel(v: string) { agentModel = v; persist('agentModel', v); },
+		// Stays the app-wide "which model" accessor, now resolved against the active
+		// provider — every existing caller keeps working and gets the right one.
+		get agentModel() { return agentModels[agentProvider] ?? ''; },
+		set agentModel(v: string) { setAgentModel(agentProvider, v); },
+		get agentModels() { return agentModels; },
+		setAgentModel,
+		get agentProvider() { return agentProvider; },
+		set agentProvider(v: ProviderId) { agentProvider = v; persist('agentProvider', v); },
+		get agentPermissionMode() { return agentPermissionMode; },
+		set agentPermissionMode(v: string) { agentPermissionMode = v; persist('agentPermissionMode', v); },
+		get codexSandbox() { return codexSandbox; },
+		set codexSandbox(v: CodexSandbox) { codexSandbox = v; persist('codexSandbox', v); },
 		get conflictStrategy() { return conflictStrategy; },
 		set conflictStrategy(v: 'ask' | 'worktree' | 'queue' | 'same') { conflictStrategy = v; persist('conflictStrategy', v); },
 		get showAgentBar() { return showAgentBar; },

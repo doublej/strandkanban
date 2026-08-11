@@ -5,6 +5,7 @@
 	import ProjectSettings from './ProjectSettings.svelte';
 	import BoardSettings from './BoardSettings.svelte';
 	import AgentSettings from './AgentSettings.svelte';
+	import ProviderSettings from './ProviderSettings.svelte';
 	import AppearanceSettings from './AppearanceSettings.svelte';
 	import NotificationSettings from './NotificationSettings.svelte';
 	import KeyboardShortcuts from './KeyboardShortcuts.svelte';
@@ -21,7 +22,6 @@
 		agentWorkflow: string;
 		agentTicketDelivery: string;
 		agentTicketNotification: string;
-		agentModel: string;
 		agentToolsExpanded: boolean;
 		showAgentBar: boolean;
 		conflictStrategy: 'ask' | 'worktree' | 'queue' | 'same';
@@ -44,7 +44,6 @@
 		agentWorkflow = $bindable(),
 		agentTicketDelivery = $bindable(),
 		agentTicketNotification = $bindable(),
-		agentModel = $bindable(),
 		agentToolsExpanded = $bindable(),
 		showAgentBar = $bindable(),
 		conflictStrategy = $bindable(),
@@ -166,11 +165,11 @@
 				{:else if activeSection === 'board'}
 					<BoardSettings />
 				{:else if activeSection === 'agent'}
+					<ProviderSettings />
 					<AgentSettings
 						bind:agentEnabled
 						bind:agentHost
 						bind:agentPort
-						bind:agentModel
 						bind:agentToolsExpanded
 						bind:showAgentBar
 						bind:conflictStrategy

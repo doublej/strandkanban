@@ -1,11 +1,11 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
+	import { CLAUDE_MODELS } from '$lib/agent/provider-options';
 
 	interface Props {
 		agentEnabled: boolean;
 		agentHost: string;
 		agentPort: number;
-		agentModel: string;
 		agentToolsExpanded: boolean;
 		showAgentBar: boolean;
 		conflictStrategy: 'ask' | 'worktree' | 'queue' | 'same';
@@ -18,7 +18,6 @@
 		agentEnabled = $bindable(),
 		agentHost = $bindable(),
 		agentPort = $bindable(),
-		agentModel = $bindable(),
 		agentToolsExpanded = $bindable(),
 		showAgentBar = $bindable(),
 		conflictStrategy = $bindable(),
@@ -27,12 +26,8 @@
 		onopenPromptsEditor
 	}: Props = $props();
 
-	const modelOptions = [
-		{ value: '', label: 'Default', hint: 'CLI default model' },
-		{ value: 'haiku', label: 'Haiku', hint: 'Fast & lightweight' },
-		{ value: 'sonnet', label: 'Sonnet', hint: 'Balanced performance' },
-		{ value: 'opus', label: 'Opus', hint: 'Most capable' },
-	];
+	// The manager is Claude-only, so its picker stays on the Claude model list.
+	const modelOptions = CLAUDE_MODELS;
 </script>
 
 <section class="settings-section">
@@ -91,26 +86,7 @@
 			</div>
 		</div>
 
-		<!-- Agent Model -->
-		<div class="setting-row" style="margin-top: 0.75rem;">
-			<div class="setting-info">
-				<span class="setting-name">Model</span>
-				<span class="setting-desc">Claude model for agent sessions</span>
-			</div>
-		</div>
-
-		<div class="strategy-selector">
-			{#each modelOptions as opt}
-				<button
-					class="strategy-option"
-					class:active={agentModel === opt.value}
-					onclick={() => agentModel = opt.value}
-				>
-					<span class="strategy-label">{opt.label}</span>
-					<span class="strategy-hint">{opt.hint}</span>
-				</button>
-			{/each}
-		</div>
+		<!-- Model lives in the Agent provider section: it is per provider now. -->
 
 		<!-- Agent Prompts -->
 		<div class="setting-row" style="margin-top: 0.75rem">
@@ -187,7 +163,7 @@
 		<div class="setting-row" style="margin-top: 1rem;">
 			<div class="setting-info">
 				<span class="setting-name" style="color: #f59e0b;">Manager Agent</span>
-				<span class="setting-desc">Orchestrator that manages tickets and agents</span>
+				<span class="setting-desc">Orchestrator that manages tickets and agents (Claude only)</span>
 			</div>
 			<button class="toggle-switch" onclick={() => managerEnabled = !managerEnabled} aria-label="Toggle manager agent">
 				<span class="toggle-track" class:active={managerEnabled}>

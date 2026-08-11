@@ -37,7 +37,10 @@ async function startSessionInternal(name: string, cwd: string, briefing: string,
 		currentDelta: '',
 		pane_type: 'agent',
 		// A resume keeps the provider it started on; sessions survive reload via localStorage.
-		provider: provider ?? existing?.provider,
+		// Falling back to the setting here rather than at each call site means every start
+		// path (pane, queue, conflict resolution) honours it — no caller can forget.
+		// Managers are Claude-only and the server rejects anything else, so don't offer it one.
+		provider: provider ?? existing?.provider ?? (isManager ? 'claude' : settings.agentProvider),
 		sdkSessionId: resumeSessionId,
 		ticketId: ticketId ?? existing?.ticketId,
 		isManager,
@@ -58,7 +61,14 @@ async function startSessionInternal(name: string, cwd: string, briefing: string,
 	const ws = await getOrCreateSocket(name);
 	if (!ws) return;
 
-	sendWhenOpen(name, ws, { type: 'start', cwd, agentName: name, briefing, systemPromptAppend, resumeSessionId, model, isManager, provider: session.provider });
+	sendWhenOpen(name, ws, {
+		type: 'start', cwd, agentName: name, briefing, systemPromptAppend, resumeSessionId, model, isManager,
+		provider: session.provider,
+		// Provider-specific start config. Each adapter ignores what isn't its own:
+		// codex/opencode report no permission modes, claude/opencode have no OS sandbox.
+		permissionMode: settings.agentPermissionMode,
+		sandbox: settings.codexSandbox,
+	});
 }
 
 function sendMessageInternal(name: string, text: string) {

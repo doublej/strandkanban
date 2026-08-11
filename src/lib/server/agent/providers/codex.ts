@@ -20,9 +20,9 @@ import type {
   StartOptions,
 } from "./types";
 
-// codex has a real OS sandbox the other providers don't. Fully autonomous to
-// match them; kept as a per-adapter constant rather than a cross-provider knob,
-// because "sandboxed" means something different for every provider.
+// Approvals stay off: the board runs agents unattended, and there is no UI to answer
+// a prompt with. The sandbox is codex-only rather than a cross-provider knob — the
+// other two have no OS sandbox — so it arrives per session and falls back here.
 const APPROVAL_POLICY = "never";
 const SANDBOX_MODE = "danger-full-access";
 
@@ -219,7 +219,7 @@ async function startRun(opts: StartOptions): Promise<AgentRun> {
   const params: Json = {
     cwd: opts.cwd,
     approvalPolicy: APPROVAL_POLICY,
-    sandbox: SANDBOX_MODE,
+    sandbox: opts.sandbox ?? SANDBOX_MODE,
     config: threadConfig(mcp),
     ...(opts.model && { model: opts.model }),
     ...(opts.systemPromptAppend && { developerInstructions: opts.systemPromptAppend }),
