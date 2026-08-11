@@ -1,11 +1,12 @@
 /**
  * Reaps `dolt sql-server` processes whose cwd is inside a supplied directory
  * list. The cwd-scope check is the safety net (works on macOS launchd and
- * Linux systemd reparenting). Pure stdlib so it can be imported from both
- * the SvelteKit server and the CLI entry point.
+ * Linux systemd reparenting). Server-only: imported by hooks.server.ts and
+ * /api/dolt. `bin/strand.ts` keeps its own copy — see the note there.
  */
 import { spawnSync } from 'child_process';
 import { resolve } from 'path';
+import { bdEnv } from './server/beads/client';
 
 export interface DoltOrphan {
 	pid: number;
@@ -79,13 +80,15 @@ export function findAllOrphanedDoltPids(): DoltOrphan[] {
 
 const DOLT_STOP_TIMEOUT_MS = 5000;
 
-/** Try a clean `bd dolt stop` from `cwd`. Returns true on exit code 0 within the timeout. */
+/** Try a clean `bd dolt stop` from `cwd`. Returns true on exit code 0 within the timeout.
+ *  Stays on spawnSync rather than the facade's async exec: every caller of killDoltPids
+ *  (periodic reaper, /api/dolt) is synchronous. */
 function tryDoltStop(cwd: string): boolean {
 	const result = spawnSync('bd', ['dolt', 'stop'], {
 		cwd,
 		encoding: 'utf-8',
 		timeout: DOLT_STOP_TIMEOUT_MS,
-		env: { ...process.env, BD_JSON_ENVELOPE: '1' }
+		env: bdEnv()
 	});
 	return result.status === 0 && !result.error;
 }

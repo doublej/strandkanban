@@ -9,9 +9,11 @@
  *   strand reap [opts]       Reap orphan `dolt sql-server` processes.
  *   strand help              Show usage.
  *
- * Reaper helpers below are duplicated from src/lib/{touched-cwds,dolt-reaper}.ts so
- * the CLI stays compilable as a single file via `tsc -p bin/tsconfig.json` (no bundler).
- * Keep behavior in sync between the two; future bundler swap can dedupe.
+ * The reaper helpers and the bd env below are duplicated from src/lib/dolt-reaper.ts,
+ * src/lib/touched-cwds.ts and src/lib/server/beads/client.ts ON PURPOSE. Do not de-fork:
+ * `bin/tsconfig.json` compiles this file standalone with `tsc` and no bundler, so any
+ * import of src/ would ship a broken CLI. src/lib/server/beads/client.ts is the canonical
+ * copy — keep behavior in sync by hand; a future bundler swap can dedupe.
  */
 
 // Type guard for Bun runtime
@@ -121,7 +123,9 @@ function findFreePort(start = 5185): Promise<number> {
 	})
 }
 
-// --- Reaper helpers (duplicated from src/lib/dolt-reaper.ts and src/lib/touched-cwds.ts) ---
+// --- Reaper helpers: deliberate fork of src/lib/dolt-reaper.ts + src/lib/touched-cwds.ts.
+// Canonical bd env/exec lives in src/lib/server/beads/client.ts; this file cannot import it
+// because bin/tsconfig.json compiles it standalone (tsc, no bundler). Keep in sync by hand.
 
 interface DoltOrphan { pid: number; cwd: string }
 

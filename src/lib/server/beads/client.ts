@@ -28,6 +28,11 @@ const DEFAULT_TIMEOUT_MS = (() => {
 /** Node defaults stdout to 1MB, which ENOBUFS-kills `bd history --json` on big projects. */
 const DEFAULT_MAX_BUFFER = 64 * 1024 * 1024;
 
+/** Env for every `bd` spawn. Enables the 1.0 JSON envelope so output stays self-describing. */
+export function bdEnv(): NodeJS.ProcessEnv {
+	return { ...process.env, BD_JSON_ENVELOPE: '1' };
+}
+
 interface RunOpts {
 	timeoutMs?: number;
 	maxBuffer?: number;
@@ -38,7 +43,7 @@ async function runBd(cwd: string, args: string[], opts: RunOpts = {}): Promise<s
 	try {
 		const { stdout } = await execFileAsync('bd', args, {
 			cwd,
-			env: { ...process.env, BD_JSON_ENVELOPE: '1' },
+			env: bdEnv(),
 			timeout: timeoutMs,
 			maxBuffer: opts.maxBuffer ?? DEFAULT_MAX_BUFFER,
 			encoding: 'utf-8'
