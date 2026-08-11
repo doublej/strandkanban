@@ -46,6 +46,7 @@ export function createIssueStore(callbacks: IssueStoreCallbacks, initialIssues: 
 	let initialLoaded = $state(seeded);
 	let sseSource = $state<EventSource | null>(null);
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
+	let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function mergeWithPendingUpdates(sseIssues: Issue[]): Issue[] {
 		const now = Date.now();
@@ -170,7 +171,16 @@ export function createIssueStore(callbacks: IssueStoreCallbacks, initialIssues: 
 		}
 	}
 
+	function cancelReconnect() {
+		if (reconnectTimer) {
+			clearTimeout(reconnectTimer);
+			reconnectTimer = null;
+		}
+	}
+
 	function connectSSE(): EventSource {
+		// A retry queued by a previous stream must not open a second one on top of this.
+		cancelReconnect();
 		if (!initialLoaded) {
 			loadingStatus = { ...loadingStatus, phase: 'connecting' };
 		}
@@ -204,7 +214,8 @@ export function createIssueStore(callbacks: IssueStoreCallbacks, initialIssues: 
 		eventSource.onerror = () => {
 			eventSource.close();
 			loadingStatus = { ...loadingStatus, phase: 'disconnected' };
-			setTimeout(() => connectSSE(), 3000);
+			cancelReconnect();
+			reconnectTimer = setTimeout(() => connectSSE(), 3000);
 		};
 
 		return eventSource;
@@ -300,6 +311,7 @@ export function createIssueStore(callbacks: IssueStoreCallbacks, initialIssues: 
 	}
 
 	function closeSse() {
+		cancelReconnect();
 		if (pollTimer) {
 			clearInterval(pollTimer);
 			pollTimer = null;

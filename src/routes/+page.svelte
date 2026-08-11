@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { untrack } from 'svelte';
-	import { pushState as svelteKitPushState } from '$app/navigation';
-	import { setCurrentProject, appendProjectParam } from '$lib/project';
-	import { connect, disconnect, getPanes, getSessions, isConnected, addPane, removePane, sendToPane, endSession, clearSession, continueSession, compactSession, interrupt, getPersistedSdkSessionId, fetchSdkSessions, markPaneAsRead, getTotalUnreadCount, getUnreadCount, type Pane, type SdkSessionInfo } from '$lib/wsStore.svelte';
-	import type { Issue, Project } from '$lib/types';
+	import { setCurrentProject } from '$lib/project';
+	import { connect, disconnect, addPane, removePane, sendToPane, endSession, clearSession, continueSession, compactSession, interrupt, getPersistedSdkSessionId, fetchSdkSessions, markPaneAsRead, getTotalUnreadCount, getUnreadCount } from '$lib/wsStore.svelte';
+	import type { Issue } from '$lib/types';
 	import { getColumnsWithCustom, sortIssuesBy } from '$lib/utils';
 	import Header from '$lib/components/Header.svelte';
 	import ContextMenu from '$lib/components/ContextMenu.svelte';
@@ -27,18 +26,17 @@
 	import ViewLayout from '$lib/components/ViewLayout.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { notificationStore } from '$lib/notifications/notification-store.svelte';
-	import { createPaneDrag } from '$lib/stores/pane-drag.svelte';
-	import { isValidSession as isValidSessionFn } from '$lib/agent/ticket-delivery';
 	import { createKeyboardNav } from '$lib/keyboard/kanban-nav';
 	import { createIssueStore } from '$lib/stores/issue-store.svelte';
 	import { createCardDrag } from '$lib/drag-drop/card-drag.svelte';
 	import { createPageOps } from '$lib/stores/page-ops.svelte';
 	import { createBoardAnimation } from '$lib/stores/board-animation.svelte';
 	import { createViewState } from '$lib/stores/view-state.svelte';
+	import { createAgentPanes } from '$lib/stores/agent-panes.svelte';
+	import { createProjectSession } from '$lib/stores/project-session.svelte';
 	import { createZen } from '$lib/stores/zen.svelte';
-	import { getManagerSessionName } from '$lib/stores/manager.svelte';
-	import { startManager, switchManagerProject, setServerProject } from '$lib/stores/ws-connection.svelte';
-	import { getQueueItems, getQueuedTicketIds, fetchInitialQueue } from '$lib/stores/queue.svelte';
+	import { startManager } from '$lib/stores/ws-connection.svelte';
+	import { getQueueItems, getQueuedTicketIds } from '$lib/stores/queue.svelte';
 
 	let { data } = $props();
 
@@ -46,39 +44,13 @@
 	let isFilterPreviewing = $state(false);
 	let selectedId = $state<string | null>(null);
 	let activeColumnIndex = $state(0);
-	let showActivityBar = $state(true);
-	let chatBarReserve = $state(64);
-	let newPaneName = $state('');
-	let resumePrompt = $state<{ name: string; sessionId: string } | null>(null);
-	let showSessionPicker = $state(false);
-	let sdkSessions = $state<SdkSessionInfo[]>([]);
-	let filteredSessions = $derived(sdkSessions.filter(isValidSessionFn));
-	let loadingSdkSessions = $state(false);
-	let sessionSearchQuery = $state('');
-	let searchedSessions = $derived.by(() => {
-		const q = sessionSearchQuery.trim().toLowerCase();
-		if (!q) return filteredSessions;
-		return filteredSessions.filter(s =>
-			(s.agentName?.toLowerCase().includes(q)) ||
-			(s.summary?.toLowerCase().includes(q)) ||
-			s.preview.some(line => line.toLowerCase().includes(q))
-		);
-	});
-	let paneMessageInputs = $state<Record<string, string>>({});
-	let expandedPanes = $state<Set<string>>(new Set());
+	let tableSelectedIds = $state<string[]>([]);
 	let showKeyboardHelp = $state(false);
 	let showHotkeys = $state(false);
 	let showSettings = $state(false);
 	let showWizard = $state(browser && !localStorage.getItem('beads-wizard-complete'));
 	let showPrompts = $state(false);
-	let projectName = $state('');
-	let tableSelectedIds = $state<string[]>([]);
-	let projects = $state<Project[]>([]);
 	let showProjectSwitcher = $state(false);
-	let currentProjectPath = $state(data.cwd ?? '');
-	let projectColor = $state('#6366f1');
-	let projectTransition = $state<'idle' | 'wipe-out' | 'wipe-in'>('idle');
-	let switchStatus = $state<string | null>(null);
 
 	// --- Seed frontend project context before any effect fires ---
 	// data.cwd already reflects any ?project= param (resolveProjectCwd on the server),
@@ -89,20 +61,11 @@
 	}
 
 	// --- View preferences (filters, view mode, recipes, theme) ---
-	const viewState = createViewState({ getCurrentProjectPath: () => currentProjectPath });
+	const viewState = createViewState({ getCurrentProjectPath: () => session.currentProjectPath });
 
-	// Agent queue state
-	let runningAgents = $derived.by(() => {
-		const sessions = Array.from(getSessions().values());
-		return sessions.filter(s => s.ticketId && !s.ended && (s.projectCwd ?? s.cwd) === currentProjectPath);
-	});
-	let worktreeTicketIds = $derived.by(() => {
-		const ids = new Set<string>();
-		for (const s of runningAgents) {
-			if (s.worktreePath && s.ticketId) ids.add(s.ticketId);
-		}
-		return ids;
-	});
+	// --- Agent panes (WS snapshot + per-pane UI state) ---
+	const agentPanes = createAgentPanes({ getCurrentProjectPath: () => session.currentProjectPath });
+
 	// --- Card teleport animation ---
 	const boardAnimation = createBoardAnimation();
 
@@ -119,32 +82,19 @@
 
 	let issues = $derived(issueStore.issues);
 	let statusColumns = $derived(getColumnsWithCustom(issues));
-	let animatingIds = $derived(issueStore.animatingIds);
-	let loadingStatus = $derived(issueStore.loadingStatus);
-	let initialLoaded = $derived(issueStore.initialLoaded);
 
 	// --- Page Operations (detail panel, deps, context menu, agent ops) ---
 	const ops = createPageOps({
 		issueStore,
 		getIssues: () => issues,
-		getWsPanes: () => wsPanes,
-		getCurrentProjectPath: () => currentProjectPath,
+		getWsPanes: () => agentPanes.wsPanes,
+		getCurrentProjectPath: () => session.currentProjectPath,
 		getSelectedId: () => selectedId,
 		setSelectedId: (id) => { selectedId = id; },
-		getExpandedPanes: () => expandedPanes,
-		setExpandedPanes: (v) => { expandedPanes = v; },
+		getExpandedPanes: () => agentPanes.expandedPanes,
+		setExpandedPanes: (v) => { agentPanes.expandedPanes = v; },
 	});
 
-	let serverQueue = $derived(getQueueItems());
-	let queuedTicketIds = $derived(getQueuedTicketIds());
-	let scopedServerQueue = $derived(serverQueue.filter(item => item.cwd === currentProjectPath));
-	let mappedAgentQueue = $derived(scopedServerQueue.map(item => ({
-		ticketId: item.ticketId,
-		title: item.title,
-		description: item.description,
-		agentName: item.agentName,
-		cwd: item.cwd
-	})));
 	// --- Card Drag/Drop & Touch ---
 	const cardDrag = createCardDrag({
 		getIssues: () => issues,
@@ -161,44 +111,31 @@
 		}
 	});
 
-	let draggedOverColumn = $derived(cardDrag.draggedOverColumn);
-
-	// --- Pane Drag ---
-	const paneDrag = createPaneDrag();
-	const { cyclePaneSize, startDrag, startResize } = paneDrag;
-	let paneSizes = $derived(paneDrag.paneSizes);
-	let panePositions = $derived(paneDrag.panePositions);
-	let paneCustomSizes = $derived(paneDrag.paneCustomSizes);
-	let draggingPane = $derived(paneDrag.draggingPane);
-	let resizingPane = $derived(paneDrag.resizingPane);
-	$effect(() => paneDrag.setupListeners());
-
-	// --- WS Polling ---
-	let wsConnected = $state(false);
-	let wsPanes = $state<Map<string, Pane>>(new Map());
-	let managerSession = $derived.by(() => {
-		if (!currentProjectPath) return null;
-		const sessionName = getManagerSessionName(currentProjectPath);
-		return wsPanes.get(sessionName) ?? null;
-	});
-	let lastPanesJson = '';
-
-	$effect(() => {
-		const poll = () => {
-			wsConnected = isConnected();
-			const newPanes = getPanes();
-			const newJson = JSON.stringify([...newPanes.entries()].map(([k, v]) => [k, v.messages.length, v.currentDelta?.length || 0, v.streaming]));
-			if (newJson !== lastPanesJson) {
-				lastPanesJson = newJson;
-				wsPanes = newPanes;
-			}
-		};
-		poll();
-		const id = setInterval(poll, 100);
-		return () => clearInterval(id);
+	// --- Project session (current project + SSE lifecycle) ---
+	const session = createProjectSession({
+		initialCwd: data.cwd ?? '',
+		connectSse: () => issueStore.connectSSE(),
+		closeSse: () => issueStore.closeSse(),
+		setIssues: (list) => issueStore.setIssues(list),
+		getWsConnected: () => agentPanes.wsConnected,
+		onSwitched: () => {
+			issueStore.initialLoaded = true;
+			selectedId = null;
+			tableSelectedIds = [];
+			ops.editingIssue = null;
+			ops.isCreating = false;
+		}
 	});
 
-	const activeAgentNames = $derived([...wsPanes.keys()]);
+	let serverQueue = $derived(getQueueItems());
+	let queuedTicketIds = $derived(getQueuedTicketIds());
+	let mappedAgentQueue = $derived(serverQueue.filter(item => item.cwd === session.currentProjectPath).map(item => ({
+		ticketId: item.ticketId,
+		title: item.title,
+		description: item.description,
+		agentName: item.agentName,
+		cwd: item.cwd
+	})));
 
 	// --- Filters ---
 	const availableLabels = $derived([...new Set(issues.flatMap(i => i.labels || []))].sort());
@@ -236,7 +173,7 @@
 		getShowProjectSwitcher: () => showProjectSwitcher,
 		setShowProjectSwitcher: (v) => { showProjectSwitcher = v; },
 		getOverlayOpen: () => showSettings || showPrompts || showWizard || showProjectSwitcher,
-		getProjectCount: () => projects.length,
+		getProjectCount: () => session.projects.length,
 		createIssue: ops.createIssue,
 		openCreatePanel: ops.openCreatePanel,
 		openEditPanel: (issue) => { tableSelectedIds = []; ops.openEditPanel(issue); },
@@ -269,140 +206,8 @@
 		untrack(() => notificationStore.init());
 	});
 
-	$effect(() => {
-		showActivityBar = settings.showAgentBar;
-	});
-
-	// --- Lifecycle effects ---
-	$effect(() => {
-		untrack(() => issueStore.connectSSE());
-		return () => issueStore.closeSse();
-	});
-
-	$effect(() => {
-		if (browser && settings.agentEnabled) connect();
-		return () => disconnect();
-	});
-
-	// Keep backend fenced to the current project: re-send set_project whenever
-	// connection comes up or the current project changes. Also seed the queue.
-	$effect(() => {
-		if (!browser) return;
-		if (!wsConnected) return;
-		if (!currentProjectPath) return;
-		setServerProject(currentProjectPath);
-		fetchInitialQueue(9347, currentProjectPath);
-	});
-
-	async function initProject(urlProject: string | null) {
-		let cwd: string;
-		let name: string;
-
-		if (urlProject) {
-			// URL specifies the project — switch server default to match
-			const res = await fetch('/api/cwd', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ path: urlProject })
-			});
-			const payload = await res.json();
-			const data = payload?.ok ? payload.data : {};
-			cwd = data.cwd || urlProject;
-			name = data.name || cwd.split('/').pop() || 'project';
-		} else {
-			// No URL param — get current from server
-			const res = await fetch('/api/cwd');
-			const payload = await res.json();
-			const data = payload?.ok ? payload.data : {};
-			cwd = data.cwd;
-			name = data.name || cwd.split('/').pop() || 'project';
-			setCurrentProject(cwd);
-		}
-
-		projectName = name;
-		currentProjectPath = cwd;
-
-		const projRes = await fetch('/api/projects', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ path: cwd, name })
-		});
-		const projPayload = await projRes.json();
-		const projData = projPayload?.ok ? projPayload.data : {};
-		if (projData.projects) {
-			projects = projData.projects;
-			const current = projects.find((p: Project) => p.path === cwd);
-			if (current) {
-				projectColor = current.color;
-				projectName = current.meta?.title || current.name || name;
-			}
-		}
-	}
-
-	$effect(() => {
-		if (!browser) return;
-		const urlProject = new URL(window.location.href).searchParams.get('project');
-		initProject(urlProject);
-	});
-
-	async function switchProject(project: Project) {
-		if (project.path === currentProjectPath) return;
-		const WIPE_DURATION = 350;
-		const targetName = project.meta?.title || project.name;
-		switchStatus = `Switching to ${targetName}…`;
-		projectTransition = 'wipe-out';
-		issueStore.closeSse();
-
-		// Update frontend project context BEFORE API calls so appendProjectParam works
-		setCurrentProject(project.path);
-		currentProjectPath = project.path;
-
-		// Switch manager to new project (if visible, it will auto-resume or start new session)
-		switchManagerProject(project.path);
-
-		// Flip backend fence to new project immediately so broadcasts filter correctly.
-		setServerProject(project.path);
-		fetchInitialQueue(9347, project.path);
-
-		const [cwdRes] = await Promise.all([
-			fetch('/api/cwd', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: project.path }) }),
-			new Promise(r => setTimeout(r, WIPE_DURATION))
-		]);
-		if (!cwdRes.ok) { projectTransition = 'idle'; switchStatus = null; return; }
-		switchStatus = 'Loading issues…';
-		const issuesRes = await fetch(appendProjectParam('/api/issues'));
-		const issuesPayload = await issuesRes.json();
-		const issuesData = issuesPayload?.ok ? issuesPayload.data : { issues: [] };
-		issueStore.setIssues(issuesData.issues || []);
-		projectName = project.meta?.title || project.name;
-		projectColor = project.color;
-		issueStore.initialLoaded = true;
-		selectedId = null;
-		tableSelectedIds = [];
-		ops.editingIssue = null;
-		ops.isCreating = false;
-		projectTransition = 'wipe-in';
-		switchStatus = null;
-		issueStore.connectSSE();
-
-		// Update URL to include project param
-		const url = new URL(window.location.href);
-		url.searchParams.set('project', project.path);
-		url.searchParams.delete('issue');
-		svelteKitPushState(url.pathname + url.search, { project: project.path });
-
-		await new Promise(r => setTimeout(r, WIPE_DURATION));
-		projectTransition = 'idle';
-	}
-
 	function handlePopState(e: PopStateEvent) {
-		const url = new URL(window.location.href);
-		const urlProject = url.searchParams.get('project');
-		if (urlProject && urlProject !== currentProjectPath) {
-			const project = projects.find(p => p.path === urlProject);
-			if (project) switchProject(project);
-			return;
-		}
+		if (session.handleProjectPopState()) return;
 		ops.handlePopState(e);
 	}
 
@@ -417,7 +222,7 @@
 
 <svelte:window onkeydown={handleKeydown} onkeyup={handleKeyup} onpopstate={handlePopState} onclick={ops.closeContextMenu} onmousemove={ops.handleMouseMove} onmouseup={ops.handleMouseUp} onblur={handleWindowBlur} />
 
-<div class="app scheme-{viewState.colorScheme}" class:light={!viewState.isDarkMode} class:panel-open={ops.panelOpen} class:show-hotkeys={showHotkeys || settings.alwaysShowHotkeys} class:has-chat-bar={wsConnected && showActivityBar} style="--project-color: {projectColor}; --chat-bar-space: {chatBarReserve}px">
+<div class="app scheme-{viewState.colorScheme}" class:light={!viewState.isDarkMode} class:panel-open={ops.panelOpen} class:show-hotkeys={showHotkeys || settings.alwaysShowHotkeys} class:has-chat-bar={agentPanes.wsConnected && agentPanes.showActivityBar} style="--project-color: {session.projectColor}; --chat-bar-space: {agentPanes.chatBarReserve}px">
 
 {#if ops.contextMenu}
 	<ContextMenu
@@ -445,14 +250,14 @@
 
 <ProjectSwitcher
 	bind:show={showProjectSwitcher}
-	{projects}
-	currentPath={currentProjectPath}
-	onselect={switchProject}
+	projects={session.projects}
+	currentPath={session.currentProjectPath}
+	onselect={session.switchProject}
 	onclose={() => showProjectSwitcher = false}
 />
 
 <KeyboardHelp bind:show={showKeyboardHelp} />
-<SetupWizard bind:show={showWizard} isDarkMode={viewState.isDarkMode} {projectName} ontoggleTheme={viewState.toggleTheme} oncomplete={() => {}} />
+<SetupWizard bind:show={showWizard} isDarkMode={viewState.isDarkMode} projectName={session.projectName} ontoggleTheme={viewState.toggleTheme} oncomplete={() => {}} />
 <SettingsPane
 	bind:show={showSettings}
 	bind:showPrompts
@@ -481,10 +286,10 @@
 		ontogglefilters={() => settings.sidebarCollapsed = !settings.sidebarCollapsed}
 		bind:viewMode={viewState.viewMode}
 		isDarkMode={viewState.isDarkMode}
-		{projectName}
+		projectName={session.projectName}
 		totalIssues={issues.length}
-		agentPaneCount={wsPanes.size}
-		showAgentPanes={showActivityBar}
+		agentPaneCount={agentPanes.wsPanes.size}
+		showAgentPanes={agentPanes.showActivityBar}
 		recipes={settings.viewRecipes}
 		bind:currentRecipeId={viewState.currentRecipeId}
 		hasUnsavedChanges={viewState.hasUnsavedRecipeChanges}
@@ -495,7 +300,7 @@
 		onopenPrompts={() => { showSettings = true; showPrompts = true; }}
 		onpreviewchange={(previewing) => isFilterPreviewing = previewing}
 		oneditProject={() => showSettings = true}
-		ontoggleAgentPanes={() => { showActivityBar = !showActivityBar; settings.showAgentBar = showActivityBar; }}
+		ontoggleAgentPanes={agentPanes.toggleActivityBar}
 		onsaverecipe={viewState.saveRecipe}
 		onapplyrecipe={viewState.applyRecipe}
 		ondeleterecipe={viewState.deleteRecipe}
@@ -514,7 +319,7 @@
 		ontogglecollapse={() => settings.sidebarCollapsed = !settings.sidebarCollapsed}
 		onclear={viewState.clearFilters}
 		queue={queuePanel}
-		queueCount={mappedAgentQueue.length + runningAgents.length}
+		queueCount={mappedAgentQueue.length + agentPanes.runningAgents.length}
 		onexpand={() => settings.sidebarCollapsed = false}
 	/>
 	<div class="workspace-main">
@@ -525,19 +330,19 @@
 			{issues}
 			{filteredIssues}
 			{orderedTableIssues}
-			activeAgents={activeAgentNames}
+			activeAgents={agentPanes.activeAgentNames}
 			{queuedTicketIds}
-			{animatingIds}
+			animatingIds={issueStore.animatingIds}
 			{selectedId}
 			bind:activeColumnIndex
 			bind:tableSelectedIds
 			{isFilterPreviewing}
-			{projectTransition}
-			{worktreeTicketIds}
+			projectTransition={session.projectTransition}
+			worktreeTicketIds={agentPanes.worktreeTicketIds}
 			anim={boardAnimation}
-			{managerSession}
-			{wsConnected}
-			{currentProjectPath}
+			managerSession={agentPanes.managerSession}
+			wsConnected={agentPanes.wsConnected}
+			currentProjectPath={session.currentProjectPath}
 			onbulkupdate={bulkUpdateIssues}
 			onbulkdelete={bulkDeleteIssues}
 		/>
@@ -546,29 +351,29 @@
 
 <!-- Agent Bar - Pinned to bottom -->
 <AgentBar
-	{wsConnected}
-	{showActivityBar}
-	{wsPanes}
-	bind:expandedPanes
-	bind:newPaneName
-	bind:resumePrompt
-	bind:showSessionPicker
-	bind:sdkSessions
-	bind:loadingSdkSessions
-	bind:sessionSearchQuery
-	{filteredSessions}
-	{searchedSessions}
-	{paneSizes}
-	{panePositions}
-	{paneCustomSizes}
-	bind:paneMessageInputs
-	{draggingPane}
-	{resizingPane}
-	{loadingStatus}
+	wsConnected={agentPanes.wsConnected}
+	showActivityBar={agentPanes.showActivityBar}
+	wsPanes={agentPanes.wsPanes}
+	bind:expandedPanes={agentPanes.expandedPanes}
+	bind:newPaneName={agentPanes.newPaneName}
+	bind:resumePrompt={agentPanes.resumePrompt}
+	bind:showSessionPicker={agentPanes.showSessionPicker}
+	bind:sdkSessions={agentPanes.sdkSessions}
+	bind:loadingSdkSessions={agentPanes.loadingSdkSessions}
+	bind:sessionSearchQuery={agentPanes.sessionSearchQuery}
+	filteredSessions={agentPanes.filteredSessions}
+	searchedSessions={agentPanes.searchedSessions}
+	paneSizes={agentPanes.paneSizes}
+	panePositions={agentPanes.panePositions}
+	paneCustomSizes={agentPanes.paneCustomSizes}
+	bind:paneMessageInputs={agentPanes.paneMessageInputs}
+	draggingPane={agentPanes.draggingPane}
+	resizingPane={agentPanes.resizingPane}
+	loadingStatus={issueStore.loadingStatus}
 	agentEnabled={settings.agentEnabled}
 	isDarkMode={viewState.isDarkMode}
 	agentToolsExpanded={settings.agentToolsExpanded}
-	{currentProjectPath}
+	currentProjectPath={session.currentProjectPath}
 	agentFirstMessage={settings.agentFirstMessage}
 	combinedSystemPrompt={settings.combinedSystemPrompt}
 	agentSystemPrompt={settings.agentSystemPrompt}
@@ -590,24 +395,24 @@
 	onopenTicketFromPane={ops.openTicketFromPane}
 	oninterrupt={interrupt}
 	managerEnabled={settings.managerEnabled}
-	{managerSession}
-	onstartmanager={() => startManager(currentProjectPath)}
-	onstartDrag={startDrag}
-	onstartResize={startResize}
-	oncyclePaneSize={cyclePaneSize}
+	managerSession={agentPanes.managerSession}
+	onstartmanager={() => startManager(session.currentProjectPath)}
+	onstartDrag={agentPanes.startDrag}
+	onstartResize={agentPanes.startResize}
+	oncyclePaneSize={agentPanes.cyclePaneSize}
 	onhandleMouseMove={ops.handleMouseMove}
 	onhandleMouseUp={ops.handleMouseUp}
-	onbasesizechange={(px) => chatBarReserve = px}
+	onbasesizechange={(px) => agentPanes.chatBarReserve = px}
 />
 
 <FlyingCardComponent teleports={boardAnimation.teleports} />
 
-<InitialLoader status={loadingStatus} visible={!initialLoaded} {projectName} />
+<InitialLoader status={issueStore.loadingStatus} visible={!issueStore.initialLoaded} projectName={session.projectName} />
 
-{#if switchStatus}
+{#if session.switchStatus}
 	<div class="switch-status" role="status" aria-live="polite">
 		<span class="switch-spinner"></span>
-		<span class="switch-text">{switchStatus}</span>
+		<span class="switch-text">{session.switchStatus}</span>
 	</div>
 {/if}
 
@@ -628,8 +433,8 @@
 {#snippet queuePanel()}
 	<QueuePanel
 		queue={mappedAgentQueue}
-		runningSessions={runningAgents}
-		{draggedOverColumn}
+		runningSessions={agentPanes.runningAgents}
+		draggedOverColumn={cardDrag.draggedOverColumn}
 		onCancel={ops.cancelQueueItem}
 		onReorder={ops.reorderQueue}
 		ondragover={(e) => cardDrag.handleDragOver(e, 'queue')}
