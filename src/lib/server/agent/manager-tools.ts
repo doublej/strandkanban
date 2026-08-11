@@ -5,7 +5,7 @@
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { join } from "path";
-import { runBd } from "./bd-runner";
+import { beads, unwrapEnvelopeText } from "../beads/client";
 import type { AgentSession } from "./session-types";
 import type { AgentQueue } from "./queue-manager";
 
@@ -25,7 +25,7 @@ export function createManagerToolsServer(
 				{},
 				async () => {
 					try {
-						const result = await runBd(cwd, ["list", "--json"]);
+						const result = unwrapEnvelopeText(await beads(cwd).read(["list", "--json"]));
 						return { content: [{ type: "text" as const, text: result || "No issues found" }] };
 					} catch (err) {
 						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
@@ -39,8 +39,8 @@ export function createManagerToolsServer(
 				{ id: z.string().describe("Issue ID") },
 				async ({ id }) => {
 					try {
-						const result = await runBd(cwd, ["show", id, "--json"]);
-						return { content: [{ type: "text" as const, text: result || "Issue not found" }] };
+						const issue = await beads(cwd).issue(id);
+						return { content: [{ type: "text" as const, text: issue ? JSON.stringify(issue) : "Issue not found" }] };
 					} catch (err) {
 						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
 					}
@@ -56,8 +56,8 @@ export function createManagerToolsServer(
 				},
 				async ({ id, reason }) => {
 					try {
-						const result = await runBd(cwd, ["close", id, "--reason", reason]);
-						return { content: [{ type: "text" as const, text: result || "Issue closed" }] };
+						await beads(cwd).close(id, reason);
+						return { content: [{ type: "text" as const, text: `Closed ${id}` }] };
 					} catch (err) {
 						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
 					}
@@ -73,8 +73,8 @@ export function createManagerToolsServer(
 				},
 				async ({ id, text }) => {
 					try {
-						const result = await runBd(cwd, ["comments", "add", id, text]);
-						return { content: [{ type: "text" as const, text: result || "Comment added" }] };
+						await beads(cwd).addComment(id, text);
+						return { content: [{ type: "text" as const, text: `Comment added to ${id}` }] };
 					} catch (err) {
 						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
 					}
@@ -91,8 +91,8 @@ export function createManagerToolsServer(
 				},
 				async ({ from, to, type }) => {
 					try {
-						const result = await runBd(cwd, ["dep", "add", from, to, "--type", type]);
-						return { content: [{ type: "text" as const, text: result || "Dependency added" }] };
+						await beads(cwd).addDep(from, to, type);
+						return { content: [{ type: "text" as const, text: `${from} now depends on ${to}` }] };
 					} catch (err) {
 						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
 					}
@@ -108,8 +108,8 @@ export function createManagerToolsServer(
 				},
 				async ({ from, to }) => {
 					try {
-						const result = await runBd(cwd, ["dep", "remove", from, to]);
-						return { content: [{ type: "text" as const, text: result || "Dependency removed" }] };
+						await beads(cwd).removeDep(from, to);
+						return { content: [{ type: "text" as const, text: `${from} no longer depends on ${to}` }] };
 					} catch (err) {
 						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
 					}
@@ -125,8 +125,8 @@ export function createManagerToolsServer(
 				},
 				async ({ id, label }) => {
 					try {
-						const result = await runBd(cwd, ["update", id, "--add-label", label]);
-						return { content: [{ type: "text" as const, text: result || "Label added" }] };
+						await beads(cwd).update(id, { addLabels: [label] });
+						return { content: [{ type: "text" as const, text: `Added label ${label} to ${id}` }] };
 					} catch (err) {
 						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
 					}
@@ -142,8 +142,8 @@ export function createManagerToolsServer(
 				},
 				async ({ id, label }) => {
 					try {
-						const result = await runBd(cwd, ["update", id, "--remove-label", label]);
-						return { content: [{ type: "text" as const, text: result || "Label removed" }] };
+						await beads(cwd).update(id, { removeLabels: [label] });
+						return { content: [{ type: "text" as const, text: `Removed label ${label} from ${id}` }] };
 					} catch (err) {
 						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
 					}
@@ -162,8 +162,7 @@ export function createManagerToolsServer(
 				async ({ ticket_id, model, use_worktree }) => {
 					try {
 						// Fetch issue details
-						const raw = await runBd(cwd, ["show", ticket_id, "--json"]);
-						const issue = JSON.parse(raw);
+						const issue = await beads(cwd).issue(ticket_id);
 						const agentName = `${ticket_id}-agent`;
 						const resolvedUseWorktree = use_worktree ?? queue.hasRunningWorkerInCwd(cwd);
 
@@ -171,10 +170,10 @@ export function createManagerToolsServer(
 							ticketId: ticket_id,
 							agentName,
 							cwd,
-							title: issue.title || ticket_id,
-							description: issue.description || "",
-							priority: issue.priority ?? 2,
-							issueType: issue.issue_type || "task",
+							title: issue?.title || ticket_id,
+							description: issue?.description || "",
+							priority: issue?.priority ?? 2,
+							issueType: issue?.issue_type || "task",
 							model,
 							useWorktree: resolvedUseWorktree,
 							enqueuedAt: new Date().toISOString(),

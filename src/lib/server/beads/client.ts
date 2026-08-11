@@ -71,10 +71,26 @@ export function unwrapBdJson<T = unknown>(raw: string): T {
 	return parsed as T;
 }
 
+/** If stdout is a bd JSON envelope, return the inner `.data` re-serialized; otherwise
+ *  return it unchanged. For callers that hand bd's output straight to a model. */
+export function unwrapEnvelopeText(stdout: string): string {
+	if (!stdout.startsWith('{')) return stdout;
+	try {
+		return JSON.stringify(unwrapBdJson(stdout));
+	} catch {
+		return stdout;
+	}
+}
+
 // --- argv builders (pure) ---
 
 export interface CreateOpts {
+	id?: string;
+	assignee?: string;
+	labels?: string[];
 	description?: string;
+	design?: string;
+	acceptance?: string;
 	priority?: number;
 	issue_type?: string;
 	deps?: string[];
@@ -85,7 +101,12 @@ export interface CreateOpts {
 
 export function createArgs(title: string, o: CreateOpts = {}): string[] {
 	const args = ['create', title, '--json'];
+	if (o.id) args.push('--id', o.id);
+	if (o.assignee) args.push('--assignee', o.assignee);
+	if (o.labels?.length) args.push('--labels', o.labels.join(','));
 	if (o.description) args.push('--description', o.description);
+	if (o.design) args.push('--design', o.design);
+	if (o.acceptance) args.push('--acceptance', o.acceptance);
 	if (o.priority !== undefined) args.push('--priority', String(o.priority));
 	if (o.issue_type) args.push('--type', o.issue_type);
 	if (o.deps?.length) args.push('--deps', o.deps.join(','));

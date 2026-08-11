@@ -4,7 +4,7 @@
  */
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
-import { runBd } from "./bd-runner";
+import { beads } from "../beads/client";
 
 // Beads MCP tools to block (we replace these with our wrappers)
 export const BLOCKED_BEADS_TOOLS = [
@@ -32,28 +32,14 @@ export function createBeadsToolsServer(agentName: string, cwd: string) {
           external_ref: z.string().optional(),
           assignee: z.string().optional().describe("Override assignee (defaults to agent name when claiming work)"),
         },
-        async (args) => {
-          const bdArgs = ["update", args.issue_id];
-
-          if (args.status) bdArgs.push("--status", args.status);
-          if (args.priority !== undefined) bdArgs.push("--priority", String(args.priority));
-          if (args.title) bdArgs.push("--title", args.title);
-          if (args.description) bdArgs.push("--description", args.description);
-          if (args.design) bdArgs.push("--design", args.design);
-          if (args.acceptance_criteria) bdArgs.push("--acceptance", args.acceptance_criteria);
-          if (args.notes) bdArgs.push("--notes", args.notes);
-          if (args.external_ref) bdArgs.push("--external-ref", args.external_ref);
-
-          // Use explicit assignee if provided, else auto-inject when claiming work
-          if (args.assignee) {
-            bdArgs.push("--assignee", args.assignee);
-          } else if (args.status === "in_progress") {
-            bdArgs.push("--assignee", agentName);
-          }
-
+        async ({ issue_id, ...fields }) => {
           try {
-            const result = await runBd(cwd, bdArgs);
-            return { content: [{ type: "text" as const, text: result || "Issue updated" }] };
+            await beads(cwd).update(issue_id, {
+              ...fields,
+              // Explicit assignee wins; otherwise auto-inject when claiming work.
+              assignee: fields.assignee ?? (fields.status === "in_progress" ? agentName : undefined),
+            });
+            return { content: [{ type: "text" as const, text: `Updated ${issue_id}` }] };
           } catch (err) {
             return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
           }
@@ -76,25 +62,14 @@ export function createBeadsToolsServer(agentName: string, cwd: string) {
           deps: z.array(z.string()).optional().describe("Dependencies"),
           assignee: z.string().optional().describe("Override assignee (defaults to agent name)"),
         },
-        async (args) => {
-          const bdArgs = ["create", "--title", args.title];
-
-          if (args.description) bdArgs.push("--description", args.description);
-          if (args.design) bdArgs.push("--design", args.design);
-          if (args.acceptance) bdArgs.push("--acceptance", args.acceptance);
-          if (args.external_ref) bdArgs.push("--external-ref", args.external_ref);
-          if (args.priority !== undefined) bdArgs.push("--priority", String(args.priority));
-          if (args.issue_type) bdArgs.push("--type", args.issue_type);
-          if (args.id) bdArgs.push("--id", args.id);
-          if (args.labels?.length) bdArgs.push("--labels", args.labels.join(","));
-          if (args.deps?.length) bdArgs.push("--deps", args.deps.join(","));
-
-          // Use explicit assignee if provided, else auto-inject agent name
-          bdArgs.push("--assignee", args.assignee || agentName);
-
+        async ({ title, ...fields }) => {
           try {
-            const result = await runBd(cwd, bdArgs);
-            return { content: [{ type: "text" as const, text: result || "Issue created" }] };
+            const { issue } = await beads(cwd).create(title, {
+              ...fields,
+              // Explicit assignee wins; otherwise the issue belongs to this agent.
+              assignee: fields.assignee || agentName,
+            });
+            return { content: [{ type: "text" as const, text: JSON.stringify(issue) }] };
           } catch (err) {
             return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
           }

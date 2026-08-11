@@ -2,7 +2,7 @@ import type { QueueItem } from "./queue-types";
 import type { AgentSession } from "./session-types";
 import type { ServerWebSocket } from "bun";
 import type { WSData } from "./http-server";
-import { runBd } from "./bd-runner";
+import { beads } from "../beads/client";
 import { log } from "../logger";
 import { getAttachmentsDir } from "../attachments";
 import { existsSync, readdirSync } from "fs";
@@ -208,10 +208,10 @@ export class AgentQueue {
 		let comments = "";
 		let attachments = "";
 
-		// `bd comments <id>` — there is no `bd comments list` subcommand.
+		// Comments ride along in the export the facade already caches — no extra bd spawn.
 		try {
-			const raw = await runBd(item.cwd, ["comments", item.ticketId, "--json"]);
-			comments = raw && raw !== "[]" ? raw : "None";
+			const list = await beads(item.cwd).comments(item.ticketId);
+			comments = list.length ? JSON.stringify(list) : "None";
 		} catch (err) {
 			log.warn(`briefing: comments read failed for ${item.ticketId}: ${err}`);
 			comments = "None";
