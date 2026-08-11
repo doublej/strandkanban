@@ -201,3 +201,5 @@ export function createCardDrag(ctx: CardDragContext) {
 		handlePanelTouchEnd
 	};
 }
+
+export type CardDrag = ReturnType<typeof createCardDrag>;

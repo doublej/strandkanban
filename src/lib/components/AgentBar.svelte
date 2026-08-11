@@ -19,7 +19,7 @@
 		loadingSdkSessions: boolean;
 		sessionSearchQuery: string;
 		filteredSessions: SdkSessionInfo[];
-		searchedSessions: () => SdkSessionInfo[];
+		searchedSessions: SdkSessionInfo[];
 		paneSizes: Record<string, 'compact' | 'medium' | 'large'>;
 		panePositions: Record<string, { x: number; y: number }>;
 		paneCustomSizes: Record<string, { w: number; h: number }>;

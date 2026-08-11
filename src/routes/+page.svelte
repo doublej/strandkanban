@@ -1,41 +1,30 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { untrack } from 'svelte';
-	import { pushState as svelteKitPushState, replaceState as svelteKitReplaceState, afterNavigate } from '$app/navigation';
+	import { pushState as svelteKitPushState } from '$app/navigation';
 	import { setCurrentProject, appendProjectParam } from '$lib/project';
 	import { connect, disconnect, getPanes, getSessions, isConnected, addPane, removePane, sendToPane, endSession, clearSession, continueSession, compactSession, interrupt, getPersistedSdkSessionId, fetchSdkSessions, markPaneAsRead, getTotalUnreadCount, getUnreadCount, type Pane, type SdkSessionInfo } from '$lib/wsStore.svelte';
-	import { coerceViewMode, type Issue, type SortBy, type ViewMode, type Project, type ViewRecipe, type TableColumnConfig, type TableSortState } from '$lib/types';
-	import {
-		columns,
-		getColumnsWithCustom,
-		sortIssues,
-		sortIssuesBy,
-		getIssueColumn
-	} from '$lib/utils';
-	import ColumnNav from '$lib/components/ColumnNav.svelte';
+	import type { Issue, Project } from '$lib/types';
+	import { getColumnsWithCustom, sortIssuesBy } from '$lib/utils';
 	import Header from '$lib/components/Header.svelte';
 	import ContextMenu from '$lib/components/ContextMenu.svelte';
 	import RopeDrag from '$lib/components/RopeDrag.svelte';
 	import DepTypePicker from '$lib/components/DepTypePicker.svelte';
 	import CwdConflictDialog from '$lib/components/CwdConflictDialog.svelte';
 	import KeyboardHelp from '$lib/components/KeyboardHelp.svelte';
-	import KanbanColumn from '$lib/components/KanbanColumn.svelte';
-	import DetailPanel from '$lib/components/DetailPanel.svelte';
 	import ZenReview from '$lib/components/ZenReview.svelte';
-	import { setIssueStateApi } from '$lib/api';
-	import type { TriageAction } from '$lib/zen-triage';
 	import FlyingCardComponent from '$lib/components/FlyingCard.svelte';
 	import AgentBar from '$lib/components/AgentBar.svelte';
 	import InitialLoader from '$lib/components/InitialLoader.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import QueuePanel from '$lib/components/QueuePanel.svelte';
-	import ManagerPane from '$lib/components/ManagerPane.svelte';
 	import PwaInstallPrompt from '$lib/components/PwaInstallPrompt.svelte';
 	import SettingsPane from '$lib/components/SettingsPane.svelte';
 	import SetupWizard from '$lib/components/SetupWizard.svelte';
-	import { fetchMutations } from '$lib/mutationStore.svelte';
 	import ThemeTransition from '$lib/components/ThemeTransition.svelte';
 	import ProjectSwitcher from '$lib/components/ProjectSwitcher.svelte';
+	import FilterSidebar from '$lib/components/FilterSidebar.svelte';
+	import ViewLayout from '$lib/components/ViewLayout.svelte';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { notificationStore } from '$lib/notifications/notification-store.svelte';
 	import { createPaneDrag } from '$lib/stores/pane-drag.svelte';
@@ -44,28 +33,18 @@
 	import { createIssueStore } from '$lib/stores/issue-store.svelte';
 	import { createCardDrag } from '$lib/drag-drop/card-drag.svelte';
 	import { createPageOps } from '$lib/stores/page-ops.svelte';
-	import { issueMatchesFilters as matchesFilters, hasActiveFilters as checkActiveFilters, countActiveFilters, emptyFilterState, normalizeFilterState, type FilterState } from '$lib/filters';
-	import FilterSidebar from '$lib/components/FilterSidebar.svelte';
-	import TableView from '$lib/components/TableView.svelte';
-	import SelectionGrid from '$lib/components/SelectionGrid.svelte';
-	import FlowView from '$lib/components/flow/FlowView.svelte';
-	import GridView from '$lib/components/GridView.svelte';
-	import { reconcileTableColumns } from '$lib/table-columns';
-	import { getManagerVisible, getManagerSessionName } from '$lib/stores/manager.svelte';
+	import { createViewState } from '$lib/stores/view-state.svelte';
+	import { createZen } from '$lib/stores/zen.svelte';
+	import { getManagerSessionName } from '$lib/stores/manager.svelte';
 	import { startManager, switchManagerProject, setServerProject } from '$lib/stores/ws-connection.svelte';
 	import { getQueueItems, getQueuedTicketIds, fetchInitialQueue } from '$lib/stores/queue.svelte';
 
 	let { data } = $props();
 
 	// --- UI State (page-only) ---
-	let filters = $state<FilterState>(emptyFilterState());
 	let isFilterPreviewing = $state(false);
 	let selectedId = $state<string | null>(null);
 	let activeColumnIndex = $state(0);
-	let isDarkMode = $state(true);
-	let colorScheme = $state('default');
-	let themeTransitionActive = $state(false);
-	let themeTransitionToLight = $state(false);
 	let showActivityBar = $state(true);
 	let chatBarReserve = $state(64);
 	let newPaneName = $state('');
@@ -75,7 +54,7 @@
 	let filteredSessions = $derived(sdkSessions.filter(isValidSessionFn));
 	let loadingSdkSessions = $state(false);
 	let sessionSearchQuery = $state('');
-	let searchedSessions = $derived(() => {
+	let searchedSessions = $derived.by(() => {
 		const q = sessionSearchQuery.trim().toLowerCase();
 		if (!q) return filteredSessions;
 		return filteredSessions.filter(s =>
@@ -86,7 +65,6 @@
 	});
 	let paneMessageInputs = $state<Record<string, string>>({});
 	let expandedPanes = $state<Set<string>>(new Set());
-	let columnSortBy = $state<Record<string, 'priority' | 'created' | 'title'>>({});
 	let showKeyboardHelp = $state(false);
 	let showHotkeys = $state(false);
 	let showSettings = $state(false);
@@ -99,23 +77,13 @@
 	let placeholderRefs = $state<Map<string, HTMLElement>>(new Map());
 	let flyingCards = $state<Map<string, {from: {x: number; y: number; w: number; h: number}; to: {x: number; y: number; w: number; h: number}; issue: Issue}>>(new Map());
 	let shrinkingSourceIds = $state<Set<string>>(new Set());
-	let viewMode = $state<ViewMode>('kanban');
-	let zenOpen = $state(false);
-	let zenIds = $state<string[]>([]);
-	let zenIndex = $state(0);
-	let lastAppliedDefaultView = $state<ViewMode | null>(null);
-	let lastAppliedDefaultSort = $state<SortBy | null>(null);
+	let tableSelectedIds = $state<string[]>([]);
 	let projects = $state<Project[]>([]);
 	let showProjectSwitcher = $state(false);
 	let currentProjectPath = $state(data.cwd ?? '');
 	let projectColor = $state('#6366f1');
 	let projectTransition = $state<'idle' | 'wipe-out' | 'wipe-in'>('idle');
 	let switchStatus = $state<string | null>(null);
-	let collapsedColumns = $derived(settings.collapsedColumns);
-	let currentRecipeId = $state<string | null>(null);
-	let lastAppliedRecipeSnapshot = $state<string | null>(null);
-	let hydratedProject = $state<string | null>(null);
-	const PROJECT_VIEW_PREFIX = 'bdk:view:';
 
 	// --- Seed frontend project context before any effect fires ---
 	// data.cwd already reflects any ?project= param (resolveProjectCwd on the server),
@@ -124,6 +92,9 @@
 	if (browser && data.cwd) {
 		setCurrentProject(data.cwd);
 	}
+
+	// --- View preferences (filters, view mode, recipes, theme) ---
+	const viewState = createViewState({ getCurrentProjectPath: () => currentProjectPath });
 
 	// Agent queue state
 	let runningAgents = $derived.by(() => {
@@ -245,12 +216,7 @@
 		}
 	});
 
-	let draggedId = $derived(cardDrag.draggedId);
 	let draggedOverColumn = $derived(cardDrag.draggedOverColumn);
-	let dropIndicatorIndex = $derived(cardDrag.dropIndicatorIndex);
-	let dropTargetColumn = $derived(cardDrag.dropTargetColumn);
-	let isPanelDragging = $derived(cardDrag.isPanelDragging);
-	let panelDragOffset = $derived(cardDrag.panelDragOffset);
 
 	// --- Pane Drag ---
 	const paneDrag = createPaneDrag();
@@ -290,83 +256,30 @@
 	const activeAgentNames = $derived([...wsPanes.keys()]);
 
 	// --- Filters ---
-	const issueMatchesFilters = (issue: Issue) => matchesFilters(issue, filters);
-	const hasActiveFilters = $derived(checkActiveFilters(filters));
-	const activeFilterCount = $derived(countActiveFilters(filters));
 	const availableLabels = $derived([...new Set(issues.flatMap(i => i.labels || []))].sort());
 	const availableAssignees = $derived([...new Set(issues.map(i => i.assignee).filter((a): a is string => !!a))].sort());
 	const availableTypes = $derived([...new Set(issues.map(i => i.issue_type).filter(Boolean))].sort());
-	const filteredIssues = $derived(issues.filter((issue) => issueMatchesFilters(issue)));
+	const filteredIssues = $derived(issues.filter(viewState.matchesFilters));
 	// Ordered rows for the table view — the single source of order shared by the
 	// table display AND keyboard next/prev, so "next" is always the next visible row.
 	const orderedTableIssues = $derived(
 		settings.tableSort ? sortIssuesBy(filteredIssues, settings.tableSort.field, settings.tableSort.dir) : filteredIssues
 	);
 
-	// Table multi-select (controlled): when >1 rows are selected we show a grid of
-	// blocks in the detail slot instead of a single ticket's details.
-	let tableSelectedIds = $state<string[]>([]);
-	const tableSelectedIssues = $derived(orderedTableIssues.filter((i) => tableSelectedIds.includes(i.id)));
-	const showSelectionGrid = $derived(viewMode === 'table' && tableSelectedIds.length > 1);
-
-	// --- Zen focus review ---
-	function openZenReview(ids?: string[], startIndex?: number) {
-		const list = ids && ids.length ? ids : filteredIssues.map((i) => i.id);
-		if (!list.length) return;
-		zenIds = list;
-		const seeded = startIndex ?? (selectedId ? list.indexOf(selectedId) : -1);
-		zenIndex = seeded >= 0 ? seeded : 0;
-		zenOpen = true;
-	}
-
-	// Quick triage (Q in Zen): record the pick as a `triage:<value>` state
-	// label and reprioritize when the action carries one. Sequential awaits —
-	// bd writes to the same issue must not overlap.
-	async function handleZenQuickAction(issue: Issue, action: TriageAction) {
-		if (action.priority !== undefined && action.priority !== issue.priority) {
-			await ops.updateIssue(issue.id, { priority: action.priority });
-		}
-		await setIssueStateApi(issue.id, 'triage', action.value, `Zen triage: ${action.label}`);
-		fetchMutations();
-	}
-
-	// Deep-link entrypoint: ?zen=bd-1,bd-2,bd-3 opens focus review on load.
-	// The param is consumed (stripped) so a refresh/close doesn't force it back.
-	// The deep link's own issues — SSR-seeded, so Zen paints without waiting for the board.
-	let zenPreload = $state<Issue[]>(data.zenIssues ?? []);
-
-	async function consumeZenParam(raw: string) {
-		const wanted = raw.split(',').map((s) => s.trim()).filter(Boolean);
-		if (browser) {
-			const url = new URL(window.location.href);
-			url.searchParams.delete('zen');
-			svelteKitReplaceState(url.pathname + url.search + url.hash, {});
-		}
-		if (!wanted.length) return;
-		// Client-side navigation to ?zen= skips the server load, so fetch just those issues.
-		if (!zenPreload.length) {
-			const res = await fetch(
-				appendProjectParam(`/api/issues?ids=${encodeURIComponent(wanted.join(','))}`)
-			);
-			const payload = await res.json().catch(() => null);
-			zenPreload = payload?.ok ? (payload.data?.issues ?? []) : [];
-		}
-		// Accept the short form people actually write (`uhgp.17`) as well as the
-		// prefixed id bd stores (`myproject-uhgp.17`) — same leniency as `bd show`.
-		const list = wanted.map(
-			(id) =>
-				zenPreload.find((i) => i.id === id)?.id ??
-				zenPreload.find((i) => i.id.endsWith(`-${id}`))?.id ??
-				id
-		);
-		openZenReview(list, 0);
-	}
+	// --- Zen focus review + deep links ---
+	const zen = createZen({
+		getIssues: () => issues,
+		getFilteredIssues: () => filteredIssues,
+		getSelectedId: () => selectedId,
+		updateIssue: (id, updates) => ops.updateIssue(id, updates),
+		openIssueById: (id, pushState) => ops.openIssueById(id, pushState)
+	}, data.zenIssues ?? []);
 
 	// --- Keyboard Nav ---
 	const keyboardNav = createKeyboardNav({
 		getFilteredIssues: () => filteredIssues,
-		getViewMode: () => viewMode,
-		getOrderedVisibleIssues: () => (viewMode === 'table' ? orderedTableIssues : filteredIssues),
+		getViewMode: () => viewState.viewMode,
+		getOrderedVisibleIssues: () => (viewState.viewMode === 'table' ? orderedTableIssues : filteredIssues),
 		getSelectedId: () => selectedId,
 		setSelectedId: (id) => { selectedId = id; },
 		getPanelOpen: () => ops.panelOpen,
@@ -383,27 +296,11 @@
 		openCreatePanel: ops.openCreatePanel,
 		openEditPanel: (issue) => { tableSelectedIds = []; ops.openEditPanel(issue); },
 		deleteIssue: ops.deleteIssue,
-		toggleTheme,
+		toggleTheme: viewState.toggleTheme,
 		closePanel: ops.closePanel,
-		openZenReview: () => openZenReview()
+		openZenReview: () => zen.openReview()
 	});
 	const { handleKeydown, handleKeyup, handleWindowBlur } = keyboardNav;
-
-	// --- Theme ---
-	function toggleTheme() {
-		if (themeTransitionActive) return;
-		themeTransitionToLight = isDarkMode;
-		themeTransitionActive = true;
-	}
-
-	function switchTheme() {
-		isDarkMode = !isDarkMode;
-		settings.isDarkMode = isDarkMode;
-	}
-
-	function completeThemeTransition() {
-		themeTransitionActive = false;
-	}
 
 	// --- Helpers ---
 	function registerCard(node: HTMLElement, id: string) {
@@ -414,16 +311,6 @@
 	function registerPlaceholder(node: HTMLElement, id: string) {
 		placeholderRefs.set(id, node);
 		return { destroy() { placeholderRefs.delete(id); } };
-	}
-
-	function toggleSortMenu(columnKey: string, e: MouseEvent) {
-		e.stopPropagation();
-		ops.sortMenuOpen = ops.sortMenuOpen === columnKey ? null : columnKey;
-	}
-
-	function setColumnSort(columnKey: string, sortBy: 'priority' | 'created' | 'title') {
-		columnSortBy = { ...columnSortBy, [columnKey]: sortBy };
-		ops.sortMenuOpen = null;
 	}
 
 	async function startAgentServer() {
@@ -444,92 +331,12 @@
 		}
 	}
 
-	// --- Settings sync (load once, bind directly to settings store) ---
-	// settings.load() both reads and writes settings $state (e.g.
-	// `viewRecipes = loadObject('viewRecipes', viewRecipes)`), so it must run
-	// untracked — otherwise this effect self-triggers once localStorage holds a
-	// value that parses to a fresh reference each run (infinite loop / freeze).
 	$effect(() => {
-		untrack(() => {
-			settings.load();
-			notificationStore.init();
-			isDarkMode = settings.isDarkMode;
-			colorScheme = settings.colorScheme;
-		});
+		untrack(() => notificationStore.init());
 	});
 
 	$effect(() => {
 		showActivityBar = settings.showAgentBar;
-	});
-
-	$effect(() => {
-		const defaultView = settings.defaultViewMode;
-		if (lastAppliedDefaultView === null || defaultView !== lastAppliedDefaultView) {
-			viewMode = defaultView;
-			lastAppliedDefaultView = defaultView;
-		}
-	});
-
-	$effect(() => {
-		const defaultSort = settings.defaultColumnSort;
-		if (lastAppliedDefaultSort === null) {
-			if (Object.keys(columnSortBy).length === 0) {
-				columnSortBy = Object.fromEntries(columns.map((col) => [col.key, defaultSort])) as Record<string, SortBy>;
-			}
-			lastAppliedDefaultSort = defaultSort;
-			return;
-		}
-		if (defaultSort !== lastAppliedDefaultSort) {
-			columnSortBy = Object.fromEntries(columns.map((col) => [col.key, defaultSort])) as Record<string, SortBy>;
-			lastAppliedDefaultSort = defaultSort;
-		}
-	});
-
-	// --- Per-project view state: hydrate on project change, persist on edit ---
-	$effect(() => {
-		if (!browser) return;
-		const path = currentProjectPath;
-		if (!path) return;
-		untrack(() => {
-			try {
-				const raw = localStorage.getItem(PROJECT_VIEW_PREFIX + path);
-				if (raw) applyViewState(JSON.parse(raw));
-			} catch {
-				/* ignore corrupt/unavailable persisted view state */
-			}
-			// A remembered project view is not a named recipe.
-			currentRecipeId = null;
-			lastAppliedRecipeSnapshot = null;
-			hydratedProject = path;
-		});
-	});
-
-	$effect(() => {
-		if (!browser) return;
-		const state = captureCurrentViewState();
-		const path = currentProjectPath;
-		// Only persist once the active project's state has been hydrated,
-		// so we never overwrite it with defaults during a project switch.
-		if (!path || path !== hydratedProject) return;
-		untrack(() => {
-			try {
-				localStorage.setItem(PROJECT_VIEW_PREFIX + path, JSON.stringify(state));
-			} catch {
-				/* ignore quota / unavailable storage */
-			}
-		});
-	});
-
-	// --- Apply theme to body element ---
-	$effect(() => {
-		if (!browser) return;
-		document.body.classList.toggle('light', !isDarkMode);
-		// Remove all scheme classes first
-		document.body.className = document.body.className.replace(/scheme-\w+/g, '').trim();
-		// Add current scheme if not default
-		if (colorScheme !== 'default') {
-			document.body.classList.add(`scheme-${colorScheme}`);
-		}
 	});
 
 	// --- Lifecycle effects ---
@@ -551,31 +358,6 @@
 		if (!currentProjectPath) return;
 		setServerProject(currentProjectPath);
 		fetchInitialQueue(9347, currentProjectPath);
-	});
-
-	let zenParamChecked = false;
-	let initialUrlChecked = false;
-	// pushState/replaceState throw until the router has finished initializing,
-	// so wait for the first navigation before touching the URL.
-	let routerReady = $state(false);
-	afterNavigate(() => { routerReady = true; });
-
-	// Zen deep link fetches its own issues, so it must not wait for the board.
-	$effect(() => {
-		if (!browser || !routerReady || zenParamChecked) return;
-		zenParamChecked = true;
-		const zenParam = new URL(window.location.href).searchParams.get('zen');
-		if (zenParam) {
-			initialUrlChecked = true; // ?zen wins over ?issue
-			consumeZenParam(zenParam);
-		}
-	});
-
-	$effect(() => {
-		if (!browser || !routerReady || initialUrlChecked || issues.length === 0) return;
-		initialUrlChecked = true;
-		const issueId = new URL(window.location.href).searchParams.get('issue');
-		if (issueId) ops.openIssueById(issueId, false);
 	});
 
 	async function initProject(urlProject: string | null) {
@@ -690,76 +472,6 @@
 		ops.handlePopState(e);
 	}
 
-	function captureCurrentViewState(): { filters: FilterState; columnSort: Record<string, SortBy>; collapsedColumns: string[]; viewMode: ViewMode; table: TableColumnConfig[]; tableSort: TableSortState | null } {
-		return {
-			filters: normalizeFilterState(filters),
-			columnSort: { ...columnSortBy },
-			collapsedColumns: [...settings.collapsedColumns],
-			viewMode,
-			table: settings.tableColumns.map((c) => ({ ...c })),
-			tableSort: settings.tableSort ? { ...settings.tableSort } : null
-		};
-	}
-
-	function saveRecipe(name: string) {
-		const state = captureCurrentViewState();
-		const recipe: ViewRecipe = {
-			id: crypto.randomUUID(),
-			name,
-			filters: state.filters,
-			columnSort: state.columnSort,
-			collapsedColumns: state.collapsedColumns,
-			viewMode: state.viewMode,
-			table: state.table,
-			tableSort: state.tableSort,
-			createdAt: new Date().toISOString()
-		};
-		settings.saveRecipe(recipe);
-		currentRecipeId = recipe.id;
-		lastAppliedRecipeSnapshot = JSON.stringify(captureCurrentViewState());
-	}
-
-	function applyViewState(state: {
-		filters: FilterState;
-		columnSort: Record<string, SortBy>;
-		collapsedColumns: string[];
-		viewMode: ViewMode;
-		table?: TableColumnConfig[];
-		tableSort?: TableSortState | null;
-	}) {
-		filters = normalizeFilterState(state.filters);
-		columnSortBy = { ...state.columnSort };
-		viewMode = coerceViewMode(state.viewMode);
-		if (state.table) settings.tableColumns = reconcileTableColumns(state.table);
-		if (state.tableSort !== undefined) settings.tableSort = state.tableSort;
-
-		const savedCollapsed = new Set(state.collapsedColumns);
-		for (const col of [...settings.collapsedColumns]) {
-			if (!savedCollapsed.has(col)) settings.toggleColumnCollapse(col);
-		}
-		for (const col of state.collapsedColumns) {
-			if (!settings.collapsedColumns.has(col)) settings.toggleColumnCollapse(col);
-		}
-	}
-
-	function applyRecipe(recipe: ViewRecipe) {
-		applyViewState(recipe);
-		currentRecipeId = recipe.id;
-		lastAppliedRecipeSnapshot = JSON.stringify(captureCurrentViewState());
-	}
-
-	function deleteRecipe(id: string) {
-		settings.deleteRecipe(id);
-		if (currentRecipeId === id) {
-			currentRecipeId = null;
-			lastAppliedRecipeSnapshot = null;
-		}
-	}
-
-	function renameRecipe(id: string, newName: string) {
-		settings.renameRecipe(id, newName);
-	}
-
 	// --- Table bulk actions ---
 	async function bulkUpdateIssues(ids: string[], updates: Partial<Issue>) {
 		for (const id of ids) await ops.updateIssue(id, updates);
@@ -767,17 +479,11 @@
 	async function bulkDeleteIssues(ids: string[]) {
 		for (const id of ids) await ops.deleteIssue(id);
 	}
-
-	const hasUnsavedRecipeChanges = $derived(() => {
-		if (!currentRecipeId) return false;
-		const current = JSON.stringify(captureCurrentViewState());
-		return current !== lastAppliedRecipeSnapshot;
-	});
 </script>
 
 <svelte:window onkeydown={handleKeydown} onkeyup={handleKeyup} onpopstate={handlePopState} onclick={ops.closeContextMenu} onmousemove={ops.handleMouseMove} onmouseup={ops.handleMouseUp} onblur={handleWindowBlur} />
 
-<div class="app scheme-{colorScheme}" class:light={!isDarkMode} class:panel-open={ops.panelOpen} class:show-hotkeys={showHotkeys || settings.alwaysShowHotkeys} class:has-chat-bar={wsConnected && showActivityBar} style="--project-color: {projectColor}; --chat-bar-space: {chatBarReserve}px">
+<div class="app scheme-{viewState.colorScheme}" class:light={!viewState.isDarkMode} class:panel-open={ops.panelOpen} class:show-hotkeys={showHotkeys || settings.alwaysShowHotkeys} class:has-chat-bar={wsConnected && showActivityBar} style="--project-color: {projectColor}; --chat-bar-space: {chatBarReserve}px">
 
 {#if ops.contextMenu}
 	<ContextMenu
@@ -797,10 +503,10 @@
 <CwdConflictDialog conflict={ops.cwdConflict} onresolve={ops.resolveConflict} ondismiss={ops.dismissConflict} />
 
 <ThemeTransition
-	active={themeTransitionActive}
-	toLight={themeTransitionToLight}
-	onswitch={switchTheme}
-	ondone={completeThemeTransition}
+	active={viewState.themeTransitionActive}
+	toLight={viewState.themeTransitionToLight}
+	onswitch={viewState.switchTheme}
+	ondone={viewState.completeThemeTransition}
 />
 
 <ProjectSwitcher
@@ -812,7 +518,7 @@
 />
 
 <KeyboardHelp bind:show={showKeyboardHelp} />
-<SetupWizard bind:show={showWizard} {isDarkMode} {projectName} ontoggleTheme={toggleTheme} oncomplete={() => {}} />
+<SetupWizard bind:show={showWizard} isDarkMode={viewState.isDarkMode} {projectName} ontoggleTheme={viewState.toggleTheme} oncomplete={() => {}} />
 <SettingsPane
 	bind:show={showSettings}
 	bind:showPrompts
@@ -830,25 +536,25 @@
 	bind:conflictStrategy={settings.conflictStrategy}
 	bind:managerEnabled={settings.managerEnabled}
 	bind:managerModel={settings.managerModel}
-	{isDarkMode}
-	{colorScheme}
-	ontoggleTheme={toggleTheme}
-	onsetColorScheme={(scheme) => { colorScheme = scheme; settings.colorScheme = scheme; }}
+	isDarkMode={viewState.isDarkMode}
+	colorScheme={viewState.colorScheme}
+	ontoggleTheme={viewState.toggleTheme}
+	onsetColorScheme={(scheme) => viewState.colorScheme = scheme}
 />
 	<Header
-		bind:searchQuery={filters.search}
-		filterCount={activeFilterCount}
+		bind:searchQuery={viewState.filters.search}
+		filterCount={viewState.activeFilterCount}
 		ontogglefilters={() => settings.sidebarCollapsed = !settings.sidebarCollapsed}
-		bind:viewMode
-		{isDarkMode}
+		bind:viewMode={viewState.viewMode}
+		isDarkMode={viewState.isDarkMode}
 		{projectName}
 		totalIssues={issues.length}
 		agentPaneCount={wsPanes.size}
 		showAgentPanes={showActivityBar}
 		recipes={settings.viewRecipes}
-		bind:currentRecipeId
-		hasUnsavedChanges={hasUnsavedRecipeChanges()}
-		ontoggleTheme={toggleTheme}
+		bind:currentRecipeId={viewState.currentRecipeId}
+		hasUnsavedChanges={viewState.hasUnsavedRecipeChanges}
+		ontoggleTheme={viewState.toggleTheme}
 		onopenKeyboardHelp={() => showKeyboardHelp = true}
 		onopenCreatePanel={ops.openCreatePanel}
 		onopenSettings={() => showSettings = true}
@@ -856,167 +562,55 @@
 		onpreviewchange={(previewing) => isFilterPreviewing = previewing}
 		oneditProject={() => showSettings = true}
 		ontoggleAgentPanes={() => { showActivityBar = !showActivityBar; settings.showAgentBar = showActivityBar; }}
-		onsaverecipe={saveRecipe}
-		onapplyrecipe={applyRecipe}
-		ondeleterecipe={deleteRecipe}
-		onrenamerecipe={renameRecipe}
+		onsaverecipe={viewState.saveRecipe}
+		onapplyrecipe={viewState.applyRecipe}
+		ondeleterecipe={viewState.deleteRecipe}
+		onrenamerecipe={viewState.renameRecipe}
 	/>
 
 	<div class="workspace">
 	<FilterSidebar
-		{filters}
+		filters={viewState.filters}
 		{availableLabels}
 		{availableAssignees}
 		{availableTypes}
 		{statusColumns}
-		activeCount={activeFilterCount}
+		activeCount={viewState.activeFilterCount}
 		collapsed={settings.sidebarCollapsed}
 		ontogglecollapse={() => settings.sidebarCollapsed = !settings.sidebarCollapsed}
-		onclear={() => filters = emptyFilterState()}
+		onclear={viewState.clearFilters}
 		queue={queuePanel}
 		queueCount={mappedAgentQueue.length + runningAgents.length}
 		onexpand={() => settings.sidebarCollapsed = false}
 	/>
 	<div class="workspace-main">
-
-	{#if viewMode === 'kanban'}
-	<ColumnNav
-		{columns}
-		bind:activeColumnIndex
-		{issues}
-		{filteredIssues}
-		{hasActiveFilters}
-		showColumnCounts={settings.showColumnCounts}
-	/>
-
-	<div class="app-body">
-	<div class="main-content" class:wipe-out={projectTransition === 'wipe-out'} class:wipe-in={projectTransition === 'wipe-in'}>
-		<main class="board" ontouchstart={cardDrag.handleTouchStart} ontouchend={cardDrag.handleTouchEnd}>
-			{#each columns as column, i}
-				{#if i === 0 && ops.isCreating}
-					{@render detailPanel()}
-				{/if}
-				{#if i === columns.length - 1 && ops.editingIssue && ops.panelColumnIndex === i}
-					{@render detailPanel()}
-				{/if}
-				{@const rawColumnIssues = issues.filter((x) => getIssueColumn(x).key === column.key && !queuedTicketIds.has(x.id))}
-				{@const allColumnIssues = sortIssues(rawColumnIssues, columnSortBy[column.key] ?? settings.defaultColumnSort)}
-				{@const matchingCount = allColumnIssues.filter(issueMatchesFilters).length}
-				{@const isCollapsed = collapsedColumns.has(column.key)}
-				{@const currentSort = columnSortBy[column.key]}
-				<KanbanColumn
-					{column}
-					columnIndex={i}
-					{allColumnIssues}
-					{matchingCount}
-					{isCollapsed}
-					{currentSort}
-					sortMenuOpen={ops.sortMenuOpen}
-					{selectedId}
-					editingIssue={ops.editingIssue}
-					{draggedId}
-					{draggedOverColumn}
-					{dropTargetColumn}
-					{dropIndicatorIndex}
-					{animatingIds}
-					{hasActiveFilters}
-					{isFilterPreviewing}
-					{flyingCards}
-					{placeholders}
-					{shrinkingSourceIds}
-					{worktreeTicketIds}
-					{activeColumnIndex}
-					showColumnCounts={settings.showColumnCounts}
-					{registerCard}
-					{registerPlaceholder}
-					{issueMatchesFilters}
-					ondragover={(e) => cardDrag.handleDragOver(e, column.key)}
-					ondragleave={(e) => cardDrag.handleDragLeave(e, column.key)}
-					ondrop={(e) => cardDrag.handleDrop(e, column.key)}
-					oncollapseclick={(key) => settings.toggleColumnCollapse(key)}
-					ontogglecollapse={(e, key) => { e.stopPropagation(); settings.toggleColumnCollapse(key); }}
-					ontogglesortmenu={(key, e) => toggleSortMenu(key, e)}
-					onsetcolumnsort={(key, sortBy) => setColumnSort(key, sortBy)}
-					oncardclick={(issue) => ops.openEditPanel(issue)}
-					oncarddragstart={(e, id) => cardDrag.handleDragStart(e, id)}
-					oncarddragend={cardDrag.handleDragEnd}
-					oncardcontextmenu={(e, issue) => ops.openContextMenu(e, issue)}
-					oncopyid={(id, text) => ops.copyToClipboard(id, text)}
-					showAddButton={i === 0}
-					onaddclick={ops.openCreatePanel}
-				/>
-				{#if ops.editingIssue && ops.panelColumnIndex === i && i !== columns.length - 1}
-					{@render detailPanel()}
-				{/if}
-			{/each}
-		</main>
-		</div>
-		{#if getManagerVisible() && managerSession}
-			{#key currentProjectPath}
-				<ManagerPane
-					session={managerSession}
-					onSendMessage={(name, msg) => sendToPane(name, msg, currentProjectPath)}
-					onInterrupt={interrupt}
-					disabled={!wsConnected}
-				/>
-			{/key}
-		{/if}
-	</div>
-	{:else if viewMode === 'table'}
-		<div class="table-layout" class:wipe-out={projectTransition === 'wipe-out'} class:wipe-in={projectTransition === 'wipe-in'}>
-			{#if showSelectionGrid}
-				<SelectionGrid
-					issues={tableSelectedIssues}
-					onselect={(issue) => { tableSelectedIds = []; ops.openEditPanel(issue); }}
-					ondeselect={(id) => tableSelectedIds = tableSelectedIds.filter((x) => x !== id)}
-					onclear={() => tableSelectedIds = []}
-				/>
-			{:else if ops.panelOpen}
-				{@render detailPanel()}
-			{/if}
-			<TableView
-				issues={orderedTableIssues}
-				columnConfig={settings.tableColumns}
-				sort={settings.tableSort}
-				{selectedId}
-				selectedIds={tableSelectedIds}
-				{statusColumns}
-				onselect={(issue) => ops.openEditPanel(issue)}
-				onselectionchange={(ids) => tableSelectedIds = ids}
-				oncreate={ops.openCreatePanel}
-				oncolumnschange={(cols) => settings.tableColumns = cols}
-				onsortchange={(s) => settings.tableSort = s}
-				onbulkupdate={bulkUpdateIssues}
-				onbulkdelete={bulkDeleteIssues}
-				onupdate={(id, updates) => ops.updateIssue(id, updates)}
-			/>
-		</div>
-	{:else if viewMode === 'flow'}
-		<div class="flow-layout" class:wipe-out={projectTransition === 'wipe-out'} class:wipe-in={projectTransition === 'wipe-in'}>
-			{#if ops.panelOpen}
-				{@render detailPanel()}
-			{/if}
-			<FlowView
-				issues={filteredIssues}
-				{selectedId}
-				isDark={isDarkMode}
-				onselect={(issue) => ops.openEditPanel(issue)}
-			/>
-		</div>
-	{:else if viewMode === 'grid'}
-		<div class="grid-layout" class:wipe-out={projectTransition === 'wipe-out'} class:wipe-in={projectTransition === 'wipe-in'}>
-			{#if ops.panelOpen}
-				{@render detailPanel()}
-			{/if}
-			<GridView
-				issues={filteredIssues}
-				{selectedId}
-				isDark={isDarkMode}
-				onselect={(issue) => ops.openEditPanel(issue)}
-			/>
-		</div>
-	{/if}
-
+		<ViewLayout
+			{ops}
+			{cardDrag}
+			{viewState}
+			{issues}
+			{filteredIssues}
+			{orderedTableIssues}
+			activeAgents={activeAgentNames}
+			{queuedTicketIds}
+			{animatingIds}
+			{selectedId}
+			bind:activeColumnIndex
+			bind:tableSelectedIds
+			{isFilterPreviewing}
+			{projectTransition}
+			{worktreeTicketIds}
+			{flyingCards}
+			{placeholders}
+			{shrinkingSourceIds}
+			{registerCard}
+			{registerPlaceholder}
+			{managerSession}
+			{wsConnected}
+			{currentProjectPath}
+			onbulkupdate={bulkUpdateIssues}
+			onbulkdelete={bulkDeleteIssues}
+		/>
 	</div><!-- /.workspace-main -->
 	</div><!-- /.workspace -->
 
@@ -1042,7 +636,7 @@
 	{resizingPane}
 	{loadingStatus}
 	agentEnabled={settings.agentEnabled}
-	{isDarkMode}
+	isDarkMode={viewState.isDarkMode}
 	agentToolsExpanded={settings.agentToolsExpanded}
 	{currentProjectPath}
 	agentFirstMessage={settings.agentFirstMessage}
@@ -1087,15 +681,15 @@
 	</div>
 {/if}
 
-{#if zenOpen}
+{#if zen.open}
 	<ZenReview
-		ids={zenIds}
-		index={zenIndex}
-		issues={issues.length ? issues : zenPreload}
-		onnav={(i) => (zenIndex = i)}
-		onclose={() => (zenOpen = false)}
-		onopendetail={(issue) => { zenOpen = false; ops.openEditPanel(issue); }}
-		onquickaction={handleZenQuickAction}
+		ids={zen.ids}
+		index={zen.index}
+		issues={zen.issues}
+		onnav={(i) => (zen.index = i)}
+		onclose={() => zen.close()}
+		onopendetail={(issue) => { zen.close(); ops.openEditPanel(issue); }}
+		onquickaction={zen.handleQuickAction}
 	/>
 {/if}
 </div>
@@ -1111,52 +705,6 @@
 		ondragover={(e) => cardDrag.handleDragOver(e, 'queue')}
 		ondragleave={(e) => cardDrag.handleDragLeave(e, 'queue')}
 		ondrop={(e) => cardDrag.handleDrop(e, 'queue')}
-	/>
-{/snippet}
-
-{#snippet detailPanel()}
-	<DetailPanel
-		bind:editingIssue={ops.editingIssue}
-		isCreating={ops.isCreating}
-		bind:createForm={ops.createForm}
-		allIssues={issues}
-		activeAgents={activeAgentNames}
-		agentEnabled={settings.agentEnabled}
-		{statusColumns}
-		comments={ops.comments}
-		bind:newLabelInput={ops.newLabelInput}
-		bind:newComment={ops.newComment}
-		loadingComments={ops.loadingComments}
-		attachments={ops.attachments}
-		loadingAttachments={ops.loadingAttachments}
-		onuploadattachment={ops.handleUploadAttachment}
-		ondeleteattachment={ops.handleDeleteAttachment}
-		originalLabels={ops.originalLabels}
-		{isPanelDragging}
-		{panelDragOffset}
-		issueClosedExternally={ops.issueClosedExternally}
-		onclose={ops.closePanel}
-		oncreate={ops.createIssue}
-		oncreateandstartagent={ops.createIssueAndStartAgent}
-		onstartagent={ops.startAgentForIssue}
-		onviewchat={ops.openAgentPane}
-		ondelete={(id) => ops.deleteIssue(id)}
-		onsave={(id, updates) => ops.updateIssue(id, updates)}
-		onaddcomment={ops.addComment}
-		oncopyid={(text, id) => ops.copyToClipboard(text, id)}
-		onsetcolumn={(key) => ops.setEditingColumn(key)}
-		onaddlabel={(label) => ops.addLabelToEditing(label)}
-		onremovelabel={(label) => ops.removeLabelFromEditing(label)}
-		onsetstate={(dimension, value, reason) => ops.setIssueState(dimension, value, reason)}
-		onpromote={(reason) => ops.promoteWisp(reason)}
-		onremovedep={(issueId, depId) => ops.removeDependency(issueId, depId)}
-		onpaneltouchstart={cardDrag.handlePanelTouchStart}
-		onpaneltouchmove={cardDrag.handlePanelTouchMove}
-		onpaneltouchend={cardDrag.handlePanelTouchEnd}
-		updatecreateform={(key, value) => ops.createForm[key] = value}
-		updatenewlabel={(value) => ops.newLabelInput = value}
-		ondismissclosedwarning={() => ops.issueClosedExternally = false}
-		updatenewcomment={(value) => ops.newComment = value}
 	/>
 {/snippet}
 
@@ -1239,116 +787,7 @@
 		overflow: hidden;
 	}
 
-	.app-body {
-		display: flex;
-		flex: 1;
-		min-height: 0;
-		overflow: hidden;
-	}
-
-	.main-content {
-		display: flex;
-		flex: 1;
-		min-width: 0;
-		min-height: 0;
-		overflow: hidden;
-	}
-
-	.main-content.wipe-out {
-		animation: wipeUp 350ms ease-in forwards;
-	}
-
-	.main-content.wipe-in {
-		animation: wipeDown 350ms ease-out forwards;
-	}
-
-	.board {
-		display: flex;
-		gap: 1rem;
-		padding: 1.25rem;
-		flex: 1 1 0;
-		min-height: 0;
-		overflow-x: auto;
-		overflow-y: hidden;
-		transition: margin-right var(--transition-smooth);
-		scrollbar-width: none;
-		-ms-overflow-style: none;
-	}
-
-	.table-layout {
-		display: flex;
-		flex: 1;
-		gap: 1rem;
-		padding: 1.25rem;
-		min-width: 0;
-		min-height: 0;
-		overflow: hidden;
-	}
-
-	/* Wider detail panel in table view — more room than the 420px kanban panel */
-	.table-layout :global(.panel) {
-		flex: 0 0 clamp(480px, 40%, 760px);
-		min-width: 480px;
-		max-width: 760px;
-	}
-
-	/* Multi-select grid occupies the same side slot as the detail panel */
-	.table-layout :global(.selection-grid) {
-		flex: 0 0 clamp(480px, 40%, 760px);
-		min-width: 480px;
-		max-width: 760px;
-	}
-
-	.flow-layout {
-		display: flex;
-		flex: 1;
-		gap: 1rem;
-		padding: 1.25rem;
-		min-width: 0;
-		min-height: 0;
-		overflow: hidden;
-	}
-
-	.flow-layout :global(.panel) {
-		flex: 0 0 clamp(420px, 34%, 620px);
-		min-width: 420px;
-		max-width: 620px;
-	}
-
-	.grid-layout {
-		display: flex;
-		flex: 1;
-		gap: 1rem;
-		padding: 1.25rem;
-		min-width: 0;
-		min-height: 0;
-		overflow: hidden;
-	}
-
-	.grid-layout :global(.panel) {
-		flex: 0 0 clamp(380px, 30%, 520px);
-		min-width: 380px;
-		max-width: 520px;
-	}
-
-	.board::-webkit-scrollbar {
-		display: none;
-	}
-
 	@media (max-width: 768px) {
-		.main-content {
-			flex-direction: column;
-		}
-
-		.board {
-			flex-direction: column;
-			padding: var(--mobile-padding);
-			padding-left: max(var(--mobile-padding), env(safe-area-inset-left));
-			padding-right: max(var(--mobile-padding), env(safe-area-inset-right));
-			gap: 0.25rem;
-			overflow-y: auto;
-		}
-
 		.app {
 			gap: 0;
 		}

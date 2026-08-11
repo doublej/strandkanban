@@ -5,7 +5,7 @@
 		show: boolean;
 		loading: boolean;
 		filteredSessions: SdkSessionInfo[];
-		searchedSessions: () => SdkSessionInfo[];
+		searchedSessions: SdkSessionInfo[];
 		sessionSearchQuery: string;
 		onclose: () => void;
 		onsearch: (query: string) => void;
@@ -65,7 +65,7 @@
 						value={sessionSearchQuery}
 						oninput={(e) => onsearch(e.currentTarget.value)}
 					/>
-					<span class="picker-count">{searchedSessions().length}</span>
+					<span class="picker-count">{searchedSessions.length}</span>
 				</div>
 				<button class="cta cta-icon danger picker-close-override" onclick={onclose} aria-label="Close">
 					<svg viewBox="0 0 14 14" width="14" height="14">
@@ -86,13 +86,13 @@
 					</svg>
 					<span>No saved sessions</span>
 				</div>
-			{:else if searchedSessions().length === 0}
+			{:else if searchedSessions.length === 0}
 				<div class="picker-state empty">
 					<span>No matches for "{sessionSearchQuery}"</span>
 				</div>
 			{:else}
 				<div class="picker-list">
-					{#each searchedSessions() as session, i}
+					{#each searchedSessions as session, i}
 						{@const timeAgo = formatTimeAgo(session.timestamp)}
 						<button
 							class="picker-item"
