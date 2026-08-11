@@ -6,6 +6,7 @@
 	import MarkdownContent from '$lib/components/MarkdownContent.svelte';
 	import ZenQuickActions from '$lib/components/ZenQuickActions.svelte';
 	import { getIssueColumn, getPriorityConfig, getTypeIcon } from '$lib/utils';
+	import { markCodeRefs } from '$lib/zen-refs';
 	import type { TriageAction } from '$lib/zen-triage';
 	import type { Issue } from '$lib/types';
 
@@ -134,7 +135,7 @@
 
 					<div class="desc">
 						{#if current.description?.trim()}
-							<MarkdownContent content={current.description} />
+							<MarkdownContent content={markCodeRefs(current.description)} />
 						{:else}
 							<p class="empty">No description.</p>
 						{/if}
@@ -156,8 +157,8 @@
 		</Button>
 
 		<div class="foot-center">
-			<Button variant="secondary" class="open" onclick={openDetail} disabled={!current}>
-				<Icon name="external-link" size={14} />
+			<Button variant="ghost" class="open" onclick={openDetail} disabled={!current}>
+				<Icon name="external-link" size={11} />
 				<span>Open details</span>
 				<Kbd>↵</Kbd>
 			</Button>
@@ -317,7 +318,7 @@
 		letter-spacing: 0.04em;
 		text-transform: uppercase;
 		color: var(--text-tertiary);
-		margin-bottom: 18px;
+		margin-bottom: 26px;
 	}
 	.meta .dot {
 		width: 8px;
@@ -345,18 +346,18 @@
 
 	.title {
 		font-family: var(--font-display);
-		font-size: clamp(1.7rem, 3.4vw, 2.5rem);
+		font-size: clamp(1.9rem, 3.4vw, 2.8rem);
 		font-weight: 600;
 		line-height: 1.14;
 		letter-spacing: -0.022em;
 		color: var(--text-primary);
-		margin: 0 0 24px;
+		margin: 0 0 34px;
 		text-wrap: balance;
 	}
 
 	.desc {
-		font-size: 1.0625rem;
-		line-height: 1.65;
+		font-size: clamp(1.0625rem, 1.15vw, 1.3rem);
+		line-height: 1.6;
 		color: color-mix(in srgb, var(--text-primary) 88%, transparent);
 	}
 	.desc :global(.markdown-content) {
@@ -365,6 +366,19 @@
 	}
 	.desc :global(.markdown-content p) {
 		margin: 0 0 1em;
+	}
+	/* Paths, file:line refs and code recede so prose leads. */
+	.desc :global(code) {
+		font-size: 0.85em;
+		color: var(--text-muted);
+		background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+	}
+	.desc :global(.code-block) {
+		opacity: 0.62;
+		transition: opacity 160ms ease;
+	}
+	.desc :global(.code-block:hover) {
+		opacity: 1;
 	}
 	.desc .empty {
 		font-style: italic;
@@ -391,6 +405,10 @@
 		padding: 16px 24px 24px;
 	}
 	.zen-foot :global(.nav) {
+		color: var(--text-muted);
+		font-size: 12px;
+	}
+	.zen-foot :global(.nav:hover) {
 		color: var(--text-secondary);
 	}
 	.zen-foot :global(.nav):first-child { justify-self: start; }
@@ -403,7 +421,14 @@
 		gap: 8px;
 	}
 	.foot-center :global(.open) {
-		gap: 8px;
+		gap: 6px;
+		padding: 2px 6px;
+		font-size: 11px;
+		font-weight: 500;
+		color: var(--text-tertiary);
+	}
+	.foot-center :global(.open:hover) {
+		color: var(--text-secondary);
 	}
 	.hints {
 		display: flex;

@@ -96,6 +96,11 @@
 			box-shadow var(--transition-fast),
 			border-color var(--transition-fast);
 		overflow: hidden;
+		/* Skip rendering offscreen cards. Every card stays in the DOM (find-in-page,
+		   keyboard nav, drag targets and counts keep working) — only layout/paint is
+		   deferred, which is why this beats a virtual list here. */
+		content-visibility: auto;
+		contain-intrinsic-size: auto 120px;
 	}
 
 	.card::before {

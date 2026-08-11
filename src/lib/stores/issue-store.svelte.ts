@@ -6,9 +6,13 @@ import { appendProjectParam } from '$lib/project';
  * Backstop poll interval. bd's Dolt backend flushes .beads/issues.jsonl on a delayed,
  * coalesced cadence (several seconds), so the server's fs.watch — which drives
  * external-write events — lags well behind the actual change. Polling refreshIssues()
- * keeps the board live regardless of that cadence. Matches the pre-SSE poll rate.
+ * keeps the board live regardless of that cadence.
+ *
+ * 10s, not 2s: a no-change poll still maps every row server-side, serializes the board and
+ * hashes it here, so it is a permanent CPU floor on a blocking event loop. SSE covers
+ * in-app and (via fs.watch) most external writes; this only has to cover their gaps.
  */
-const POLL_INTERVAL_MS = 2000;
+const POLL_INTERVAL_MS = 10_000;
 
 export interface IssueStoreCallbacks {
 	onNewIssue: (issue: Issue) => void;
@@ -158,12 +162,13 @@ export function createIssueStore(callbacks: IssueStoreCallbacks, initialIssues: 
 	// already on screen instead of re-animating every card.
 	let lastSnapshotHash = snapshotHash(initialIssues);
 
-	async function refreshIssues() {
+	async function refreshIssues(scope?: 'active') {
 		try {
 			if (!initialLoaded && loadingStatus.phase !== 'loading') {
 				loadingStatus = { ...loadingStatus, phase: 'loading' };
 			}
-			const res = await fetch(appendProjectParam('/api/issues'));
+			const path = scope ? `/api/issues?scope=${scope}` : '/api/issues';
+			const res = await fetch(appendProjectParam(path));
 			const payload = await res.json();
 			if (!payload?.ok) {
 				loadingStatus = { ...loadingStatus, phase: 'error', errorMessage: payload?.error?.message ?? 'Load failed' };
@@ -209,7 +214,12 @@ export function createIssueStore(callbacks: IssueStoreCallbacks, initialIssues: 
 		// Initial snapshot fires on open; subsequent refreshes triggered by events.
 		// Skip the immediate fetch when SSR already seeded the board — the backstop
 		// poll and SSE events keep it live. Net: zero client-side exports on cold load.
-		if (!initialLoaded) void refreshIssues();
+		// Two-phase: open issues paint the board first (~30% of the payload on a big
+		// project), then the full list — including Complete — replaces it a moment later.
+		// Both hit the server's export cache, so phase two costs a serialization, not a
+		// second `bd export`. No user action gates anything; if phase two fails,
+		// loadingStatus surfaces it as today.
+		if (!initialLoaded) void refreshIssues('active').then(() => refreshIssues());
 
 		// Backstop poll (de-duped via snapshotHash, so no UI churn when nothing changed):
 		// SSE events fire instantly for in-app writes but lag several seconds for external

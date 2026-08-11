@@ -9,7 +9,13 @@ import { parseBody, CreateIssueSchema } from '$lib/server/schemas';
 
 export const GET: RequestHandler = wrap(async ({ url }) => {
 	const cwd = requireProjectCwd(url);
-	return ok({ issues: getAllIssues(cwd) });
+	// ?ids=a,b,c → only those issues, full fidelity (deep links + the detail panel's lazy
+	// fetch of the fields the slim list omits).
+	const ids = url.searchParams.get('ids')?.split(',').map((s) => s.trim()).filter(Boolean);
+	if (ids?.length) return ok({ issues: getAllIssues(cwd, ids) });
+	// List reads are slim; ?scope=active omits closed issues (board's first paint).
+	const scope = url.searchParams.get('scope') === 'active' ? 'active' : 'all';
+	return ok({ issues: getAllIssues(cwd, undefined, { slim: true, scope }) });
 });
 
 export const POST: RequestHandler = wrap(async ({ request, url }) => {

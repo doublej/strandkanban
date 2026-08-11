@@ -11,6 +11,6 @@ export const GET: RequestHandler = wrap(async ({ url }) => {
 	const cwd = requireProjectCwd(url);
 	const limit = Math.min(Number(url.searchParams.get('limit')) || 100, 500);
 	const since = Number(url.searchParams.get('since')) || 0;
-	const events = getRecentEvents(limit, cwd).filter((e) => e.timestamp > since);
-	return ok({ events });
+	const { events, unsupported } = getRecentEvents(limit, cwd);
+	return ok({ events: events.filter((e) => e.timestamp > since), unsupported });
 });

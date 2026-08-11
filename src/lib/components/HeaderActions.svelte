@@ -56,7 +56,11 @@
 	</button>
 	{#if showHelpMenu}
 		<div class="dropdown-menu" role="menu">
-			<a href="/about" class="dropdown-item" onclick={() => showHelpMenu = false}>
+			<a href="/activity" class="dropdown-item" onclick={() => showHelpMenu = false}>
+					<Icon name="clock" size={14} />
+					Activity
+				</a>
+				<a href="/about" class="dropdown-item" onclick={() => showHelpMenu = false}>
 				<Icon name="info" size={14} />
 				About
 			</a>

@@ -62,6 +62,8 @@
 		</a>
 		<nav>
 			<a href="/">Board</a>
+		<a href="/activity">Activity</a>
+			<a href="/activity">Activity</a>
 			<a href="/about">About</a>
 			<a href="/prompts" class="active">Prompts</a>
 		</nav>

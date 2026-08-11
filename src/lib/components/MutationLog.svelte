@@ -6,9 +6,10 @@
 		show: boolean;
 		onclose: () => void;
 		onticketclick?: (ticketId: string) => void;
+		variant?: 'modal' | 'page';
 	}
 
-	let { show, onclose, onticketclick }: Props = $props();
+	let { show, onclose, onticketclick, variant = 'modal' }: Props = $props();
 
 	const store = useMutations();
 	let filterType = $state<MutationType | 'all'>('all');
@@ -26,7 +27,7 @@
 				m.ticketTitle.toLowerCase().includes(q)
 			);
 		}
-		return result.slice().reverse();
+		return result;  // server returns newest first
 	});
 
 	const typeLabels: Record<MutationType | 'all', string> = {
@@ -38,7 +39,9 @@
 		assignee: 'Assignee',
 		comment: 'Comment',
 		dependency: 'Deps',
-		label: 'Label'
+		label: 'Label',
+		title: 'Renamed',
+		field: 'Other'
 	};
 
 	const typeColors: Record<string, string> = {
@@ -49,7 +52,9 @@
 		assignee: '#ec4899',
 		comment: '#6ee7b7',
 		dependency: '#818cf8',
-		label: '#60a5fa'
+		label: '#60a5fa',
+		title: '#fb923c',
+		field: '#94a3b8'
 	};
 
 	function formatTime(ts: number): string {
@@ -76,13 +81,14 @@
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') onclose();
+		if (variant !== 'page' && e.key === 'Escape') onclose();
 	}
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
 
 {#if show}
+{#if variant !== 'page'}
 <div
 	class="log-backdrop"
 	onclick={onclose}
@@ -91,7 +97,8 @@
 	tabindex="-1"
 	aria-label="Close"
 ></div>
-<div class="log-panel" role="dialog" aria-label="Activity Log">
+{/if}
+<div class="log-panel" class:as-page={variant === 'page'} role="dialog" aria-label="Activity Log">
 	<div class="log-header">
 		<h3>Activity Log</h3>
 		<div class="log-actions">
@@ -99,11 +106,13 @@
 			{#if store.value.length > 0}
 				<button class="log-clear" onclick={() => { clearMutations(); }}>Clear</button>
 			{/if}
-			<button class="log-close" onclick={onclose} aria-label="Close">
-				<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M18 6L6 18M6 6l12 12"/>
-				</svg>
-			</button>
+			{#if variant !== 'page'}
+				<button class="log-close" onclick={onclose} aria-label="Close">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M18 6L6 18M6 6l12 12"/>
+					</svg>
+				</button>
+			{/if}
 		</div>
 	</div>
 
@@ -139,7 +148,8 @@
 				<span class="log-time" title={formatFullTime(mutation.timestamp)}>
 					{formatTime(mutation.timestamp)}
 				</span>
-				<span class="log-ticket">#{mutation.ticketId.slice(0, 6)}</span>
+				<span class="log-ticket">{mutation.ticketId.split('-').pop()}</span>
+				<span class="log-actor">{mutation.actor}</span>
 				<span class="log-title">{mutation.ticketTitle}</span>
 				<span class="log-change">{formatMutation(mutation).split(' ').slice(1).join(' ')}</span>
 			</button>
@@ -147,6 +157,8 @@
 			<div class="log-empty">
 				{#if searchQuery || filterType !== 'all'}
 					No matching events
+				{:else if store.unsupported}
+					This project runs beads in embedded mode, which has no queryable event feed.
 				{:else}
 					No activity yet
 				{/if}
@@ -183,6 +195,15 @@
 		display: flex;
 		flex-direction: column;
 		animation: slide-down 200ms cubic-bezier(0.22, 1, 0.36, 1);
+	}
+
+	.log-panel.as-page {
+		position: static;
+		max-height: none;
+		flex: 1;
+		box-shadow: none;
+		border-bottom: none;
+		animation: none;
 	}
 
 	@keyframes slide-down {
@@ -323,7 +344,7 @@
 
 	.log-item {
 		display: grid;
-		grid-template-columns: 8px 60px 70px 1fr auto;
+		grid-template-columns: 8px 60px 70px 90px 1fr auto;
 		gap: 0.5rem;
 		align-items: center;
 		width: 100%;
@@ -359,6 +380,15 @@
 		font-size: 0.6875rem;
 		font-weight: 500;
 		color: var(--type-color);
+	}
+
+	.log-actor {
+		font-family: ui-monospace, 'SF Mono', monospace;
+		font-size: 0.625rem;
+		color: var(--text-tertiary);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.log-title {

@@ -2,6 +2,7 @@ import { watch, type FSWatcher } from 'node:fs';
 import { join } from 'node:path';
 import type { RequestHandler } from './$types';
 import { requireProjectCwd } from '$lib/server/cwd';
+import { invalidateExport } from '$lib/db';
 import { notificationEmitter } from '$lib/notifications/event-emitter';
 import type { NotificationEventType } from '$lib/notifications/types';
 
@@ -67,6 +68,9 @@ export const GET: RequestHandler = async ({ url }) => {
 			try {
 				watcher = watch(join(cwd, '.beads'), (_event, filename) => {
 					if (!filename || !WATCH_FILES.has(filename)) return;
+					// Outside the debounce: invalidation must always precede the SSE send that
+					// makes the client refetch, otherwise it refetches into a stale cache.
+					invalidateExport(cwd);
 					if (watchDebounce) clearTimeout(watchDebounce);
 					watchDebounce = setTimeout(
 						() => send({ type: 'event', name: 'issue.updated', source: 'fs', timestamp: Date.now() }),

@@ -10,6 +10,7 @@ import type { Issue, Dependency, MutationEntry, Attachment, Comment, AgentModel,
 import { getMimetype } from './attachments';
 import { recordTouchedCwd } from './touched-cwds';
 import { bdEnv, unwrapBdJson } from './bd';
+import { parseEvent, type DbEvent } from './event-parse';
 
 const CWD_FILE = process.env.BEADS_KANBAN_CWD_FILE || join(process.cwd(), '.beads-cwd');
 
@@ -193,13 +194,67 @@ interface ExportIssue extends IssueScalarFields {
 }
 
 /**
+ * Per-project `bd export` cache. An export costs ~1.3s on a big project and blocks the
+ * event loop, while the read paths (2s poll, every SSE event, every single-issue read)
+ * hammer it. A cached entry is used only if all three hold: the generation counter still
+ * matches (every write through this process bumps it — the correctness guarantee), the
+ * JSONL mtime is unchanged, and it is younger than EXPORT_TTL_MS. mtime and max-age are
+ * backstops for writers this process can't observe; extra invalidation costs an export,
+ * never correctness.
+ *
+ * ponytail: writes that bypass BOTH this process and bd's JSONL export (direct dolt
+ * writes, a second server process) are only caught by the 30s max-age. Same blindness the
+ * app has today; cross-process locking if that ever bites.
+ */
+const exportGen = new Map<string, number>();
+const exportCache = new Map<string, { gen: number; mtimeMs: number; at: number; rows: ExportIssue[] }>();
+const EXPORT_TTL_MS = 30_000;
+const EXPORT_CACHE_MAX = 3; // project switcher keeps a couple of projects warm
+
+/** JSONL mtime, or -1 when it can't be stat'ed (embedded mode) — a stable value there, so
+ *  a missing file doesn't permanently disable the cache. */
+function jsonlMtimeMs(cwd: string): number {
+	try {
+		return statSync(join(cwd, '.beads', 'issues.jsonl')).mtimeMs;
+	} catch {
+		return -1;
+	}
+}
+
+/** Mark a project's cached export stale. Bumps a counter rather than deleting, so it is
+ *  idempotent and safe against an export that is already in flight. */
+export function invalidateExport(cwd?: string): void {
+	const key = cwd ?? getStoredCwd();
+	exportGen.set(key, (exportGen.get(key) ?? 0) + 1);
+}
+
+function bdExport(cwd?: string): ExportIssue[] {
+	const effectiveCwd = cwd ?? getStoredCwd();
+	// Captured BEFORE the export: a write landing mid-export must make the new entry stale,
+	// not tag stale rows as fresh.
+	const gen = exportGen.get(effectiveCwd) ?? 0;
+	const mtimeMs = jsonlMtimeMs(effectiveCwd);
+
+	const hit = exportCache.get(effectiveCwd);
+	if (hit && hit.gen === gen && hit.mtimeMs === mtimeMs && Date.now() - hit.at < EXPORT_TTL_MS) {
+		return hit.rows;
+	}
+
+	const rows = bdExportUncached(effectiveCwd);
+	if (!exportCache.has(effectiveCwd) && exportCache.size >= EXPORT_CACHE_MAX) {
+		exportCache.delete(exportCache.keys().next().value as string);
+	}
+	exportCache.set(effectiveCwd, { gen, mtimeMs, at: Date.now(), rows });
+	return rows;
+}
+
+/**
  * Read all issues via `bd export` (JSONL). Unlike `bd sql` — which rebuilds a throwaway
  * database from the JSONL on every call (O(size), seconds) — bd serves this from the live
  * database it manages, so it is fast (~0.5s) and correct. Full-fidelity: dependencies,
  * labels and comments are inline. Empty/null columns are omitted, mapping to `undefined`.
  */
-function bdExport(cwd?: string): ExportIssue[] {
-	const effectiveCwd = cwd ?? getStoredCwd();
+function bdExportUncached(effectiveCwd: string): ExportIssue[] {
 	recordTouchedCwd(effectiveCwd);
 
 	const result = spawnSync('bd', ['export'], {
@@ -262,11 +317,39 @@ function mapExportIssue(
 	seqMap: Map<string, number>,
 	depsMap: Map<string, DepView[]>,
 	dependentsMap: Map<string, DepView[]>,
-	attachmentsMap: Map<string, Attachment[]>
+	attachmentsMap: Map<string, Attachment[]>,
+	slim = false
 ): Issue {
 	const meta = parseMetadata(r.metadata);
 	const dependencies = depsMap.get(r.id) ?? [];
 	const dependents = dependentsMap.get(r.id) ?? [];
+	if (slim) {
+		// Detail-panel-only fields (design, acceptance_criteria, notes, external_ref,
+		// spec_id, agent_*) and the separately-fetched comments/attachments are dropped —
+		// ~1.8MB on a 2200-issue board. The panel refetches the full issue via ?ids=.
+		// description/close_reason/labels/dependencies stay: cards render them and client
+		// search matches description.
+		const { external_ref: _e, spec_id: _s, agent_state: _a, ...scalars } = mapIssueFields(r);
+		return {
+			id: r.id,
+			seq: seqMap.get(r.id) ?? 0,
+			title: r.title,
+			description: r.description ?? '',
+			status: r.status as Issue['status'],
+			priority: r.priority as Issue['priority'],
+			issue_type: r.issue_type,
+			assignee: r.assignee || undefined,
+			created_at: r.created_at,
+			updated_at: r.updated_at,
+			closed_at: r.closed_at || undefined,
+			labels: r.labels ?? [],
+			dependencies,
+			dependents,
+			dependency_count: dependencies.length,
+			dependent_count: dependents.length,
+			...scalars
+		};
+	}
 	return {
 		id: r.id,
 		seq: seqMap.get(r.id) ?? 0,
@@ -297,13 +380,36 @@ function mapExportIssue(
 	};
 }
 
-export function getAllIssues(cwd?: string): Issue[] {
-	const rows = bdExport(cwd).filter((r) => r.status !== 'tombstone');
-	const byId = new Map(rows.map((r) => [r.id, r]));
+/** Issue count without paying for the mapping — served from the export cache. */
+export function countIssues(cwd?: string): number {
+	return bdExport(cwd).filter((r) => r.status !== 'tombstone').length;
+}
+
+export interface GetIssuesOptions {
+	/** Drop detail-panel-only fields and skip the attachment directory walk. */
+	slim?: boolean;
+	/** 'active' omits closed issues (loaded by the board in a second pass). */
+	scope?: 'all' | 'active';
+}
+
+/**
+ * All issues, or — when `ids` is given — only those (accepting both the full id and the
+ * unprefixed short form, like `bd show`). The narrow form skips per-row mapping and the
+ * attachment scan for thousands of untouched rows, so a deep link doesn't pay for the
+ * whole board.
+ */
+export function getAllIssues(cwd?: string, ids?: string[], opts: GetIssuesOptions = {}): Issue[] {
+	const { slim = false, scope = 'all' } = opts;
+	const allRows = bdExport(cwd).filter((r) => r.status !== 'tombstone');
+	let rows = ids?.length
+		? allRows.filter((r) => ids.some((id) => r.id === id || r.id.endsWith(`-${id}`)))
+		: allRows;
+	if (scope === 'active') rows = rows.filter((r) => r.status !== 'closed');
+	const byId = new Map(allRows.map((r) => [r.id, r]));
 
 	// seq mirrors `ROW_NUMBER() OVER (ORDER BY created_at)`: the oldest issue is 1.
 	const seqMap = new Map<string, number>();
-	[...rows]
+	[...allRows]
 		.sort((a, b) => cmp(a.created_at, b.created_at) || cmp(a.id, b.id))
 		.forEach((r, i) => seqMap.set(r.id, i + 1));
 
@@ -311,7 +417,7 @@ export function getAllIssues(cwd?: string): Issue[] {
 	// edges whose other endpoint still exists — matching the INNER JOINs of the sql path.
 	const depsMap = new Map<string, DepView[]>();
 	const dependentsMap = new Map<string, DepView[]>();
-	for (const r of rows) {
+	for (const r of allRows) {
 		for (const d of r.dependencies ?? []) {
 			const target = byId.get(d.depends_on_id);
 			if (target) pushInto(depsMap, d.issue_id, { id: d.depends_on_id, title: target.title, status: target.status, dependency_type: d.type });
@@ -320,92 +426,25 @@ export function getAllIssues(cwd?: string): Issue[] {
 		}
 	}
 
-	const attachmentsMap = getAllAttachments(cwd);
+	const attachmentsMap = slim
+		? new Map<string, Attachment[]>()
+		: ids?.length
+			? new Map(rows.map((r) => [r.id, getAttachmentsForIssue(r.id, cwd)]))
+			: getAllAttachments(cwd);
 
 	return rows
 		.sort((a, b) => b.priority - a.priority || cmp(b.created_at, a.created_at))
-		.map((r) => mapExportIssue(r, seqMap, depsMap, dependentsMap, attachmentsMap));
+		.map((r) => mapExportIssue(r, seqMap, depsMap, dependentsMap, attachmentsMap, slim));
 }
 
 export function getIssueById(id: string, cwd?: string): Issue | null {
 	const sid = safeId(id);
-	return getAllIssues(cwd).find((issue) => issue.id === sid) ?? null;
+	// Narrow read: skips mapping every other row plus the whole-tree attachment readdir.
+	return getAllIssues(cwd, [sid]).find((issue) => issue.id === sid) ?? null;
 }
 
-interface DbEvent {
-	id: number;
-	issue_id: string;
-	event_type: string;
-	actor: string;
-	old_value: string | null;
-	new_value: string | null;
-	comment: string | null;
-	created_at: string;
-}
-
-const priorityLabels: Record<number, string> = {
-	0: 'Critical', 1: 'High', 2: 'Medium', 3: 'Low', 4: 'Backlog'
-};
-
-/** Parse an event's old/new value JSON. bd sometimes stores a plain (non-JSON) string
- *  such as a close reason, so this must tolerate parse failures instead of throwing. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function safeParseVal(raw: string | null): any {
-	if (!raw) return null;
-	try {
-		return JSON.parse(raw);
-	} catch {
-		return null;
-	}
-}
-
-function parseEventToMutation(ev: DbEvent): MutationEntry | null {
-	const oldVal = safeParseVal(ev.old_value);
-	const newVal = safeParseVal(ev.new_value);
-	const title = newVal?.title || oldVal?.title || ev.issue_id;
-	const ts = new Date(ev.created_at.replace(' ', 'T')).getTime();
-
-	const base = { id: String(ev.id), timestamp: ts, ticketId: ev.issue_id, ticketTitle: title };
-
-	switch (ev.event_type) {
-		case 'created':
-			return { ...base, mutationType: 'created', field: 'issue', previousValue: null, newValue: 'created' };
-		case 'closed':
-			return { ...base, mutationType: 'closed', field: 'status', previousValue: oldVal?.status || 'open', newValue: 'closed' };
-		case 'reopened':
-			return { ...base, mutationType: 'status', field: 'status', previousValue: 'closed', newValue: newVal?.status || 'open' };
-		case 'status_changed':
-			return { ...base, mutationType: 'status', field: 'status', previousValue: oldVal?.status, newValue: newVal?.status };
-		case 'dependency_added':
-		case 'dependency_removed': {
-			const depMatch = ev.comment?.match(/dependency:\s*(\S+)\s+blocks\s+(\S+)/i);
-			if (!depMatch) return null;
-			const action = ev.event_type === 'dependency_added' ? '+' : '-';
-			return { ...base, mutationType: 'dependency', field: 'dependency', previousValue: null, newValue: `${action}${depMatch[2]}` };
-		}
-		case 'label_added':
-		case 'label_removed': {
-			const labelMatch = ev.comment?.match(/label:\s*(.+)/i);
-			if (!labelMatch) return null;
-			const labelAction = ev.event_type === 'label_added' ? '+' : '-';
-			return { ...base, mutationType: 'label', field: 'label', previousValue: null, newValue: `${labelAction}${labelMatch[1].trim()}` };
-		}
-		case 'updated':
-			if (oldVal && newVal) {
-				if (oldVal.priority !== newVal.priority) {
-					return { ...base, mutationType: 'priority', field: 'priority', previousValue: priorityLabels[oldVal.priority], newValue: priorityLabels[newVal.priority] };
-				}
-				if (oldVal.assignee !== newVal.assignee) {
-					return { ...base, mutationType: 'assignee', field: 'assignee', previousValue: oldVal.assignee || null, newValue: newVal.assignee || 'unassigned' };
-				}
-			}
-			return null;
-		default:
-			return null;
-	}
-}
-
-export function getRecentEvents(limit = 100, cwd?: string): MutationEntry[] {
+/** `unsupported` marks embedded-mode projects, which have no queryable event feed. */
+export function getRecentEvents(limit = 100, cwd?: string): { events: MutationEntry[]; unsupported: boolean } {
 	let rows: DbEvent[];
 	try {
 		rows = bdSql<DbEvent>(`
@@ -415,11 +454,11 @@ export function getRecentEvents(limit = 100, cwd?: string): MutationEntry[] {
 	} catch (err) {
 		// bd 1.1 does not support `bd sql` on embedded-mode projects — serve an empty
 		// feed there; the SSE stream (fs.watch based) still drives board refreshes.
-		if (String(err).includes('not yet supported in embedded mode')) return [];
+		if (String(err).includes('not yet supported in embedded mode')) return { events: [], unsupported: true };
 		throw err;
 	}
 
-	return rows.map(parseEventToMutation).filter((m): m is MutationEntry => m !== null);
+	return { events: rows.flatMap(parseEvent), unsupported: false };
 }
 
 interface DbComment {

@@ -183,6 +183,7 @@ export function createPageOps(ctx: PageOpsContext) {
 		comments = [];
 		loadComments(issue.id);
 		loadAttachments(issue.id);
+		loadIssueDetail(issue.id);
 		if (browser && pushState) {
 			const url = new URL(window.location.href);
 			url.searchParams.set('issue', issue.id);
@@ -286,6 +287,20 @@ export function createPageOps(ctx: PageOpsContext) {
 	}
 
 	// --- Comments ---
+
+	/**
+	 * The list payload is slim (see db.ts) — these fields only exist on the full read.
+	 * Fetch them when the panel opens and merge them in; nothing else is touched, so a
+	 * field the user is already typing in can't be clobbered by a late response.
+	 */
+	async function loadIssueDetail(issueId: string) {
+		const res = await fetch(appendProjectParam(`/api/issues?ids=${encodeURIComponent(issueId)}`));
+		const payload = await res.json();
+		const full = payload?.ok ? (payload.data?.issues?.[0] as Issue | undefined) : undefined;
+		if (!full || !editingIssue || editingIssue.id !== issueId) return;
+		const edited = Object.entries(editingIssue).filter(([, v]) => v !== undefined);
+		editingIssue = { ...full, ...Object.fromEntries(edited) } as Issue;
+	}
 
 	async function loadComments(issueId: string) {
 		loadingComments = true;

@@ -857,6 +857,9 @@
 		cursor: pointer;
 		user-select: none;
 		transition: background var(--transition-fast);
+		/* See IssueCard: offscreen rows stay in the DOM, just aren't rendered. */
+		content-visibility: auto;
+		contain-intrinsic-size: auto 32px;
 	}
 	.tr:hover {
 		background: var(--bg-elevated);

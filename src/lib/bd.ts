@@ -4,7 +4,7 @@
  */
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { getStoredCwd } from './db'
+import { getStoredCwd, invalidateExport } from './db'
 
 const execAsync = promisify(exec)
 
@@ -85,7 +85,11 @@ function shq(val: string | number): string {
 
 async function run(cmd: string, cwd?: string, timeoutMs?: number): Promise<BdResult> {
 	try {
+		// Every write helper routes through here, so this is the one place the export cache
+		// must be dropped. `finally`: a failed bd may still have mutated. Read-only commands
+		// (--version, lint) invalidate too — costs one extra export, never wrong data.
 		const { stdout, stderr } = await execAsync(cmd, { cwd: cwd ?? getStoredCwd(), env: bdEnv(), timeout: timeoutMs })
+			.finally(() => invalidateExport(cwd))
 		return { success: true, stdout: stdout.trim(), warning: stderr || undefined }
 	} catch (err: unknown) {
 		const e = err as { stderr?: string; message?: string; killed?: boolean; signal?: string }

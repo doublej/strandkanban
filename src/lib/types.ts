@@ -160,13 +160,14 @@ export interface LoadingStatus {
 	errorMessage: string | null;
 }
 
-export type MutationType = 'status' | 'priority' | 'assignee' | 'comment' | 'dependency' | 'label' | 'created' | 'closed';
+export type MutationType = 'status' | 'priority' | 'assignee' | 'comment' | 'dependency' | 'label' | 'created' | 'closed' | 'title' | 'field';
 
 export interface MutationEntry {
 	id: string;
 	timestamp: number;
 	ticketId: string;
 	ticketTitle: string;
+	actor: string;
 	mutationType: MutationType;
 	field: string;
 	previousValue: string | null;

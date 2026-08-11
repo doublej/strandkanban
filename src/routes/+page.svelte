@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { untrack } from 'svelte';
-	import { pushState as svelteKitPushState, replaceState as svelteKitReplaceState } from '$app/navigation';
+	import { pushState as svelteKitPushState, replaceState as svelteKitReplaceState, afterNavigate } from '$app/navigation';
 	import { setCurrentProject, appendProjectParam } from '$lib/project';
 	import { connect, disconnect, getPanes, getSessions, isConnected, addPane, removePane, sendToPane, killSession, clearAllSessions, endSession, clearSession, continueSession, compactSession, interrupt, getPersistedSdkSessionId, getAllPersistedSessions, deletePersistedSession, fetchSdkSessions, markPaneAsRead, getTotalUnreadCount, getUnreadCount, notifyAgentOfTicketUpdate, type Pane, type SdkSessionInfo } from '$lib/wsStore.svelte';
 	import { coerceViewMode, type Issue, type Attachment, type CardPosition, type FlyingCard, type SortBy, type PaneSize, type ViewMode, type Project, type ViewRecipe, type TableColumnConfig, type TableSortState } from '$lib/types';
@@ -33,7 +33,6 @@
 	import FlyingCardComponent from '$lib/components/FlyingCard.svelte';
 	import AgentBar from '$lib/components/AgentBar.svelte';
 	import InitialLoader from '$lib/components/InitialLoader.svelte';
-	import MutationLog from '$lib/components/MutationLog.svelte';
 	import ToastContainer from '$lib/components/ToastContainer.svelte';
 	import QueuePanel from '$lib/components/QueuePanel.svelte';
 	import ManagerPane from '$lib/components/ManagerPane.svelte';
@@ -112,7 +111,6 @@
 	let zenIndex = $state(0);
 	let lastAppliedDefaultView = $state<ViewMode | null>(null);
 	let lastAppliedDefaultSort = $state<SortBy | null>(null);
-	let showMutationLog = $state(false);
 	let projects = $state<Project[]>([]);
 	let showProjectSwitcher = $state(false);
 	let currentProjectPath = $state(data.cwd ?? '');
@@ -340,21 +338,34 @@
 
 	// Deep-link entrypoint: ?zen=bd-1,bd-2,bd-3 opens focus review on load.
 	// The param is consumed (stripped) so a refresh/close doesn't force it back.
-	function consumeZenParam(raw: string) {
+	// The deep link's own issues — SSR-seeded, so Zen paints without waiting for the board.
+	let zenPreload = $state<Issue[]>(data.zenIssues ?? []);
+
+	async function consumeZenParam(raw: string) {
 		const wanted = raw.split(',').map((s) => s.trim()).filter(Boolean);
-		// Accept the short form people actually write (`uhgp.17`) as well as the
-		// prefixed id bd stores (`myproject-uhgp.17`) — same leniency as `bd show`.
-		const valid = wanted
-			.map((id) => issues.find((i) => i.id === id) ?? issues.find((i) => i.id.endsWith(`-${id}`)))
-			.filter((i) => i !== undefined)
-			.map((i) => i.id);
-		const list = valid.length ? valid : wanted;
-		if (list.length) openZenReview(list, 0);
 		if (browser) {
 			const url = new URL(window.location.href);
 			url.searchParams.delete('zen');
 			svelteKitReplaceState(url.pathname + url.search + url.hash, {});
 		}
+		if (!wanted.length) return;
+		// Client-side navigation to ?zen= skips the server load, so fetch just those issues.
+		if (!zenPreload.length) {
+			const res = await fetch(
+				appendProjectParam(`/api/issues?ids=${encodeURIComponent(wanted.join(','))}`)
+			);
+			const payload = await res.json().catch(() => null);
+			zenPreload = payload?.ok ? (payload.data?.issues ?? []) : [];
+		}
+		// Accept the short form people actually write (`uhgp.17`) as well as the
+		// prefixed id bd stores (`myproject-uhgp.17`) — same leniency as `bd show`.
+		const list = wanted.map(
+			(id) =>
+				zenPreload.find((i) => i.id === id)?.id ??
+				zenPreload.find((i) => i.id.endsWith(`-${id}`))?.id ??
+				id
+		);
+		openZenReview(list, 0);
 	}
 
 	// --- Keyboard Nav ---
@@ -372,7 +383,7 @@
 		setShowHotkeys: (v) => { showHotkeys = v; },
 		getShowProjectSwitcher: () => showProjectSwitcher,
 		setShowProjectSwitcher: (v) => { showProjectSwitcher = v; },
-		getOverlayOpen: () => showSettings || showPrompts || showWizard || showMutationLog || showProjectSwitcher,
+		getOverlayOpen: () => showSettings || showPrompts || showWizard || showProjectSwitcher,
 		getProjectCount: () => projects.length,
 		createIssue: ops.createIssue,
 		openCreatePanel: ops.openCreatePanel,
@@ -533,17 +544,6 @@
 		return () => issueStore.closeSse();
 	});
 
-	// Lazily populate the activity/mutation log the first time its panel opens.
-	// Kept off the cold-start path (bd sql is O(JSONL) and unsupported in embedded mode).
-	let mutationLogFetched = false;
-	$effect(() => {
-		if (!browser) return;
-		if (showMutationLog && !mutationLogFetched) {
-			mutationLogFetched = true;
-			fetchMutations();
-		}
-	});
-
 	$effect(() => {
 		if (browser && settings.agentEnabled) connect();
 		return () => disconnect();
@@ -559,15 +559,29 @@
 		fetchInitialQueue(9347, currentProjectPath);
 	});
 
+	let zenParamChecked = false;
 	let initialUrlChecked = false;
+	// pushState/replaceState throw until the router has finished initializing,
+	// so wait for the first navigation before touching the URL.
+	let routerReady = $state(false);
+	afterNavigate(() => { routerReady = true; });
+
+	// Zen deep link fetches its own issues, so it must not wait for the board.
 	$effect(() => {
-		if (!browser || initialUrlChecked || issues.length === 0) return;
+		if (!browser || !routerReady || zenParamChecked) return;
+		zenParamChecked = true;
+		const zenParam = new URL(window.location.href).searchParams.get('zen');
+		if (zenParam) {
+			initialUrlChecked = true; // ?zen wins over ?issue
+			consumeZenParam(zenParam);
+		}
+	});
+
+	$effect(() => {
+		if (!browser || !routerReady || initialUrlChecked || issues.length === 0) return;
 		initialUrlChecked = true;
-		const params = new URL(window.location.href).searchParams;
-		const zenParam = params.get('zen');
-		if (zenParam) consumeZenParam(zenParam);
-		const issueId = params.get('issue');
-		if (issueId && !zenParam) ops.openIssueById(issueId, false);
+		const issueId = new URL(window.location.href).searchParams.get('issue');
+		if (issueId) ops.openIssueById(issueId, false);
 	});
 
 	async function initProject(urlProject: string | null) {
@@ -801,15 +815,6 @@
 	currentPath={currentProjectPath}
 	onselect={switchProject}
 	onclose={() => showProjectSwitcher = false}
-/>
-
-<MutationLog
-	show={showMutationLog}
-	onclose={() => showMutationLog = false}
-	onticketclick={(id) => {
-		const issue = issues.find(i => i.id === id);
-		if (issue) ops.openEditPanel(issue);
-	}}
 />
 
 <KeyboardHelp bind:show={showKeyboardHelp} />
@@ -1092,7 +1097,7 @@
 	<ZenReview
 		ids={zenIds}
 		index={zenIndex}
-		{issues}
+		issues={issues.length ? issues : zenPreload}
 		onnav={(i) => (zenIndex = i)}
 		onclose={() => (zenOpen = false)}
 		onopendetail={(issue) => { zenOpen = false; ops.openEditPanel(issue); }}

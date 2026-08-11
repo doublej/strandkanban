@@ -20,6 +20,8 @@
 		</a>
 		<nav>
 			<a href="/">Board</a>
+		<a href="/activity">Activity</a>
+			<a href="/activity">Activity</a>
 			<a href="/about" class="active">About</a>
 			<a href="/prompts">Prompts</a>
 		</nav>
