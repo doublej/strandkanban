@@ -205,6 +205,7 @@ export function createMessageHandler(sessionName: string) {
 					loadHistory(sessionName, session.cwd, msg.sdkSessionId);
 				}
 				return;
+			case 'session':
 			case 'sdk_session':
 				persistSdkSessionId(sessionName, msg.sdkSessionId);
 				return;

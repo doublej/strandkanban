@@ -6,6 +6,8 @@ import type {
 	AgentSession,
 	AssistantMessage,
 	ChatMessage,
+	FileDiff,
+	RunModelUsage,
 	ServerMessage,
 	StreamEvent,
 	SystemMessageSubtype,
@@ -49,6 +51,70 @@ export function isSessionGoneError(error: string | undefined): boolean {
  */
 export function reduceServerMessage(s: SessionSnapshot, msg: ServerMessage): SessionPatch | null {
 	switch (msg.type) {
+		// --- Flat provider events ---
+		case 'session':
+			return { sdkSessionId: msg.sdkSessionId, slashCommands: msg.slashCommands };
+
+		case 'capabilities':
+			return {
+				capabilities: {
+					models: msg.models ?? [],
+					mcpServers: msg.mcpServers ?? [],
+					currentModel: msg.currentModel,
+					permissionMode: msg.permissionMode,
+					tools: msg.tools,
+					plugins: msg.plugins,
+				},
+				permissionMode: msg.permissionMode ?? s.permissionMode,
+			};
+
+		case 'text_delta':
+			return { currentDelta: s.currentDelta + msg.text };
+
+		case 'thinking_delta':
+			return { currentThinking: (s.currentThinking ?? '') + msg.thinking };
+
+		case 'text':
+			return { messages: [...s.messages, makeMsg('assistant', msg.text)], currentDelta: '' };
+
+		case 'thinking':
+			return {
+				messages: [...s.messages, makeMsg('assistant', msg.thinking, { thinking: true })],
+				currentThinking: '',
+			};
+
+		case 'user_text':
+			return reduceUserText(s, msg.text);
+
+		case 'tool_call':
+			return {
+				messages: [
+					...s.messages,
+					makeMsg('tool', `Using ${msg.tool_name}`, {
+						toolName: msg.tool_name,
+						toolInput: msg.input,
+						toolUseId: msg.id,
+					}),
+				],
+				currentDelta: '',
+			};
+
+		case 'tool_result': {
+			const messages = backPatchToolResult(s.messages, msg.tool_use_id, msg.result);
+			return messages === s.messages ? null : { messages };
+		}
+
+		case 'notice':
+			return {
+				messages: [...s.messages, makeMsg('system', msg.content, { systemSubtype: msg.subtype })],
+				// compact_boundary used to arrive as its own `compacted` message.
+				...(msg.subtype === 'compact_done' && { compacted: true }),
+			};
+
+		case 'turn_done':
+			return finishTurn(s, msg, msg.diffs);
+
+		// --- Session lifecycle (agent server, not the provider) ---
 		case 'session_started':
 		case 'session_resumed':
 			return { serverId: msg.sessionId, streaming: true };
@@ -108,31 +174,16 @@ export function reduceServerMessage(s: SessionSnapshot, msg: ServerMessage): Ses
 				compacted: false,
 			};
 
+		// --- Legacy wire (pre-provider-events) ---
+		// DELETABLE once every long-lived agent daemon on :9347 has restarted onto
+		// a build that emits flat AgentEvents. Kept so a new bundle still renders
+		// against an old daemon, which sends no version and would otherwise go
+		// silent mid-run.
 		case 'stream':
 			return reduceStream(s, msg.data);
 
-		case 'done': {
-			let messages = s.messages;
-			if (s.currentThinking) messages = [...messages, makeMsg('assistant', s.currentThinking, { thinking: true })];
-			if (s.currentDelta) messages = [...messages, makeMsg('assistant', s.currentDelta)];
-			const r = msg.result;
-			return {
-				streaming: false,
-				messages,
-				currentDelta: '',
-				currentThinking: '',
-				cost: r.total_cost_usd,
-				diffs: msg.diffs,
-				lastRun: {
-					subtype: r.subtype,
-					numTurns: r.num_turns,
-					costUsd: r.total_cost_usd,
-					modelUsage: r.modelUsage,
-					denials: Array.isArray(r.permission_denials) ? r.permission_denials.length : 0,
-					errors: r.errors,
-				},
-			};
-		}
+		case 'done':
+			return finishTurn(s, msg.result, msg.diffs);
 
 		case 'error':
 			return {
@@ -147,7 +198,42 @@ export function reduceServerMessage(s: SessionSnapshot, msg: ServerMessage): Ses
 	return null;
 }
 
-/** Reduces a `stream`-wrapped provider payload. */
+type TurnResult = {
+	subtype: string;
+	total_cost_usd?: number;
+	num_turns?: number;
+	modelUsage?: Record<string, RunModelUsage>;
+	permission_denials?: unknown[];
+	errors?: string[];
+};
+
+/** Flushes the streaming preview into real messages and records the run summary. */
+function finishTurn(s: SessionSnapshot, r: TurnResult, diffs?: FileDiff[]): SessionPatch {
+	let messages = s.messages;
+	if (s.currentThinking) messages = [...messages, makeMsg('assistant', s.currentThinking, { thinking: true })];
+	if (s.currentDelta) messages = [...messages, makeMsg('assistant', s.currentDelta)];
+	return {
+		streaming: false,
+		messages,
+		currentDelta: '',
+		currentThinking: '',
+		cost: r.total_cost_usd,
+		diffs,
+		lastRun: {
+			subtype: r.subtype,
+			numTurns: r.num_turns,
+			costUsd: r.total_cost_usd,
+			modelUsage: r.modelUsage,
+			denials: Array.isArray(r.permission_denials) ? r.permission_denials.length : 0,
+			errors: r.errors,
+		},
+	};
+}
+
+/**
+ * Reduces a `stream`-wrapped payload from a pre-provider-events daemon.
+ * DELETABLE alongside the `stream` case above.
+ */
 export function reduceStream(s: SessionSnapshot, data: StreamPayload): SessionPatch | null {
 	if (data.type === 'stream_event') {
 		const ev = (data as StreamEvent).event;

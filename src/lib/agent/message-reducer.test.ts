@@ -49,6 +49,38 @@ test('messages without session state reduce to null', () => {
 	expect(reduceServerMessage(empty(), { type: 'queue_state', items: [] })).toBeNull();
 });
 
+test('a multi-block assistant message keeps every block', () => {
+	const patch = reduceStream(empty(), {
+		type: 'assistant',
+		message: {
+			content: [
+				{ type: 'thinking', thinking: 'why' },
+				{ type: 'text', text: 'because' },
+				{ type: 'tool_use', name: 'Read', id: 'tu_1', input: { file: 'a.ts' } },
+			],
+		},
+	})!;
+	expect(patch.messages!.map((m) => m.content)).toEqual(['why', 'because', 'Using Read']);
+	expect(patch.messages![2].toolUseId).toBe('tu_1');
+});
+
+test('tool results back-patch by tool id, not by arrival order', () => {
+	const withCalls = reduceStream(empty(), {
+		type: 'assistant',
+		message: {
+			content: [
+				{ type: 'tool_use', name: 'Read', id: 'tu_1' },
+				{ type: 'tool_use', name: 'Grep', id: 'tu_2' },
+			],
+		},
+	})!;
+	const s = empty(withCalls.messages);
+
+	// tu_1 answers first. Matching "the last tool without a result" would put it on Grep.
+	const patched = reduceServerMessage(s, { type: 'tool_result', tool_use_id: 'tu_1', result: 'file body' })!;
+	expect(patched.messages!.map((m) => m.toolResult)).toEqual(['file body', undefined]);
+});
+
 test('duplicate user echoes are not appended twice', () => {
 	const s = empty([{ role: 'user', content: 'hi' }]);
 	expect(reduceStream(s, { type: 'user', message: { content: 'hi' } })).toBeNull();

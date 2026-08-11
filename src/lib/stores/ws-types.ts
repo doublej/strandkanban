@@ -157,7 +157,25 @@ export interface ToolResultEvent {
 	result: string;
 }
 
+/**
+ * Flat provider events (see server/agent/providers/types.ts). Field names are
+ * the wire: adapters emit these and the agent server forwards them verbatim.
+ */
+export type ProviderEventMessage =
+	| { type: 'session'; sdkSessionId: string; source: 'new' | 'resume'; slashCommands?: SlashCommandInfo[] }
+	| { type: 'capabilities'; models: ModelInfo[]; mcpServers: McpServerInfo[]; currentModel?: string; permissionMode?: string; tools?: string[]; plugins?: PluginInfo[] }
+	| { type: 'text_delta'; text: string }
+	| { type: 'thinking_delta'; thinking: string }
+	| { type: 'text'; text: string }
+	| { type: 'thinking'; thinking: string }
+	| { type: 'user_text'; text: string }
+	| { type: 'tool_call'; id?: string; tool_name: string; input?: Record<string, unknown> }
+	| { type: 'tool_result'; tool_use_id: string; result: string }
+	| { type: 'notice'; subtype: SystemMessageSubtype; content: string; agentName?: string }
+	| { type: 'turn_done'; subtype: string; total_cost_usd?: number; num_turns?: number; modelUsage?: Record<string, RunModelUsage>; permission_denials?: unknown[]; errors?: string[]; diffs?: FileDiff[] };
+
 export type ServerMessage =
+	| ProviderEventMessage
 	| { type: 'session_started'; sessionId: string; resuming?: boolean }
 	| { type: 'session_resumed'; sessionId: string; sdkSessionId?: string; isRunning?: boolean }
 	| { type: 'sdk_session'; sdkSessionId: string; source: 'new' | 'resume'; slashCommands?: SlashCommandInfo[] }
