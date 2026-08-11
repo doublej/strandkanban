@@ -7,7 +7,7 @@ import { spawnSync } from 'child_process';
 import { basename, join, resolve } from 'path';
 import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from 'fs';
 import type { Issue, Dependency, MutationEntry, Attachment, Comment, AgentModel, AgentEffort } from './types';
-import { getMimetype } from './attachments';
+import { getMimetype } from './server/attachments';
 import { recordTouchedCwd } from './touched-cwds';
 import { bdEnv, unwrapBdJson } from './bd';
 import { parseEvent, type DbEvent } from './event-parse';
@@ -472,21 +472,6 @@ interface DbComment {
 export function getComments(issueId: string, cwd?: string): Comment[] {
 	// Comments are inline in `bd export`; reuse the fast issue read (sorted created_at ASC).
 	return getIssueById(issueId, cwd)?.comments ?? [];
-}
-
-export function getAllComments(cwd?: string): Map<string, Comment[]> {
-	const rows = bdSql<DbComment>(`
-		SELECT id, issue_id, author, text, created_at
-		FROM comments ORDER BY created_at ASC
-	`, cwd);
-
-	const result = new Map<string, Comment[]>();
-	for (const c of rows) {
-		const list = result.get(c.issue_id) ?? [];
-		list.push({ id: c.id, author: c.author, text: c.text, created_at: c.created_at });
-		result.set(c.issue_id, list);
-	}
-	return result;
 }
 
 export function getAttachmentsForIssue(issueId: string, cwd?: string): Attachment[] {

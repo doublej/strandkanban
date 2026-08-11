@@ -1,7 +1,7 @@
 import { join } from 'path';
 import { existsSync, unlinkSync, readFileSync, readdirSync, rmdirSync } from 'fs';
 import type { RequestHandler } from './$types';
-import { getAttachmentsDir, getMimetype } from '$lib/attachments';
+import { getAttachmentsDir, getMimetype } from '$lib/server/attachments';
 import { requireProjectCwd } from '$lib/server/cwd';
 import { ok, wrap, ApiError } from '$lib/server/response';
 

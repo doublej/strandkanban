@@ -319,8 +319,11 @@ function clearSessionInternal(name: string) {
 	sendToSocket(name, { type: 'clear' });
 }
 
-function continueSessionInternal(name: string) {
-	sendToSocket(name, { type: 'continue' });
+function continueSessionInternal(name: string, text = 'Continue.') {
+	// The server reads `msg.text` as the turn prompt; omitting it restarted the agent
+	// with `undefined`. ponytail: generic nudge — the original briefing isn't kept
+	// server-side, so pass one explicitly here if a caller ever needs to resume with it.
+	sendToSocket(name, { type: 'continue', text });
 }
 
 function compactSessionInternal(name: string) {

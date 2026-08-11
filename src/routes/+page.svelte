@@ -3,20 +3,14 @@
 	import { untrack } from 'svelte';
 	import { pushState as svelteKitPushState, replaceState as svelteKitReplaceState, afterNavigate } from '$app/navigation';
 	import { setCurrentProject, appendProjectParam } from '$lib/project';
-	import { connect, disconnect, getPanes, getSessions, isConnected, addPane, removePane, sendToPane, killSession, clearAllSessions, endSession, clearSession, continueSession, compactSession, interrupt, getPersistedSdkSessionId, getAllPersistedSessions, deletePersistedSession, fetchSdkSessions, markPaneAsRead, getTotalUnreadCount, getUnreadCount, notifyAgentOfTicketUpdate, type Pane, type SdkSessionInfo } from '$lib/wsStore.svelte';
-	import { coerceViewMode, type Issue, type Attachment, type CardPosition, type FlyingCard, type SortBy, type PaneSize, type ViewMode, type Project, type ViewRecipe, type TableColumnConfig, type TableSortState } from '$lib/types';
+	import { connect, disconnect, getPanes, getSessions, isConnected, addPane, removePane, sendToPane, endSession, clearSession, continueSession, compactSession, interrupt, getPersistedSdkSessionId, fetchSdkSessions, markPaneAsRead, getTotalUnreadCount, getUnreadCount, type Pane, type SdkSessionInfo } from '$lib/wsStore.svelte';
+	import { coerceViewMode, type Issue, type SortBy, type ViewMode, type Project, type ViewRecipe, type TableColumnConfig, type TableSortState } from '$lib/types';
 	import {
 		columns,
 		getColumnsWithCustom,
-		getPriorityConfig,
-		getDepTypeConfig,
-		getTypeIcon,
-		hasOpenBlockers,
-		formatDate,
 		sortIssues,
 		sortIssuesBy,
-		getIssueColumn,
-		getColumnMoveUpdates
+		getIssueColumn
 	} from '$lib/utils';
 	import ColumnNav from '$lib/components/ColumnNav.svelte';
 	import Header from '$lib/components/Header.svelte';
@@ -57,7 +51,7 @@
 	import FlowView from '$lib/components/flow/FlowView.svelte';
 	import GridView from '$lib/components/GridView.svelte';
 	import { reconcileTableColumns } from '$lib/table-columns';
-	import { getManagerVisible, getManagerSessionName, isManagerSession } from '$lib/stores/manager.svelte';
+	import { getManagerVisible, getManagerSessionName } from '$lib/stores/manager.svelte';
 	import { startManager, switchManagerProject, setServerProject } from '$lib/stores/ws-connection.svelte';
 	import { getQueueItems, getQueuedTicketIds, fetchInitialQueue } from '$lib/stores/queue.svelte';
 

@@ -28,7 +28,8 @@
     "prepublish": "npm run build:cli",
     "postinstall": "node scripts/postinstall.cjs || true",
     "preview": "vite preview",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "test": "bun test"
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^3.0.0",

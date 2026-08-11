@@ -91,7 +91,7 @@ export function createManagerToolsServer(
 				},
 				async ({ from, to, type }) => {
 					try {
-						const result = await runBd(cwd, ["deps", "add", from, to, "--type", type]);
+						const result = await runBd(cwd, ["dep", "add", from, to, "--type", type]);
 						return { content: [{ type: "text" as const, text: result || "Dependency added" }] };
 					} catch (err) {
 						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
@@ -108,7 +108,7 @@ export function createManagerToolsServer(
 				},
 				async ({ from, to }) => {
 					try {
-						const result = await runBd(cwd, ["deps", "remove", from, to]);
+						const result = await runBd(cwd, ["dep", "remove", from, to]);
 						return { content: [{ type: "text" as const, text: result || "Dependency removed" }] };
 					} catch (err) {
 						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };

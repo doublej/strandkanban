@@ -87,11 +87,7 @@ export function createBeadsToolsServer(agentName: string, cwd: string) {
           if (args.issue_type) bdArgs.push("--type", args.issue_type);
           if (args.id) bdArgs.push("--id", args.id);
           if (args.labels?.length) bdArgs.push("--labels", args.labels.join(","));
-          if (args.deps?.length) {
-            for (const dep of args.deps) {
-              bdArgs.push("--dep", dep);
-            }
-          }
+          if (args.deps?.length) bdArgs.push("--deps", args.deps.join(","));
 
           // Use explicit assignee if provided, else auto-inject agent name
           bdArgs.push("--assignee", args.assignee || agentName);

@@ -8,7 +8,7 @@ import {
 	getMimetype,
 	MAX_FILE_SIZE_MB,
 	MAX_FILE_SIZE_BYTES,
-} from '$lib/attachments';
+} from '$lib/server/attachments';
 import { requireProjectCwd } from '$lib/server/cwd';
 import { ok, wrap, ApiError } from '$lib/server/response';
 

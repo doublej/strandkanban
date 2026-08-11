@@ -4,6 +4,8 @@ import type { ServerWebSocket } from "bun";
 import type { WSData } from "./http-server";
 import { runBd } from "./bd-runner";
 import { log } from "../logger";
+import { getAttachmentsDir } from "../attachments";
+import { existsSync, readdirSync } from "fs";
 
 type DispatchFn = (item: QueueItem, briefing: string) => Promise<void> | void;
 
@@ -206,17 +208,22 @@ export class AgentQueue {
 		let comments = "";
 		let attachments = "";
 
+		// `bd comments <id>` — there is no `bd comments list` subcommand.
 		try {
-			const raw = await runBd(item.cwd, ["comments", "list", item.ticketId, "--json"]);
-			comments = raw || "None";
-		} catch {
+			const raw = await runBd(item.cwd, ["comments", item.ticketId, "--json"]);
+			comments = raw && raw !== "[]" ? raw : "None";
+		} catch (err) {
+			log.warn(`briefing: comments read failed for ${item.ticketId}: ${err}`);
 			comments = "None";
 		}
 
+		// bd has no attachments command; the app stores them on disk.
 		try {
-			const raw = await runBd(item.cwd, ["attachments", "list", item.ticketId, "--json"]);
-			attachments = raw || "None";
-		} catch {
+			const dir = getAttachmentsDir(item.ticketId, item.cwd);
+			const files = existsSync(dir) ? readdirSync(dir) : [];
+			attachments = files.length ? files.join(", ") : "None";
+		} catch (err) {
+			log.warn(`briefing: attachments read failed for ${item.ticketId}: ${err}`);
 			attachments = "None";
 		}
 
