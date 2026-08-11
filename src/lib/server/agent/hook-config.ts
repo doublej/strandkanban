@@ -1,6 +1,7 @@
 export type HookEventName =
   | 'TicketCreated'
   | 'TicketClosed'
+  | 'TicketDeleted'
   | 'StatusChanged'
   | 'PriorityChanged'
   | 'CommentAdded'

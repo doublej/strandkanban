@@ -15,6 +15,7 @@ const WATCH_DEBOUNCE_MS = 300;
 const NAME_MAP: Record<NotificationEventType, string> = {
 	issue_created: 'issue.created',
 	issue_closed: 'issue.closed',
+	issue_deleted: 'issue.deleted',
 	status_changed: 'issue.updated',
 	priority_changed: 'issue.updated',
 	assignee_changed: 'issue.updated',

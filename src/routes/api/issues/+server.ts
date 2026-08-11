@@ -1,10 +1,9 @@
 import type { RequestHandler } from './$types';
 import { requireProjectCwd } from '$lib/server/cwd';
 import { beads } from '$lib/server/beads/client';
-import { createIssue } from '$lib/bd';
 import { notificationStore } from '$lib/notifications/notification-store.svelte';
 import { hookExecutor } from '$lib/server/agent/hook-executor';
-import { ok, wrap, ApiError } from '$lib/server/response';
+import { ok, wrap } from '$lib/server/response';
 import { parseBody, CreateIssueSchema } from '$lib/server/schemas';
 
 export const GET: RequestHandler = wrap(async ({ url }) => {
@@ -22,24 +21,17 @@ export const POST: RequestHandler = wrap(async ({ request, url }) => {
 	const body = await parseBody(request, CreateIssueSchema);
 	const cwd = requireProjectCwd(url);
 
-	const result = await createIssue(
-		body.title,
-		{
-			description: body.description,
-			priority: body.priority,
-			issue_type: body.issue_type,
-			deps: body.deps ?? body.dependencies,
-			due: body.due_at,
-			estimate: body.estimated_minutes,
-			external_ref: body.external_ref,
-		},
-		cwd,
-	);
-	if (!result.success || !result.issue) {
-		throw new ApiError(result.error || 'Failed to create issue', 500);
-	}
+	const { issue } = await beads(cwd).create(body.title, {
+		description: body.description,
+		priority: body.priority,
+		issue_type: body.issue_type,
+		deps: body.deps ?? body.dependencies,
+		due: body.due_at,
+		estimate: body.estimated_minutes,
+		external_ref: body.external_ref,
+	});
 
-	const created = result.issue as {
+	const created = issue as {
 		id: string;
 		title: string;
 		status: string;
@@ -56,5 +48,5 @@ export const POST: RequestHandler = wrap(async ({ request, url }) => {
 		cwd,
 	});
 
-	return ok({ id: created.id, issue: created, warning: result.warning });
+	return ok({ id: created.id, issue: created });
 });

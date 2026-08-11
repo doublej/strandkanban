@@ -1,6 +1,5 @@
 import { spawn } from "child_process";
-import { bdEnv, unwrapBdJson } from "$lib/bd";
-import { beads } from "../beads/client";
+import { beads, unwrapBdJson } from "../beads/client";
 
 export async function runBd(cwd: string, args: string[]): Promise<string> {
 	return new Promise((resolve, reject) => {
@@ -8,7 +7,8 @@ export async function runBd(cwd: string, args: string[]): Promise<string> {
 			cwd,
 			shell: false,
 			env: {
-				...bdEnv(),
+				...process.env,
+				BD_JSON_ENVELOPE: "1",
 				BD_CWD: cwd,
 			},
 		});

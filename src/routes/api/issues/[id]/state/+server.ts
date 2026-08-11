@@ -1,6 +1,6 @@
 import type { RequestHandler } from './$types';
 import { requireProjectCwd } from '$lib/server/cwd';
-import { setIssueState } from '$lib/bd';
+import { beads } from '$lib/server/beads/client';
 import { ok, wrap, ApiError } from '$lib/server/response';
 
 /** Operational-state labels follow the `<dimension>:<value>` convention (alphanumeric, dash, underscore). */
@@ -16,8 +16,6 @@ export const POST: RequestHandler = wrap(async ({ params, request, url }) => {
 	if (!TOKEN.test(value)) throw new ApiError('Invalid value (use letters, digits, - or _)');
 
 	const cwd = requireProjectCwd(url);
-	const result = await setIssueState(params.id, dimension, value, reason, cwd);
-	if (!result.success) throw new ApiError(result.error || 'Failed to set state');
-
+	await beads(cwd).setState(params.id, dimension, value, reason);
 	return ok({ updated: true });
 });

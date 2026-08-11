@@ -6,6 +6,7 @@ import type { Issue } from '$lib/types';
 export type NotificationEventType =
 	| 'issue_created'
 	| 'issue_closed'
+	| 'issue_deleted'
 	| 'status_changed'
 	| 'priority_changed'
 	| 'comment_added'
@@ -46,6 +47,8 @@ export interface NotificationEventSettings {
 	attachment_added: boolean;
 	issue_created: boolean;
 	issue_closed: boolean;
+	/** Optional: added after the settings UI shipped, so stored settings predate it. */
+	issue_deleted?: boolean;
 }
 
 /**

@@ -101,6 +101,7 @@ class NotificationStore {
 		const titles: Record<NotificationEventType, string> = {
 			issue_created: 'Issue Created',
 			issue_closed: 'Issue Closed',
+			issue_deleted: 'Issue Deleted',
 			status_changed: 'Status Changed',
 			priority_changed: 'Priority Changed',
 			comment_added: 'New Comment',

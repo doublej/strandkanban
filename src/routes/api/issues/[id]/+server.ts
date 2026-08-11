@@ -1,10 +1,9 @@
 import type { RequestHandler } from './$types';
 import { requireProjectCwd } from '$lib/server/cwd';
 import { beads } from '$lib/server/beads/client';
-import { updateIssue, deleteIssue, addLabel, removeLabel, setMetadata, unsetMetadata } from '$lib/bd';
 import { notificationStore } from '$lib/notifications/notification-store.svelte';
 import { hookExecutor } from '$lib/server/agent/hook-executor';
-import { ok, wrap, ApiError } from '$lib/server/response';
+import { ok, wrap } from '$lib/server/response';
 import { parseBody, UpdateIssueSchema } from '$lib/server/schemas';
 
 export const PATCH: RequestHandler = wrap(async ({ params, request, url }) => {
@@ -17,37 +16,34 @@ export const PATCH: RequestHandler = wrap(async ({ params, request, url }) => {
 	} = body;
 
 	const cwd = requireProjectCwd(url);
-	const beforeIssue = await beads(cwd).issue(params.id);
+	const bd = beads(cwd);
+	// ponytail: `beforeIssue` may be served from the 30s-stale export cache, so a hook diff
+	// can fire StatusChanged/PriorityChanged on a phantom delta (or miss a real one) when
+	// another writer moved the issue meanwhile. Serializing writes per cwd would close it.
+	const beforeIssue = await bd.issue(params.id);
 
-	const updateRes = await updateIssue(
-		params.id,
-		{ status, title, description, priority, design, acceptance_criteria, notes, assignee: assignee ?? undefined,
-		  due: due_at, defer: defer_until, external_ref, spec_id, estimate: estimated_minutes },
-		cwd,
-	);
-	if (!updateRes.success) throw new ApiError(updateRes.error || 'Update failed');
-
-	// Run sequentially: concurrent bd invocations on the same issue race and lose updates.
-	const sideEffects: (() => Promise<{ success: boolean; error?: string }>)[] = [];
+	const setMetadata: Record<string, string> = {};
+	const unsetMetadata: string[] = [];
 	if (agent_model !== undefined) {
-		sideEffects.push(() => agent_model
-			? setMetadata(params.id, 'agent_model', String(agent_model), cwd)
-			: unsetMetadata(params.id, 'agent_model', cwd));
+		if (agent_model) setMetadata.agent_model = String(agent_model);
+		else unsetMetadata.push('agent_model');
 	}
 	if (agent_effort !== undefined) {
-		sideEffects.push(() => agent_effort
-			? setMetadata(params.id, 'agent_effort', String(agent_effort), cwd)
-			: unsetMetadata(params.id, 'agent_effort', cwd));
-	}
-	for (const label of removeLabels ?? []) sideEffects.push(() => removeLabel(params.id, label, cwd));
-	for (const label of addLabels ?? []) sideEffects.push(() => addLabel(params.id, label, cwd));
-
-	for (const sideEffect of sideEffects) {
-		const result = await sideEffect();
-		if (!result.success) throw new ApiError(result.error || 'Update failed');
+		if (agent_effort) setMetadata.agent_effort = String(agent_effort);
+		else unsetMetadata.push('agent_effort');
 	}
 
-	const afterIssue = await beads(cwd).issue(params.id);
+	// One `bd update` for the whole change set. This used to be a sequential chain of an
+	// update plus one spawn per label and per metadata key, which widened the lost-update
+	// window to N spawns — bd re-imports the full JSONL on every write.
+	await bd.update(params.id, {
+		status, title, description, priority, design, acceptance_criteria, notes,
+		assignee: assignee ?? undefined,
+		due: due_at, defer: defer_until, external_ref, spec_id, estimate: estimated_minutes,
+		addLabels, removeLabels, setMetadata, unsetMetadata,
+	});
+
+	const afterIssue = await bd.issue(params.id);
 	if (beforeIssue && afterIssue) {
 		const baseCtx = {
 			id: afterIssue.id,
@@ -97,21 +93,25 @@ export const PATCH: RequestHandler = wrap(async ({ params, request, url }) => {
 
 export const DELETE: RequestHandler = wrap(async ({ params, url }) => {
 	const cwd = requireProjectCwd(url);
-	const issue = await beads(cwd).issue(params.id);
+	const bd = beads(cwd);
+	const issue = await bd.issue(params.id);
 
-	const result = await deleteIssue(params.id, cwd);
-	if (!result.success) throw new ApiError(result.error || 'Delete failed');
+	await bd.delete(params.id);
 
 	if (issue) {
-		notificationStore.emit('issue_closed', issue, { cwd });
-		await hookExecutor.executeHooks('TicketClosed', {
+		notificationStore.emit('issue_deleted', issue, { cwd });
+		const ctx = {
 			id: issue.id,
 			title: issue.title,
 			status: issue.status,
 			priority: issue.priority,
 			assignee: issue.assignee,
 			cwd,
-		});
+		};
+		await hookExecutor.executeHooks('TicketDeleted', ctx);
+		// ponytail: `bd delete` is permanent, not a close. TicketClosed still fires purely so
+		// existing hook consumers keep working; drop it once they listen for TicketDeleted.
+		await hookExecutor.executeHooks('TicketClosed', ctx);
 	}
 	return ok({ deleted: true });
 });

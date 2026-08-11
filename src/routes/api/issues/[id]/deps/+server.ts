@@ -1,18 +1,16 @@
 import type { RequestHandler } from './$types';
 import { requireProjectCwd } from '$lib/server/cwd';
 import { beads } from '$lib/server/beads/client';
-import { addDependency, removeDependency } from '$lib/bd';
 import { notificationStore } from '$lib/notifications/notification-store.svelte';
 import { hookExecutor } from '$lib/server/agent/hook-executor';
-import { ok, wrap, ApiError } from '$lib/server/response';
+import { ok, wrap } from '$lib/server/response';
 import { parseBody, AddDependencySchema, RemoveDependencySchema } from '$lib/server/schemas';
 
 export const POST: RequestHandler = wrap(async ({ params, request, url }) => {
 	const { depends_on, dep_type } = await parseBody(request, AddDependencySchema);
 	const cwd = requireProjectCwd(url);
 
-	const result = await addDependency(params.id, depends_on, dep_type ?? 'blocks', cwd);
-	if (!result.success) throw new ApiError(result.error || 'Failed to create dependency');
+	await beads(cwd).addDep(params.id, depends_on, dep_type ?? 'blocks');
 
 	const issue = await beads(cwd).issue(params.id);
 	if (issue) {
@@ -31,7 +29,6 @@ export const DELETE: RequestHandler = wrap(async ({ params, request, url }) => {
 	const { depends_on } = await parseBody(request, RemoveDependencySchema);
 	const cwd = requireProjectCwd(url);
 
-	const result = await removeDependency(params.id, depends_on, cwd);
-	if (!result.success) throw new ApiError(result.error || 'Failed to remove dependency');
+	await beads(cwd).removeDep(params.id, depends_on);
 	return ok({ removed: true });
 });
