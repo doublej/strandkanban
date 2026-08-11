@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Issue, Comment, Attachment, Column } from '$lib/types';
-	import { getPriorityConfig, getTypeIcon, formatTimestamp, getIssueColumn, isAgentAssignee as checkAgentAssignee, getDueInfo, formatMinutes, isStale, parseStateLabels, columns as defaultColumns } from '$lib/utils';
+	import { getIssueColumn, columns as defaultColumns } from '$lib/utils';
 	import Icon from './Icon.svelte';
 	import { copyState } from '$lib/stores/copy-state.svelte';
 	import IssueFormFields from './IssueFormFields.svelte';
@@ -10,8 +10,10 @@
 	import IssueAttachments from './IssueAttachments.svelte';
 	import DetailPanelFooter from './DetailPanelFooter.svelte';
 	import MarkdownContent from './MarkdownContent.svelte';
-	import { appendProjectParam } from '$lib/project';
-	import { lintIssueApi, loadIssueHistoryApi, type IssueHistoryEntry } from '$lib/api';
+	import IssueSpecsBar from './IssueSpecsBar.svelte';
+	import IssueFacets from './IssueFacets.svelte';
+	import IssueActivity from './IssueActivity.svelte';
+	import { lintIssueApi } from '$lib/api';
 
 	let isEditMode = $state(false);
 
@@ -103,25 +105,6 @@
 		ondismissclosedwarning
 	}: Props = $props();
 
-	const dueInfo = $derived(editingIssue ? getDueInfo(editingIssue.due_at) : null);
-	const parsedLabels = $derived(parseStateLabels(editingIssue?.labels));
-	const stale = $derived(editingIssue ? isStale(editingIssue) : false);
-
-	// Operational-state inline editor
-	let showStateEditor = $state(false);
-	let stateDim = $state('');
-	let stateVal = $state('');
-	const STATE_TOKEN = /^[a-zA-Z0-9_-]+$/;
-	const canSubmitState = $derived(STATE_TOKEN.test(stateDim.trim()) && STATE_TOKEN.test(stateVal.trim()));
-
-	function submitState() {
-		if (!canSubmitState || !onsetstate) return;
-		onsetstate(stateDim.trim(), stateVal.trim());
-		stateDim = '';
-		stateVal = '';
-		showStateEditor = false;
-	}
-
 	function handlePaste(e: ClipboardEvent) {
 		const items = e.clipboardData?.items;
 		if (!items) return;
@@ -135,23 +118,6 @@
 		}
 	}
 
-	const isAgentAssignee = $derived(checkAgentAssignee(editingIssue?.assignee));
-
-	const activeAgentPane = $derived(() => {
-		if (!editingIssue) return null;
-		const expectedPaneName = `${editingIssue.id}-agent`;
-		return activeAgents.includes(expectedPaneName) ? expectedPaneName : null;
-	});
-
-	type RelatedSession = { sessionId: string; agentName?: string; timestamp: string; summary?: string; preview: string[] };
-	type RelatedMessage = { role: 'user' | 'assistant' | 'tool'; content: string; toolName?: string; timestamp?: string };
-
-	let relatedSessions = $state<RelatedSession[]>([]);
-	let loadingRelated = $state(false);
-	let expandedSessionId = $state<string | null>(null);
-	let expandedMessages = $state<RelatedMessage[]>([]);
-	let loadingExpanded = $state(false);
-
 	// Lint hints (missing recommended sections) for the open issue
 	let lintMissing = $state<string[]>([]);
 	$effect(() => {
@@ -163,83 +129,6 @@
 		// Guard against an out-of-order response from a previously-open issue.
 		lintIssueApi(id).then((missing) => { if (editingIssue?.id === id) lintMissing = missing; }).catch(() => { if (editingIssue?.id === id) lintMissing = []; });
 	});
-
-	// Per-issue version history (lazy-loaded on expand)
-	let historyEntries = $state<IssueHistoryEntry[]>([]);
-	let historyOpen = $state(false);
-	let loadingHistory = $state(false);
-	let lastHistoryId: string | undefined;
-	$effect(() => {
-		// Reset only when the issue id actually changes (not on same-id object replacement).
-		const id = editingIssue?.id;
-		if (id === lastHistoryId) return;
-		lastHistoryId = id;
-		historyOpen = false;
-		historyEntries = [];
-	});
-
-	async function toggleHistory() {
-		if (historyOpen) { historyOpen = false; return; }
-		historyOpen = true;
-		if (historyEntries.length > 0 || !editingIssue) return;
-		const id = editingIssue.id;
-		loadingHistory = true;
-		try {
-			const entries = await loadIssueHistoryApi(id);
-			if (editingIssue?.id === id) historyEntries = entries;
-		} catch {
-			if (editingIssue?.id === id) historyEntries = [];
-		} finally {
-			if (editingIssue?.id === id) loadingHistory = false;
-		}
-	}
-
-	$effect(() => {
-		const id = editingIssue?.id;
-		if (!id || isCreating) {
-			relatedSessions = [];
-			expandedSessionId = null;
-			expandedMessages = [];
-			return;
-		}
-		loadingRelated = true;
-		fetch(appendProjectParam(`/api/issues/${encodeURIComponent(id)}/agent-sessions`))
-			.then((r) => (r.ok ? r.json() : null))
-			.then((payload) => { if (editingIssue?.id === id) relatedSessions = payload?.ok ? (payload.data?.sessions ?? []) : []; })
-			.catch(() => { if (editingIssue?.id === id) relatedSessions = []; })
-			.finally(() => { if (editingIssue?.id === id) loadingRelated = false; });
-	});
-
-	async function toggleRelatedChat(sessionId: string) {
-		if (expandedSessionId === sessionId) {
-			expandedSessionId = null;
-			expandedMessages = [];
-			return;
-		}
-		expandedSessionId = sessionId;
-		expandedMessages = [];
-		loadingExpanded = true;
-		try {
-			const r = await fetch(appendProjectParam(`/api/agent-sessions/${encodeURIComponent(sessionId)}/history`));
-			if (r.ok) {
-				const payload = await r.json();
-				expandedMessages = payload?.ok ? (payload.data?.messages ?? []) : [];
-			}
-		} catch {
-			expandedMessages = [];
-		} finally {
-			loadingExpanded = false;
-		}
-	}
-
-	function formatRelTime(ts: string): string {
-		if (!ts) return '';
-		try {
-			return formatTimestamp(ts).relative;
-		} catch {
-			return ts;
-		}
-	}
 </script>
 
 <aside
@@ -268,7 +157,6 @@
 
 	{:else if editingIssue}
 		<!-- VIEW / EDIT MODE -->
-		{@const priority = getPriorityConfig(editingIssue.priority)}
 		{@const column = getIssueColumn(editingIssue)}
 
 		<header class="header">
@@ -297,63 +185,7 @@
 		<div class="body">
 			{#if !isEditMode}
 				<!-- VIEW MODE -->
-				<div class="specs-bar">
-					<div class="specs-primary">
-						<span class="spec-status" style="--status-color: {column.accent}">
-							<Icon name={column.icon} size={11} />
-							<span>{column.label}</span>
-						</span>
-						<span class="spec-priority" style="--c: {priority.color}">
-							<span class="priority-dot"></span>
-							<span>{priority.label}</span>
-						</span>
-						<span class="spec-type">
-							<Icon name={getTypeIcon(editingIssue.issue_type)} size={11} />
-							<span>{editingIssue.issue_type}</span>
-						</span>
-					</div>
-					<div class="specs-secondary">
-						{#if editingIssue.created_at}
-							{@const ts = formatTimestamp(editingIssue.created_at)}
-							<span class="spec-time" title="{ts.absolute}">{ts.relative}</span>
-						{/if}
-						{#if dueInfo}
-							<span class="spec-due {dueInfo.level}" title="Due {dueInfo.absolute}"><Icon name="calendar" size={11} /><span>{dueInfo.label}</span></span>
-						{/if}
-						{#if editingIssue.estimated_minutes}
-							<span class="spec-est" title="Estimate"><Icon name="clock" size={11} /><span>{formatMinutes(editingIssue.estimated_minutes)}</span></span>
-						{/if}
-						{#if stale}
-							<span class="spec-stale" title="No updates in 30+ days"><Icon name="alert-circle" size={11} /><span>stale</span></span>
-						{/if}
-						{#if editingIssue.defer_until}
-							{@const dts = formatTimestamp(editingIssue.defer_until)}
-							<span class="spec-defer" title="Deferred until {dts.absolute}">deferred · {dts.relative}</span>
-						{/if}
-						{#if editingIssue.assignee}
-							{#if isAgentAssignee}
-								<span class="spec-agent" class:working={editingIssue.status === 'in_progress'}>
-									<Icon name="agent" size={12} />
-									<span>{editingIssue.assignee}</span>
-									{#if editingIssue.status === 'in_progress'}
-										<span class="working-dot"></span>
-									{/if}
-								</span>
-								{#if activeAgentPane() && onviewchat}
-									<button class="chat-link" onclick={() => onviewchat(activeAgentPane()!)} title="View chat session">
-										<Icon name="message" size={11} />
-										<span>Chat</span>
-									</button>
-								{/if}
-							{:else}
-								<span class="spec-human">
-									<span class="avatar-dot"></span>
-									<span>{editingIssue.assignee}</span>
-								</span>
-							{/if}
-						{/if}
-					</div>
-				</div>
+				<IssueSpecsBar issue={editingIssue} {column} {activeAgents} {onviewchat} />
 
 				{#if editingIssue.ephemeral}
 					<div class="wisp-banner">
@@ -404,43 +236,7 @@
 					<section class="section"><span class="section-label">Notes</span><div class="prose"><MarkdownContent content={editingIssue.notes} /></div></section>
 				{/if}
 
-				{#if parsedLabels.states.length > 0 || onsetstate}
-					<div class="state-row">
-						{#each parsedLabels.states as st (st.dimension + ':' + st.value)}
-							<span class="state-badge" title="Operational state"><span class="state-dim">{st.dimension}</span><span class="state-val">{st.value}</span></span>
-						{/each}
-						{#if onsetstate}
-							<button class="state-add" onclick={() => showStateEditor = !showStateEditor} title="Set operational state"><Icon name={showStateEditor ? 'close' : 'plus'} size={11} /><span>state</span></button>
-						{/if}
-					</div>
-					{#if showStateEditor && onsetstate}
-						<div class="state-editor">
-							<input class="state-input" placeholder="dimension" bind:value={stateDim} onkeydown={(e) => e.key === 'Enter' && submitState()} />
-							<span class="state-eq">=</span>
-							<input class="state-input" placeholder="value" bind:value={stateVal} onkeydown={(e) => e.key === 'Enter' && submitState()} />
-							<button class="state-set" disabled={!canSubmitState} onclick={submitState}>Set</button>
-						</div>
-					{/if}
-				{/if}
-				{#if editingIssue.external_ref || editingIssue.spec_id}
-					<div class="facet-row">
-						{#if editingIssue.external_ref}
-							{#if /^https?:\/\//.test(editingIssue.external_ref)}
-								<a class="facet-chip" href={editingIssue.external_ref} target="_blank" rel="noopener noreferrer" title={editingIssue.external_ref}><Icon name="external-link" size={10} /><span>{editingIssue.external_ref}</span></a>
-							{:else}
-								<span class="facet-chip" title="External reference"><Icon name="external-link" size={10} /><span>{editingIssue.external_ref}</span></span>
-							{/if}
-						{/if}
-						{#if editingIssue.spec_id}
-							<span class="facet-chip" title="Spec"><Icon name="file" size={10} /><span>{editingIssue.spec_id}</span></span>
-						{/if}
-					</div>
-				{/if}
-				{#if parsedLabels.plain.length > 0}
-					<div class="labels-row">
-						{#each parsedLabels.plain as label (label)}<span class="label-chip">{label}</span>{/each}
-					</div>
-				{/if}
+				<IssueFacets issue={editingIssue} {onsetstate} />
 
 			{:else}
 				<!-- EDIT MODE -->
@@ -452,80 +248,7 @@
 			<IssueComments {comments} bind:newComment {loadingComments} {onaddcomment} {updatenewcomment} />
 			<IssueAttachments issueId={editingIssue.id} {attachments} {loadingAttachments} {onuploadattachment} {ondeleteattachment} />
 
-			{#if relatedSessions.length > 0 || loadingRelated}
-				<section class="section">
-					<span class="section-label">Related Chats</span>
-					{#if loadingRelated && relatedSessions.length === 0}
-						<div class="related-empty">Loading…</div>
-					{:else}
-						<ul class="related-list">
-							{#each relatedSessions as session (session.sessionId)}
-								{@const isOpen = expandedSessionId === session.sessionId}
-								<li class="related-item" class:expanded={isOpen}>
-									<button class="related-row" onclick={() => toggleRelatedChat(session.sessionId)}>
-										<Icon name={isOpen ? 'chevron-down' : 'chevron-right'} size={11} />
-										<div class="related-meta">
-											<div class="related-title">
-												{session.summary || session.agentName || session.sessionId.slice(0, 8)}
-											</div>
-											{#if session.preview.length > 0}
-												<div class="related-preview">{session.preview[0]}</div>
-											{/if}
-										</div>
-										<span class="related-time">{formatRelTime(session.timestamp)}</span>
-									</button>
-									{#if isOpen}
-										<div class="related-history">
-											{#if loadingExpanded}
-												<div class="related-empty">Loading history…</div>
-											{:else if expandedMessages.length === 0}
-												<div class="related-empty">No messages.</div>
-											{:else}
-												{#each expandedMessages as msg, i (i)}
-													<div class="chat-msg chat-{msg.role}">
-														<span class="chat-role">{msg.role === 'tool' ? (msg.toolName ?? 'tool') : msg.role}</span>
-														{#if msg.role === 'assistant'}
-															<div class="chat-body"><MarkdownContent content={msg.content} /></div>
-														{:else}
-															<div class="chat-body chat-plain">{msg.content}</div>
-														{/if}
-													</div>
-												{/each}
-											{/if}
-										</div>
-									{/if}
-								</li>
-							{/each}
-						</ul>
-					{/if}
-				</section>
-			{/if}
-
-				<section class="section">
-					<button class="history-toggle" onclick={toggleHistory}>
-						<Icon name={historyOpen ? 'chevron-down' : 'chevron-right'} size={11} />
-						<span class="section-label">History</span>
-					</button>
-					{#if historyOpen}
-						{#if loadingHistory}
-							<div class="related-empty">Loading…</div>
-						{:else if historyEntries.length === 0}
-							<div class="related-empty">No version history.</div>
-						{:else}
-							<ul class="history-list">
-								{#each historyEntries as entry (entry.hash)}
-									<li class="history-item">
-										<span class="history-dot"></span>
-										<div class="history-meta">
-											<div class="history-changes">{entry.changes.join(' · ')}</div>
-											<div class="history-time">{formatRelTime(entry.date)}{#if entry.committer} · {entry.committer}{/if}</div>
-										</div>
-									</li>
-								{/each}
-							</ul>
-						{/if}
-					{/if}
-				</section>
+			<IssueActivity issueId={editingIssue.id} />
 		</div>
 
 		<DetailPanelFooter mode="edit" {agentEnabled} {onclose} {editingIssue} {originalLabels} {onstartagent} {onsave} {ondelete} />
@@ -625,113 +348,6 @@
 	.body::-webkit-scrollbar-track { background: transparent; }
 	.body::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 2px; }
 
-	/* View mode - specs bar */
-	.specs-bar {
-		display: flex;
-		flex-direction: column;
-		align-items: stretch;
-		gap: 8px;
-		padding: 0.875rem 0;
-		margin-bottom: 1.25rem;
-		border-bottom: 1px solid var(--border-subtle);
-	}
-
-	.specs-primary,
-	.specs-secondary {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		flex-wrap: wrap;
-		min-width: 0;
-	}
-	.specs-secondary:empty { display: none; }
-
-	/* Unified chip base */
-	.spec-status, .spec-priority, .spec-type, .spec-agent, .spec-human, .chat-link {
-		display: inline-flex;
-		align-items: center;
-		gap: 6px;
-		height: 26px;
-		padding: 0 10px;
-		border-radius: 4px;
-		font-family: 'IBM Plex Mono', ui-monospace, monospace;
-		font-size: 10px;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.03em;
-		white-space: nowrap;
-		flex-shrink: 0;
-	}
-
-	.spec-status { background: var(--status-color); color: white; }
-	.spec-priority { background: var(--surface-panel, rgba(255,255,255,0.04)); color: var(--text-secondary); }
-
-	.priority-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c); flex-shrink: 0; }
-
-	.spec-type { background: var(--surface-panel, rgba(255,255,255,0.04)); color: var(--text-tertiary); }
-
-	.spec-time {
-		font-family: 'IBM Plex Mono', ui-monospace, monospace;
-		font-size: 10px;
-		font-weight: 500;
-		color: var(--text-tertiary);
-		flex-shrink: 0;
-	}
-
-	.spec-agent { background: rgba(16, 185, 129, 0.1); color: #10b981; }
-	.spec-agent.working { background: rgba(16, 185, 129, 0.15); }
-
-	/* bd 1.0 scheduling chips */
-	.spec-due, .spec-est {
-		display: inline-flex; align-items: center; gap: 3px;
-		padding: 0.1875rem 0.375rem; border-radius: var(--radius-xs);
-		font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; font-weight: 600;
-		flex-shrink: 0;
-	}
-	.spec-est { background: rgba(148, 163, 184, 0.14); color: var(--text-tertiary); }
-	.spec-due.normal { background: rgba(99, 102, 241, 0.12); color: #6366f1; }
-	.spec-due.soon { background: rgba(245, 158, 11, 0.14); color: #f59e0b; }
-	.spec-due.overdue { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-	.spec-stale {
-		display: inline-flex; align-items: center; gap: 3px;
-		padding: 0.1875rem 0.375rem; border-radius: var(--radius-xs);
-		font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; font-weight: 600;
-		background: rgba(245, 158, 11, 0.12); color: #f59e0b; flex-shrink: 0;
-	}
-	.spec-defer {
-		font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 10px; font-weight: 500;
-		color: var(--text-tertiary); flex-shrink: 0;
-	}
-
-	/* operational-state badges + external_ref/spec facets */
-	.state-row, .facet-row { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.5rem; }
-	.state-badge {
-		display: inline-flex; align-items: stretch; border-radius: var(--radius-xs); overflow: hidden;
-		font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 0.625rem; font-weight: 600;
-	}
-	.state-badge .state-dim { padding: 0.125rem 0.375rem; background: rgba(20, 184, 166, 0.16); color: #14b8a6; text-transform: uppercase; letter-spacing: 0.03em; }
-	.state-badge .state-val { padding: 0.125rem 0.375rem; background: rgba(20, 184, 166, 0.28); color: #0d9488; }
-	.state-add {
-		display: inline-flex; align-items: center; gap: 3px;
-		padding: 0.125rem 0.4rem; border-radius: var(--radius-xs);
-		background: transparent; border: 1px dashed var(--border-default);
-		color: var(--text-tertiary); font-size: 0.625rem; font-weight: 600; cursor: pointer;
-	}
-	.state-add:hover { color: #14b8a6; border-color: #14b8a6; }
-	.state-editor { display: flex; align-items: center; gap: 0.375rem; margin-top: 0.375rem; }
-	.state-eq { color: var(--text-tertiary); font-weight: 700; }
-	.state-input {
-		flex: 1; min-width: 0; padding: 0.25rem 0.5rem; border-radius: var(--radius-xs);
-		background: rgba(255,255,255,0.04); border: 1px solid var(--border-subtle);
-		color: var(--text-primary); font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 0.6875rem;
-	}
-	.state-input:focus { outline: none; border-color: #14b8a6; }
-	.state-set {
-		padding: 0.25rem 0.625rem; border-radius: var(--radius-xs);
-		background: #14b8a6; border: none; color: #fff; font-size: 0.6875rem; font-weight: 600; cursor: pointer;
-	}
-	.state-set:disabled { opacity: 0.4; cursor: not-allowed; }
-
 	/* wisp / promote banner */
 	.wisp-banner {
 		display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
@@ -753,49 +369,6 @@
 	}
 	.lint-label { font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
 	.lint-chip { padding: 0.0625rem 0.375rem; border-radius: var(--radius-xs); background: rgba(245, 158, 11, 0.18); font-weight: 500; }
-	.facet-chip {
-		display: inline-flex; align-items: center; gap: 4px; max-width: 100%;
-		padding: 0.1875rem 0.4rem; border-radius: var(--radius-xs);
-		background: var(--surface-panel, rgba(255,255,255,0.04)); color: var(--text-secondary);
-		font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 0.625rem; text-decoration: none;
-	}
-	.facet-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-	a.facet-chip:hover { color: var(--text-primary); }
-
-	.spec-human {
-		background: var(--surface-panel, rgba(255,255,255,0.04));
-		color: var(--text-secondary);
-		font-weight: 500;
-	}
-
-	.avatar-dot { width: 6px; height: 6px; border-radius: 50%; background: #6366f1; flex-shrink: 0; }
-
-	.chat-link {
-		background: rgba(99, 102, 241, 0.1);
-		color: #6366f1;
-		border: none;
-		cursor: pointer;
-		transition: background 0.15s ease;
-	}
-	.chat-link:hover { background: rgba(99, 102, 241, 0.18); }
-
-	:global(.app.light) .chat-link { background: rgba(99, 102, 241, 0.08); color: #4f46e5; }
-	:global(.app.light) .chat-link:hover { background: rgba(99, 102, 241, 0.15); }
-
-	.working-dot {
-		width: 5px;
-		height: 5px;
-		border-radius: 50%;
-		background: #10b981;
-		animation: pulse-dot 1.5s ease-in-out infinite;
-		box-shadow: 0 0 4px rgba(16, 185, 129, 0.5);
-	}
-
-	@keyframes pulse-dot {
-		0%, 100% { opacity: 1; transform: scale(1); }
-		50% { opacity: 0.5; transform: scale(0.8); }
-	}
-
 	/* Summary callout */
 	.summary-callout {
 		margin-bottom: 1rem;
@@ -880,133 +453,6 @@
 		word-break: break-word;
 	}
 
-	.labels-row {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.375rem;
-		margin-top: 1rem;
-	}
-
-	/* Related Chats */
-	.related-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-	.related-item {
-		border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
-		border-radius: 6px;
-		background: var(--bg-elevated, rgba(255,255,255,0.02));
-		overflow: hidden;
-	}
-	.related-item.expanded {
-		border-color: var(--border-strong, rgba(255,255,255,0.12));
-	}
-	.related-row {
-		display: flex;
-		align-items: flex-start;
-		gap: 0.5rem;
-		width: 100%;
-		padding: 0.5rem 0.625rem;
-		background: transparent;
-		border: none;
-		text-align: left;
-		cursor: pointer;
-		color: var(--text-primary);
-	}
-	.related-row:hover { background: rgba(255,255,255,0.03); }
-	.related-meta {
-		flex: 1;
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-	}
-	.related-title {
-		font-size: 0.75rem;
-		font-weight: 600;
-		color: var(--text-primary);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.related-preview {
-		font-size: 0.6875rem;
-		color: var(--text-tertiary);
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.related-time {
-		font-size: 0.625rem;
-		color: var(--text-tertiary);
-		white-space: nowrap;
-		flex-shrink: 0;
-	}
-	.related-empty {
-		font-size: 0.75rem;
-		color: var(--text-tertiary);
-		padding: 0.5rem 0.625rem;
-	}
-
-	/* Per-issue history timeline */
-	.history-toggle {
-		display: flex; align-items: center; gap: 0.375rem;
-		background: none; border: none; padding: 0; cursor: pointer; color: inherit;
-	}
-	.history-toggle .section-label { margin: 0; }
-	.history-list { list-style: none; margin: 0.5rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.5rem; }
-	.history-item { display: flex; align-items: flex-start; gap: 0.5rem; }
-	.history-dot {
-		flex-shrink: 0; width: 6px; height: 6px; margin-top: 0.3rem; border-radius: 50%;
-		background: var(--accent-primary, #6366f1);
-	}
-	.history-meta { display: flex; flex-direction: column; gap: 0.0625rem; min-width: 0; }
-	.history-changes { font-size: 0.6875rem; color: var(--text-secondary); }
-	.history-time { font-size: 0.5625rem; color: var(--text-tertiary); }
-	.related-history {
-		border-top: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
-		padding: 0.5rem 0.625rem;
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		max-height: 320px;
-		overflow-y: auto;
-	}
-	.chat-msg {
-		display: flex;
-		flex-direction: column;
-		gap: 0.125rem;
-	}
-	.chat-role {
-		font-size: 0.5625rem;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		font-weight: 700;
-		color: var(--text-tertiary);
-	}
-	.chat-user .chat-role { color: var(--accent, #9ca3af); }
-	.chat-assistant .chat-role { color: var(--success, #86efac); }
-	.chat-body {
-		font-size: 0.75rem;
-		line-height: 1.5;
-		color: var(--text-primary);
-		word-break: break-word;
-	}
-	.chat-plain { white-space: pre-wrap; }
-
-	.label-chip {
-		padding: 0.1875rem 0.5rem;
-		background: var(--bg-elevated);
-		border-radius: 6px;
-		font-size: 0.6875rem;
-		font-weight: 500;
-		color: var(--text-secondary);
-	}
-
 	/* Warning banner */
 	.banner-warning {
 		display: flex;
@@ -1089,9 +535,5 @@
 	:global(.app.light) .header { background: var(--surface-card); }
 	:global(.app.light) .id-badge { background: rgba(0, 0, 0, 0.04); border-color: var(--border-subtle); }
 	:global(.app.light) .id-badge:hover { background: rgba(0, 0, 0, 0.06); }
-	:global(.app.light) .specs-bar { border-color: var(--border-subtle); }
-	:global(.app.light) .spec-priority, :global(.app.light) .spec-type, :global(.app.light) .spec-human { background: rgba(0, 0, 0, 0.04); }
-	:global(.app.light) .spec-agent { background: rgba(16, 185, 129, 0.08); }
 	:global(.app.light) .summary-callout { background: rgba(16, 185, 129, 0.05); }
-	:global(.app.light) .label-chip { background: rgba(0, 0, 0, 0.04); }
 </style>
