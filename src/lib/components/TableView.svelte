@@ -1,20 +1,11 @@
 <script lang="ts">
 	import type { Issue, TableColumnConfig, TableColumnKey, TableSortState, Column } from '$lib/types';
 	import { TABLE_COLUMN_MAP, defaultTableColumns } from '$lib/table-columns';
-	import {
-		columns as defaultStatusColumns,
-		getIssueColumn,
-		getPriorityConfig,
-		getTypeIcon,
-		getDueInfo,
-		formatMinutes,
-		formatTimestamp,
-		calculateImpactScore,
-		getImpactLevel,
-		isAgentAssignee,
-		copyToClipboard
-	} from '$lib/utils';
+	import { columns as defaultStatusColumns, getPriorityConfig } from '$lib/utils';
+	import { createTableEdit } from '$lib/stores/table-edit.svelte';
+	import { createTableSelection } from '$lib/stores/table-selection.svelte';
 	import Icon from './Icon.svelte';
+	import TableCell from './TableCell.svelte';
 
 	interface Props {
 		issues: Issue[];
@@ -57,103 +48,19 @@
 	// keyboard next/prev navigation. `sort` is used only for the header indicator.
 	const rows = $derived(issues);
 
-	// --- Multi-select for bulk actions (shift-click range, ctrl/cmd-click toggle) ---
-	// Selection is controlled by the parent so a sibling grid can share it.
-	const selectedSet = $derived(new Set(selectedIds));
-	let anchorId: string | null = null;
-
-	// Drop selections that scroll out of the current filtered/sorted view.
-	$effect(() => {
-		const present = new Set(issues.map((i) => i.id));
-		if (selectedIds.some((id) => !present.has(id))) {
-			onselectionchange(selectedIds.filter((id) => present.has(id)));
-		}
+	const selection = createTableSelection({
+		getRows: () => rows,
+		getSelectedIds: () => selectedIds,
+		onselectionchange: (ids) => onselectionchange(ids),
+		onselect: (issue) => onselect(issue),
+		onbulkupdate: (ids, updates) => onbulkupdate(ids, updates),
+		onbulkdelete: (ids) => onbulkdelete(ids)
 	});
 
-	function onRowClick(e: MouseEvent, issue: Issue, index: number) {
-		if (e.shiftKey) {
-			const anchorIdx = anchorId ? rows.findIndex((r) => r.id === anchorId) : -1;
-			if (anchorIdx === -1) {
-				onselectionchange([issue.id]);
-				anchorId = issue.id;
-			} else {
-				const [lo, hi] = anchorIdx <= index ? [anchorIdx, index] : [index, anchorIdx];
-				const next: string[] = [];
-				for (let k = lo; k <= hi; k++) next.push(rows[k].id);
-				onselectionchange(next);
-			}
-			return;
-		}
-		if (e.metaKey || e.ctrlKey) {
-			const next = new Set(selectedIds);
-			if (next.has(issue.id)) next.delete(issue.id);
-			else next.add(issue.id);
-			onselectionchange([...next]);
-			anchorId = issue.id;
-			return;
-		}
-		onselectionchange([]);
-		anchorId = issue.id;
-		onselect(issue);
-	}
-
-	function clearSelection() {
-		onselectionchange([]);
-		anchorId = null;
-	}
-	function applyBulkStatus(e: Event) {
-		const el = e.currentTarget as HTMLSelectElement;
-		if (el.value) onbulkupdate(selectedIds, { status: el.value as Issue['status'] });
-		el.value = '';
-	}
-	function applyBulkPriority(e: Event) {
-		const el = e.currentTarget as HTMLSelectElement;
-		if (el.value !== '') onbulkupdate(selectedIds, { priority: Number(el.value) as Issue['priority'] });
-		el.value = '';
-	}
-	function bulkDelete() {
-		if (selectedIds.length === 0) return;
-		onbulkdelete(selectedIds);
-		clearSelection();
-	}
-
-	// --- Copy selected rows (IDs, or full details) in visible order ---
-	let copiedKind = $state<'ids' | 'details' | null>(null);
-	let copiedTimer: ReturnType<typeof setTimeout> | null = null;
-
-	function selectedInOrder(): Issue[] {
-		return rows.filter((r) => selectedSet.has(r.id));
-	}
-
-	function flashCopied(kind: 'ids' | 'details') {
-		if (copiedTimer) clearTimeout(copiedTimer);
-		copiedKind = kind;
-		copiedTimer = setTimeout(() => (copiedKind = null), 1500);
-	}
-
-	function formatFull(issue: Issue): string {
-		const lines = [`${issue.id}  ${issue.title}`];
-		const meta = [`status: ${issue.status}`, `priority: ${getPriorityConfig(issue.priority).label}`, `type: ${issue.issue_type}`];
-		if (issue.assignee) meta.push(`assignee: ${issue.assignee}`);
-		if (issue.labels?.length) meta.push(`labels: ${issue.labels.join(', ')}`);
-		lines.push(meta.join('  |  '));
-		if (issue.description?.trim()) lines.push('', issue.description.trim());
-		return lines.join('\n');
-	}
-
-	async function copyIds() {
-		const sel = selectedInOrder();
-		if (sel.length === 0) return;
-		await copyToClipboard(sel.map((i) => i.id).join('\n'));
-		flashCopied('ids');
-	}
-
-	async function copyDetails() {
-		const sel = selectedInOrder();
-		if (sel.length === 0) return;
-		await copyToClipboard(sel.map(formatFull).join('\n\n---\n\n'));
-		flashCopied('details');
-	}
+	const edit = createTableEdit({
+		getIssues: () => issues,
+		onupdate: (id, updates) => onupdate(id, updates)
+	});
 
 	// --- Column resize (live width while dragging, committed on release) ---
 	let liveWidths = $state<Record<string, number>>({});
@@ -252,130 +159,6 @@
 		dragColKey = null;
 		dragOverKey = null;
 	}
-
-	// --- Inline cell editing ---
-	type EditableColumn = 'title' | 'status' | 'priority' | 'type' | 'assignee';
-	const EDITABLE_COLUMNS: Set<TableColumnKey> = new Set(['title', 'status', 'priority', 'type', 'assignee']);
-	const TYPE_OPTS = ['task', 'bug', 'feature', 'epic', 'chore'];
-
-	let editCell = $state<{ issueId: string; column: EditableColumn } | null>(null);
-	let editValue = $state<string>('');
-
-	function isEditing(issueId: string, column: TableColumnKey): boolean {
-		return editCell?.issueId === issueId && editCell?.column === column;
-	}
-
-	function startEdit(issue: Issue, column: EditableColumn) {
-		// Get current value based on column
-		let value: string;
-		switch (column) {
-			case 'title':
-				value = issue.title;
-				break;
-			case 'status':
-				value = issue.status;
-				break;
-			case 'priority':
-				value = String(issue.priority);
-				break;
-			case 'type':
-				value = issue.issue_type;
-				break;
-			case 'assignee':
-				value = issue.assignee ?? '';
-				break;
-		}
-		editCell = { issueId: issue.id, column };
-		editValue = value;
-	}
-
-	function cancelEdit() {
-		editCell = null;
-		editValue = '';
-	}
-
-	function commitEdit() {
-		if (!editCell) return;
-		const issue = issues.find((i) => i.id === editCell!.issueId);
-		if (!issue) {
-			cancelEdit();
-			return;
-		}
-
-		let updates: Partial<Issue> = {};
-		const col = editCell.column;
-
-		switch (col) {
-			case 'title':
-				if (editValue.trim() && editValue !== issue.title) {
-					updates.title = editValue.trim();
-				}
-				break;
-			case 'status':
-				if (editValue !== issue.status) {
-					updates.status = editValue as Issue['status'];
-				}
-				break;
-			case 'priority':
-				const newPriority = Number(editValue) as Issue['priority'];
-				if (newPriority !== issue.priority) {
-					updates.priority = newPriority;
-				}
-				break;
-			case 'type':
-				if (editValue !== issue.issue_type) {
-					updates.issue_type = editValue;
-				}
-				break;
-			case 'assignee':
-				const newAssignee = editValue.trim() || undefined;
-				if (newAssignee !== issue.assignee) {
-					updates.assignee = newAssignee;
-				}
-				break;
-		}
-
-		if (Object.keys(updates).length > 0) {
-			onupdate(editCell.issueId, updates);
-		}
-
-		cancelEdit();
-	}
-
-	function onCellDblClick(e: MouseEvent, issue: Issue, column: TableColumnKey) {
-		if (!EDITABLE_COLUMNS.has(column)) return;
-		e.stopPropagation();
-		startEdit(issue, column as EditableColumn);
-	}
-
-	function onEditKeydown(e: KeyboardEvent) {
-		if (e.key === 'Escape') {
-			e.preventDefault();
-			e.stopPropagation();
-			cancelEdit();
-		} else if (e.key === 'Enter' && !e.shiftKey) {
-			e.preventDefault();
-			e.stopPropagation();
-			commitEdit();
-		}
-	}
-
-	function onEditBlur() {
-		// Small delay to allow click on dropdown options to register
-		setTimeout(() => {
-			if (editCell) commitEdit();
-		}, 150);
-	}
-
-	function onRowKey(e: KeyboardEvent, issue: Issue) {
-		if (e.key === 'Enter' || e.key === ' ') {
-			e.preventDefault();
-			// Opening one ticket exits multi-select (mirror onRowClick), otherwise the
-			// selection grid would keep preempting the detail panel we just opened.
-			onselectionchange([]);
-			onselect(issue);
-		}
-	}
 </script>
 
 <div class="table-view">
@@ -453,119 +236,22 @@
 				<div
 					class="tr"
 					class:selected={issue.id === selectedId}
-					class:bulk-selected={selectedSet.has(issue.id)}
+					class:bulk-selected={selection.selectedSet.has(issue.id)}
 					class:closed={issue.status === 'closed'}
 					role="button"
 					tabindex="0"
-					onclick={(e) => onRowClick(e, issue, i)}
-					onkeydown={(e) => onRowKey(e, issue)}
+					onclick={(e) => selection.onRowClick(e, issue, i)}
+					onkeydown={(e) => selection.onRowKey(e, issue)}
 				>
 					{#each visibleCols as c (c.key)}
-						{@const def = TABLE_COLUMN_MAP[c.key]}
-						{@const editable = EDITABLE_COLUMNS.has(c.key)}
-						{@const editing = isEditing(issue.id, c.key)}
-						<!-- svelte-ignore a11y_no_static_element_interactions -->
-						<div
-							class="td"
-							style="width: {widthOf(c.key)}px;"
-							class:num={def.align === 'right'}
-							class:editable
-							class:editing
-							ondblclick={(e) => editable && onCellDblClick(e, issue, c.key)}
-						>
-							{#if c.key === 'seq'}
-								<span class="mono muted" title={issue.id}>#{issue.seq}</span>
-							{:else if c.key === 'title'}
-								{#if editing}
-									<input
-										type="text"
-										class="edit-input"
-										bind:value={editValue}
-										onkeydown={onEditKeydown}
-										onblur={onEditBlur}
-										autofocus
-									/>
-								{:else}
-									<span class="cell-title">{issue.title}</span>
-								{/if}
-							{:else if c.key === 'status'}
-								{#if editing}
-									<select class="edit-select" bind:value={editValue} onkeydown={onEditKeydown} onblur={onEditBlur} autofocus>
-										{#each statusColumns as col (col.status)}
-											<option value={col.status}>{col.label}</option>
-										{/each}
-									</select>
-								{:else}
-									{@const col = getIssueColumn(issue)}
-									<span class="pill" style="--c: {col.accent};"><span class="dot"></span>{col.label}</span>
-								{/if}
-							{:else if c.key === 'priority'}
-								{#if editing}
-									<select class="edit-select" bind:value={editValue} onkeydown={onEditKeydown} onblur={onEditBlur} autofocus>
-										{#each PRIORITY_OPTS as p (p.value)}
-											<option value={p.value}>{p.label}</option>
-										{/each}
-									</select>
-								{:else}
-									{@const p = getPriorityConfig(issue.priority)}
-									<span class="pill" style="--c: {p.color};"><span class="dot"></span>{p.label}</span>
-								{/if}
-							{:else if c.key === 'type'}
-								{#if editing}
-									<select class="edit-select" bind:value={editValue} onkeydown={onEditKeydown} onblur={onEditBlur} autofocus>
-										{#each TYPE_OPTS as t (t)}
-											<option value={t}>{t}</option>
-										{/each}
-									</select>
-								{:else}
-									<span class="type"><Icon name={getTypeIcon(issue.issue_type)} size={12} />{issue.issue_type}</span>
-								{/if}
-							{:else if c.key === 'assignee'}
-								{#if editing}
-									<input
-										type="text"
-										class="edit-input"
-										bind:value={editValue}
-										onkeydown={onEditKeydown}
-										onblur={onEditBlur}
-										placeholder="Unassigned"
-										autofocus
-									/>
-								{:else if issue.assignee}
-									<span class="assignee" class:agent={isAgentAssignee(issue.assignee)}>{issue.assignee}</span>
-								{:else}
-									<span class="muted">—</span>
-								{/if}
-							{:else if c.key === 'labels'}
-								{@const ls = issue.labels ?? []}
-								{#if ls.length}
-									<span class="tags">
-										{#each ls.slice(0, 3) as l (l)}<span class="tag">{l}</span>{/each}
-										{#if ls.length > 3}<span class="muted">+{ls.length - 3}</span>{/if}
-									</span>
-								{:else}
-									<span class="muted">—</span>
-								{/if}
-							{:else if c.key === 'due'}
-								{@const d = getDueInfo(issue.due_at)}
-								{#if d}<span class="due {d.level}" title={d.absolute}>{d.label}</span>{:else}<span class="muted">—</span>{/if}
-							{:else if c.key === 'estimate'}
-								{@const m = formatMinutes(issue.estimated_minutes)}
-								{#if m}<span class="mono">{m}</span>{:else}<span class="muted">—</span>{/if}
-							{:else if c.key === 'dependents'}
-								{@const n = issue.dependent_count ?? issue.dependents?.length ?? 0}
-								{#if n > 0}<span class="mono">{n}</span>{:else}<span class="muted">—</span>{/if}
-							{:else if c.key === 'impact'}
-								{@const s = calculateImpactScore(issue)}
-								<span class="mono" style="color: {getImpactLevel(s).color};">{s}</span>
-							{:else if c.key === 'created'}
-								{@const t = formatTimestamp(issue.created_at)}
-								<span class="muted" title={t.absolute}>{t.relative}</span>
-							{:else if c.key === 'updated'}
-								{@const t = formatTimestamp(issue.updated_at)}
-								<span class="muted" title={t.absolute}>{t.relative}</span>
-							{/if}
-						</div>
+						<TableCell
+							{issue}
+							colKey={c.key}
+							width={widthOf(c.key)}
+							num={TABLE_COLUMN_MAP[c.key].align === 'right'}
+							{statusColumns}
+							{edit}
+						/>
 					{/each}
 				</div>
 			{/each}
@@ -576,22 +262,22 @@
 		<div class="bulk-bar">
 			<span class="bulk-count">{selectedIds.length} selected</span>
 			<div class="bulk-actions">
-				<select class="bulk-select" onchange={applyBulkStatus} aria-label="Set status for selected">
+				<select class="bulk-select" onchange={selection.applyBulkStatus} aria-label="Set status for selected">
 					<option value="">Set status…</option>
 					{#each statusColumns as c (c.key)}<option value={c.status}>{c.label}</option>{/each}
 				</select>
-				<select class="bulk-select" onchange={applyBulkPriority} aria-label="Set priority for selected">
+				<select class="bulk-select" onchange={selection.applyBulkPriority} aria-label="Set priority for selected">
 					<option value="">Set priority…</option>
 					{#each PRIORITY_OPTS as p (p.value)}<option value={p.value}>{p.label}</option>{/each}
 				</select>
-				<button class="bulk-btn" onclick={copyIds} title="Copy selected IDs">
-					<Icon name={copiedKind === 'ids' ? 'check' : 'copy'} size={13} /> {copiedKind === 'ids' ? 'Copied' : 'IDs'}
+				<button class="bulk-btn" onclick={selection.copyIds} title="Copy selected IDs">
+					<Icon name={selection.copiedKind === 'ids' ? 'check' : 'copy'} size={13} /> {selection.copiedKind === 'ids' ? 'Copied' : 'IDs'}
 				</button>
-				<button class="bulk-btn" onclick={copyDetails} title="Copy selected issue details">
-					<Icon name={copiedKind === 'details' ? 'check' : 'copy'} size={13} /> {copiedKind === 'details' ? 'Copied' : 'Details'}
+				<button class="bulk-btn" onclick={selection.copyDetails} title="Copy selected issue details">
+					<Icon name={selection.copiedKind === 'details' ? 'check' : 'copy'} size={13} /> {selection.copiedKind === 'details' ? 'Copied' : 'Details'}
 				</button>
-				<button class="bulk-btn danger" onclick={bulkDelete}><Icon name="trash" size={13} /> Delete</button>
-				<button class="bulk-btn" onclick={clearSelection}>Clear</button>
+				<button class="bulk-btn danger" onclick={selection.bulkDelete}><Icon name="trash" size={13} /> Delete</button>
+				<button class="bulk-btn" onclick={selection.clearSelection}>Clear</button>
 			</div>
 		</div>
 	{/if}
@@ -935,135 +621,6 @@
 		background: color-mix(in srgb, var(--state-blocked) 15%, transparent);
 		color: var(--state-blocked);
 		border-color: color-mix(in srgb, var(--state-blocked) 40%, transparent);
-	}
-
-	.td {
-		display: flex;
-		align-items: center;
-		gap: 0.375rem;
-		padding: 0.5rem 0.75rem;
-		font-size: 0.8125rem;
-		color: var(--text-secondary);
-		flex-shrink: 0;
-		overflow: hidden;
-	}
-	.td.num {
-		justify-content: flex-end;
-	}
-	.td.editable {
-		cursor: default;
-	}
-	.td.editable:hover:not(.editing) {
-		background: var(--bg-elevated);
-	}
-	.td.editing {
-		padding: 0.25rem 0.375rem;
-	}
-
-	.edit-input,
-	.edit-select {
-		width: 100%;
-		height: 1.75rem;
-		padding: 0 0.5rem;
-		background: var(--surface-panel);
-		border: 1px solid var(--accent-primary);
-		border-radius: var(--radius-xs);
-		color: var(--text-primary);
-		font-family: inherit;
-		font-size: 0.8125rem;
-		outline: none;
-		box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-primary) 20%, transparent);
-	}
-	.edit-input::placeholder {
-		color: var(--text-muted);
-	}
-	.edit-select {
-		cursor: pointer;
-	}
-
-	.cell-title {
-		color: var(--text-primary);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.mono {
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-	}
-	.muted {
-		color: var(--text-muted);
-	}
-
-	.pill {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3125rem;
-		padding: 0.125rem 0.4375rem;
-		border-radius: var(--radius-full);
-		background: color-mix(in srgb, var(--c) 12%, transparent);
-		color: var(--c);
-		font-size: 0.6875rem;
-		font-weight: 600;
-		white-space: nowrap;
-	}
-	.pill .dot {
-		width: 6px;
-		height: 6px;
-		border-radius: 50%;
-		background: var(--c);
-	}
-
-	.type {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.3125rem;
-		text-transform: capitalize;
-	}
-	.type :global(svg) {
-		opacity: 0.7;
-	}
-
-	.assignee {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.assignee.agent {
-		color: var(--accent-primary);
-		font-family: var(--font-mono);
-		font-size: 0.75rem;
-	}
-
-	.tags {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-		overflow: hidden;
-	}
-	.tag {
-		padding: 0.0625rem 0.3125rem;
-		background: var(--bg-elevated);
-		border: 1px solid var(--border-subtle);
-		border-radius: var(--radius-xs);
-		font-size: 0.625rem;
-		color: var(--text-tertiary);
-		white-space: nowrap;
-	}
-
-	.due {
-		font-size: 0.75rem;
-		font-weight: 600;
-	}
-	.due.overdue {
-		color: var(--state-blocked);
-	}
-	.due.soon {
-		color: var(--state-in-progress);
-	}
-	.due.normal {
-		color: var(--text-secondary);
 	}
 
 	.empty {
