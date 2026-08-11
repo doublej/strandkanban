@@ -4,6 +4,7 @@
 	import type { PageOps } from '$lib/stores/page-ops.svelte';
 	import type { CardDrag } from '$lib/drag-drop/card-drag.svelte';
 	import type { ViewState } from '$lib/stores/view-state.svelte';
+	import type { BoardAnimation } from '$lib/stores/board-animation.svelte';
 	import { getColumnsWithCustom } from '$lib/utils';
 	import { settings } from '$lib/stores/settings.svelte';
 	import BoardView from './BoardView.svelte';
@@ -29,11 +30,7 @@
 		isFilterPreviewing: boolean;
 		projectTransition: 'idle' | 'wipe-out' | 'wipe-in';
 		worktreeTicketIds: Set<string>;
-		flyingCards: Map<string, any>;
-		placeholders: Array<{ id: string; targetColumn: string; height: number }>;
-		shrinkingSourceIds: Set<string>;
-		registerCard: (node: HTMLElement, id: string) => void;
-		registerPlaceholder: (node: HTMLElement, id: string) => void;
+		anim: BoardAnimation;
 		managerSession: Pane | null;
 		wsConnected: boolean;
 		currentProjectPath: string;
@@ -57,11 +54,7 @@
 		isFilterPreviewing,
 		projectTransition,
 		worktreeTicketIds,
-		flyingCards,
-		placeholders,
-		shrinkingSourceIds,
-		registerCard,
-		registerPlaceholder,
+		anim,
 		managerSession,
 		wsConnected,
 		currentProjectPath,
@@ -90,11 +83,7 @@
 		{isFilterPreviewing}
 		{projectTransition}
 		{worktreeTicketIds}
-		{flyingCards}
-		{placeholders}
-		{shrinkingSourceIds}
-		{registerCard}
-		{registerPlaceholder}
+		{anim}
 		{managerSession}
 		{wsConnected}
 		{currentProjectPath}

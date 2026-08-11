@@ -33,6 +33,7 @@
 	import { createIssueStore } from '$lib/stores/issue-store.svelte';
 	import { createCardDrag } from '$lib/drag-drop/card-drag.svelte';
 	import { createPageOps } from '$lib/stores/page-ops.svelte';
+	import { createBoardAnimation } from '$lib/stores/board-animation.svelte';
 	import { createViewState } from '$lib/stores/view-state.svelte';
 	import { createZen } from '$lib/stores/zen.svelte';
 	import { getManagerSessionName } from '$lib/stores/manager.svelte';
@@ -71,12 +72,6 @@
 	let showWizard = $state(browser && !localStorage.getItem('beads-wizard-complete'));
 	let showPrompts = $state(false);
 	let projectName = $state('');
-	let teleports = $state<{id: string; from: {x: number; y: number; w: number; h: number}; to: {x: number; y: number; w: number; h: number}; startTime: number}[]>([]);
-	let placeholders = $state<{id: string; targetColumn: string; height: number}[]>([]);
-	let cardRefs = $state<Map<string, HTMLElement>>(new Map());
-	let placeholderRefs = $state<Map<string, HTMLElement>>(new Map());
-	let flyingCards = $state<Map<string, {from: {x: number; y: number; w: number; h: number}; to: {x: number; y: number; w: number; h: number}; issue: Issue}>>(new Map());
-	let shrinkingSourceIds = $state<Set<string>>(new Set());
 	let tableSelectedIds = $state<string[]>([]);
 	let projects = $state<Project[]>([]);
 	let showProjectSwitcher = $state(false);
@@ -108,68 +103,14 @@
 		}
 		return ids;
 	});
+	// --- Card teleport animation ---
+	const boardAnimation = createBoardAnimation();
+
 	// --- Issue Store ---
 	const issueStore = createIssueStore({
 		onNewIssue: () => {}, // Notifications now handled by event system
 		onStatusChange: () => {}, // Notifications now handled by event system
-		getCardPosition: (id) => {
-			const el = cardRefs.get(id);
-			if (!el) return null;
-			const rect = el.getBoundingClientRect();
-			return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
-		},
-		getPlaceholderPosition: (id) => {
-			const el = placeholderRefs.get(id);
-			if (!el) return null;
-			const rect = el.getBoundingClientRect();
-			return { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
-		},
-		measureCardHeight: (id) => {
-			const cardEl = document.querySelector(`[data-card-id="${id}"]`);
-			return cardEl?.getBoundingClientRect().height ?? 80;
-		},
-		measureTargetPosition: (targetColumn, height) => {
-			// Find the column element
-			const columnEl = document.querySelector(`[data-column-key="${targetColumn}"] .cards`);
-			if (!columnEl) return null;
-
-			// Create temporary hidden placeholder
-			const tempPlaceholder = document.createElement('div');
-			tempPlaceholder.style.height = `${height}px`;
-			tempPlaceholder.style.visibility = 'hidden';
-			tempPlaceholder.style.position = 'relative';
-
-			// Inject, measure, remove
-			columnEl.insertBefore(tempPlaceholder, columnEl.firstChild);
-			const rect = tempPlaceholder.getBoundingClientRect();
-			const pos = { x: rect.left, y: rect.top, w: rect.width, h: rect.height };
-			columnEl.removeChild(tempPlaceholder);
-			return pos;
-		},
-		addPlaceholder: (id, targetColumn, height) => {
-			if (!placeholders.some(p => p.id === id)) {
-				placeholders = [...placeholders, { id, targetColumn, height }];
-			}
-		},
-		addFlyingCard: (id, from, to, issue) => {
-			flyingCards.set(id, { from, to, issue });
-			flyingCards = new Map(flyingCards);
-		},
-		addTeleport: (id, from, to) => {
-			teleports = [...teleports, { id, from, to, startTime: Date.now() }];
-		},
-		addShrinkingSource: (id) => {
-			shrinkingSourceIds.add(id);
-			shrinkingSourceIds = new Set(shrinkingSourceIds);
-		},
-		cleanupAnimation: (id) => {
-			teleports = teleports.filter(t => t.id !== id);
-			placeholders = placeholders.filter(p => p.id !== id);
-			flyingCards.delete(id);
-			flyingCards = new Map(flyingCards);
-			shrinkingSourceIds.delete(id);
-			shrinkingSourceIds = new Set(shrinkingSourceIds);
-		},
+		animation: boardAnimation,
 		notifyTicket: (id, message, type, context) => ops.notifyTicket(id, message, type, context),
 		onEditingIssueClosedExternally: () => { ops.issueClosedExternally = true; },
 		getEditingIssue: () => ops.editingIssue,
@@ -305,17 +246,6 @@
 		openZenReview: () => zen.openReview()
 	});
 	const { handleKeydown, handleKeyup, handleWindowBlur } = keyboardNav;
-
-	// --- Helpers ---
-	function registerCard(node: HTMLElement, id: string) {
-		cardRefs.set(id, node);
-		return { destroy() { cardRefs.delete(id); } };
-	}
-
-	function registerPlaceholder(node: HTMLElement, id: string) {
-		placeholderRefs.set(id, node);
-		return { destroy() { placeholderRefs.delete(id); } };
-	}
 
 	async function startAgentServer() {
 		try {
@@ -604,11 +534,7 @@
 			{isFilterPreviewing}
 			{projectTransition}
 			{worktreeTicketIds}
-			{flyingCards}
-			{placeholders}
-			{shrinkingSourceIds}
-			{registerCard}
-			{registerPlaceholder}
+			anim={boardAnimation}
 			{managerSession}
 			{wsConnected}
 			{currentProjectPath}
@@ -674,7 +600,7 @@
 	onbasesizechange={(px) => chatBarReserve = px}
 />
 
-<FlyingCardComponent {teleports} />
+<FlyingCardComponent teleports={boardAnimation.teleports} />
 
 <InitialLoader status={loadingStatus} visible={!initialLoaded} {projectName} />
 

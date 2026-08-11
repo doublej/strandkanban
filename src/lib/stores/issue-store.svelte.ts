@@ -1,4 +1,5 @@
 import type { Issue, LoadingStatus } from '$lib/types';
+import type { BoardAnimation } from '$lib/stores/board-animation.svelte';
 import { fetchMutations } from '$lib/mutationStore.svelte';
 import { appendProjectParam } from '$lib/project';
 
@@ -17,16 +18,8 @@ const POLL_INTERVAL_MS = 10_000;
 export interface IssueStoreCallbacks {
 	onNewIssue: (issue: Issue) => void;
 	onStatusChange: (issue: Issue, oldStatus: string) => void;
-	getCardPosition: (id: string) => { x: number; y: number; w: number; h: number } | null;
-	getPlaceholderPosition: (id: string) => { x: number; y: number; w: number; h: number } | null;
-	/** Rendered height of a card, or a fallback when it isn't on screen. */
-	measureCardHeight: (id: string) => number;
-	measureTargetPosition: (targetColumn: string, height: number) => { x: number; y: number; w: number; h: number } | null;
-	addPlaceholder: (id: string, targetColumn: string, height: number) => void;
-	addFlyingCard: (id: string, from: { x: number; y: number; w: number; h: number }, to: { x: number; y: number; w: number; h: number }, issue: Issue) => void;
-	addTeleport: (id: string, from: { x: number; y: number; w: number; h: number }, to: { x: number; y: number; w: number; h: number }) => void;
-	addShrinkingSource: (id: string) => void;
-	cleanupAnimation: (id: string) => void;
+	/** Card teleport animation — measured before, flown after, the issue list swap. */
+	animation: BoardAnimation;
 	notifyTicket: (id: string, message: string, type: 'status' | 'priority' | 'assignee', context: { ticketTitle: string; sender: string }) => void;
 	onEditingIssueClosedExternally: () => void;
 	getEditingIssue: () => Issue | null;
@@ -107,40 +100,12 @@ export function createIssueStore(callbacks: IssueStoreCallbacks, initialIssues: 
 			return;
 		}
 
-		// PRE-FLIGHT: Measure positions before any DOM changes
-		const measurements = statusChanges.map(({ id, newStatus }) => {
-			const fromPos = callbacks.getCardPosition(id);
-			const height = callbacks.measureCardHeight(id);
-			const toPos = callbacks.measureTargetPosition(newStatus, height);
-			return { id, fromPos, toPos, newStatus, height };
-		});
-
-		// START ANIMATIONS: Source shrink + target expand
-		for (const { id, newStatus, height } of measurements) {
-			callbacks.addShrinkingSource(id);
-			callbacks.addPlaceholder(id, newStatus, height);
-		}
+		const measurements = callbacks.animation.measureStatusChanges(statusChanges);
 
 		// Update state immediately (cards will shrink, not hide)
 		issues = mergeWithPendingUpdates(data.issues);
 
-		// FLYING CARD: Delay 150ms for visual overlap
-		setTimeout(() => {
-			for (const { id, fromPos, toPos } of measurements) {
-				if (toPos && fromPos) {
-					const issue = issues.find(i => i.id === id);
-					callbacks.addFlyingCard(id, fromPos, toPos, issue!);
-					callbacks.addTeleport(id, fromPos, toPos);
-				}
-			}
-		}, 150);
-
-		// CLEANUP: Remove all animation artifacts
-		setTimeout(() => {
-			for (const { id } of measurements) {
-				callbacks.cleanupAnimation(id);
-			}
-		}, 750);
+		callbacks.animation.flyStatusChanges(measurements, (id) => issues.find(i => i.id === id));
 	}
 
 	function checkEditingIssueClosed(data: { issues: Issue[] }) {

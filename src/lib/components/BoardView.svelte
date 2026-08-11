@@ -4,6 +4,7 @@
 	import type { PageOps } from '$lib/stores/page-ops.svelte';
 	import type { CardDrag } from '$lib/drag-drop/card-drag.svelte';
 	import type { ViewState } from '$lib/stores/view-state.svelte';
+	import type { BoardAnimation } from '$lib/stores/board-animation.svelte';
 	import { columns, sortIssues, getIssueColumn } from '$lib/utils';
 	import { settings } from '$lib/stores/settings.svelte';
 	import { getManagerVisible } from '$lib/stores/manager.svelte';
@@ -27,11 +28,7 @@
 		isFilterPreviewing: boolean;
 		projectTransition: 'idle' | 'wipe-out' | 'wipe-in';
 		worktreeTicketIds: Set<string>;
-		flyingCards: Map<string, any>;
-		placeholders: Array<{ id: string; targetColumn: string; height: number }>;
-		shrinkingSourceIds: Set<string>;
-		registerCard: (node: HTMLElement, id: string) => void;
-		registerPlaceholder: (node: HTMLElement, id: string) => void;
+		anim: BoardAnimation;
 		managerSession: Pane | null;
 		wsConnected: boolean;
 		currentProjectPath: string;
@@ -51,11 +48,7 @@
 		isFilterPreviewing,
 		projectTransition,
 		worktreeTicketIds,
-		flyingCards,
-		placeholders,
-		shrinkingSourceIds,
-		registerCard,
-		registerPlaceholder,
+		anim,
 		managerSession,
 		wsConnected,
 		currentProjectPath
@@ -108,14 +101,14 @@
 				{animatingIds}
 				hasActiveFilters={viewState.hasActiveFilters}
 				{isFilterPreviewing}
-				{flyingCards}
-				{placeholders}
-				{shrinkingSourceIds}
+				flyingCards={anim.flyingCards}
+				placeholders={anim.placeholders}
+				shrinkingSourceIds={anim.shrinkingSourceIds}
 				{worktreeTicketIds}
 				{activeColumnIndex}
 				showColumnCounts={settings.showColumnCounts}
-				{registerCard}
-				{registerPlaceholder}
+				registerCard={anim.registerCard}
+				registerPlaceholder={anim.registerPlaceholder}
 				issueMatchesFilters={viewState.matchesFilters}
 				ondragover={(e) => cardDrag.handleDragOver(e, column.key)}
 				ondragleave={(e) => cardDrag.handleDragLeave(e, column.key)}
