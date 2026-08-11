@@ -17,8 +17,29 @@ export const reroute: Reroute = async ({ url }) => {
 	if (!import.meta.env.SSR) return;
 	if (!url.pathname.startsWith('/Users/') && !url.pathname.startsWith('/home/')) return;
 
-	const { existsSync, statSync, writeFileSync } = await import('fs');
+	const { existsSync, readFileSync, statSync, writeFileSync } = await import('fs');
 	const { join } = await import('path');
+	const { homedir } = await import('os');
+
+	// Only projects the user registered in the switcher may repoint the stored cwd.
+	// Without this, any request path could walk the filesystem and permanently switch the
+	// active project — and seed a per-cwd beads client (one dolt server each) plus the
+	// reaper's touched-cwd list from an attacker-chosen directory.
+	let allowed: Set<string>;
+	try {
+		const parsed = JSON.parse(
+			readFileSync(join(homedir(), '.strandkanban-projects.json'), 'utf-8')
+		);
+		if (!Array.isArray(parsed)) return;
+		allowed = new Set(
+			parsed
+				.map((p: { path?: string }) => String(p?.path ?? '').replace(/\/+$/, ''))
+				.filter(Boolean)
+		);
+	} catch {
+		return;
+	}
+	if (allowed.size === 0) return;
 
 	const segments = url.pathname.split('/').filter(Boolean);
 	let match: { cwd: string; idx: number } | null = null;
@@ -30,7 +51,7 @@ export const reroute: Reroute = async ({ url }) => {
 		} catch {
 			break;
 		}
-		if (existsSync(candidate + '/.beads')) {
+		if (allowed.has(candidate) && existsSync(candidate + '/.beads')) {
 			match = { cwd: candidate, idx: i };
 		}
 	}

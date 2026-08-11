@@ -8,8 +8,12 @@
  * cwd is always derived from the URL (?project=…). Body-based cwd is forbidden.
  */
 import { basename, join, resolve } from 'path';
+import { homedir } from 'os';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { ApiError } from './response';
+
+/** Written by /api/projects — the set of projects the user picked in the switcher. */
+const PROJECTS_FILE = join(homedir(), '.strandkanban-projects.json');
 
 const CWD_FILE = process.env.BEADS_KANBAN_CWD_FILE || join(process.cwd(), '.beads-cwd');
 
@@ -49,14 +53,40 @@ export function setStoredCwd(path: string): void {
 	writeFileSync(CWD_FILE, path, 'utf-8');
 }
 
-/** Resolve the project cwd from a request URL's ?project= param, falling back to getStoredCwd(). */
+/** Paths the user registered in the project switcher. Re-read per call rather than cached:
+ *  a project registers itself on first visit, while this process is already running. */
+function registeredProjects(): Set<string> {
+	try {
+		const parsed = JSON.parse(readFileSync(PROJECTS_FILE, 'utf-8'));
+		if (!Array.isArray(parsed)) return new Set();
+		return new Set(
+			parsed
+				.map((p: { path?: string }) => (p?.path ? resolve(p.path) : ''))
+				.filter(Boolean)
+		);
+	} catch {
+		return new Set();
+	}
+}
+
+/**
+ * Resolve the project cwd from a request URL's ?project= param, falling back to
+ * getStoredCwd().
+ *
+ * ?project= is URL-controlled, so it is accepted only for the project already selected or
+ * one the user registered in the switcher. Anything else silently falls back: an arbitrary
+ * path here would seed the per-cwd beads registry (a dolt server each) and the reaper's
+ * touched-cwd list straight from a request.
+ */
 export function resolveProjectCwd(url: URL): string {
 	const project = url.searchParams.get('project');
+	const stored = getStoredCwd();
 	if (project) {
 		const resolved = resolve(project);
-		if (existsSync(resolved)) return resolved;
+		const allowed = resolved === stored || registeredProjects().has(resolved);
+		if (allowed && existsSync(resolved)) return resolved;
 	}
-	return getStoredCwd();
+	return stored;
 }
 
 export function requireProjectCwd(url: URL): string {
