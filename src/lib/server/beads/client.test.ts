@@ -1,93 +1,69 @@
 import { expect, test } from 'bun:test';
-import { beads, createArgs, isFresh, parseExport, unwrapBdJson, updateArgs } from './client';
+import type { ExportIssue, Issue as SdkIssue } from 'beads-sdk';
+import { beads, unwrapBdJson } from './client';
+import { mapIssues } from './issue-view';
 
-test('createArgs passes values as separate argv entries, never quoted', () => {
-	expect(createArgs("it's a $(rm -rf /) title", { priority: 1, deps: ['a', 'b'], estimate: 4.6 })).toEqual([
-		'create',
-		"it's a $(rm -rf /) title",
-		'--json',
-		'--priority',
-		'1',
-		'--deps',
-		'a,b',
-		'--estimate',
-		'5'
-	]);
-});
+const rows: ExportIssue[] = [
+	{
+		id: 'bd-new',
+		title: 'new',
+		status: 'open',
+		priority: 1,
+		issue_type: 'task',
+		created_at: '2026-01-02'
+	},
+	{
+		id: 'bd-old',
+		title: 'old',
+		status: 'open',
+		priority: 1,
+		issue_type: 'task',
+		created_at: '2026-01-01'
+	}
+];
 
-test('createArgs omits absent options', () => {
-	expect(createArgs('bare')).toEqual(['create', 'bare', '--json']);
-});
+const issue: SdkIssue = {
+	id: 'bd-new',
+	title: 'new',
+	description: 'description',
+	design: 'design',
+	acceptance_criteria: 'acceptance',
+	notes: 'notes',
+	status: 'open',
+	priority: 1,
+	issue_type: 'task',
+	created_at: '2026-01-02',
+	labels: ['frontend'],
+	dependencies: [{ id: 'bd-old', title: 'old', status: 'open', dependency_type: 'blocks' }],
+	dependents: [],
+	comments: [{ id: '1', author: 'jj', text: 'hello', created_at: '2026-01-02' }],
+	attachments: [{ filename: 'a.txt', size: 1, mimetype: 'text/plain', created_at: '2026-01-02' }],
+	metadata: { agent_model: 'opus', agent_effort: 'high' }
+};
 
-test('updateArgs collapses labels and metadata into one invocation', () => {
-	expect(
-		updateArgs('bd-1', {
-			status: 'closed',
-			addLabels: ['x', 'y'],
-			removeLabels: ['z'],
-			setMetadata: { agent_model: 'opus' },
-			unsetMetadata: ['agent_effort']
-		})
-	).toEqual([
-		'update',
-		'bd-1',
-		'--status',
-		'closed',
-		'--remove-label',
-		'z',
-		'--add-label',
-		'x',
-		'--add-label',
-		'y',
-		'--set-metadata',
-		'agent_model=opus',
-		'--unset-metadata',
-		'agent_effort'
-	]);
-});
-
-test('updateArgs returns null when there is nothing to change', () => {
-	expect(updateArgs('bd-1', {})).toBeNull();
-	expect(updateArgs('bd-1', { addLabels: [], removeLabels: [] })).toBeNull();
-});
-
-test('updateArgs keeps falsy-but-set values', () => {
-	expect(updateArgs('bd-1', { priority: 0, description: '', ephemeral: false })).toEqual([
-		'update',
-		'bd-1',
-		'--description',
-		'',
-		'--priority',
-		'0',
-		'--persistent'
-	]);
-});
-
-test('unwrapBdJson unwraps the 1.0 envelope and passes plain payloads through', () => {
+test('unwrapBdJson accepts enveloped and bare payloads', () => {
 	expect(unwrapBdJson('{"schema_version":1,"data":{"id":"bd-1"}}')).toEqual({ id: 'bd-1' });
 	expect(unwrapBdJson('{"id":"bd-1"}')).toEqual({ id: 'bd-1' });
-	expect(unwrapBdJson('[{"id":"bd-1"}]')).toEqual([{ id: 'bd-1' }]);
 });
 
-test('parseExport skips banners, blanks and memory beads', () => {
-	const rows = parseExport(
-		[
-			'auto-importing issues.jsonl',
-			'',
-			'{"_type":"memory","id":"m-1","title":"note"}',
-			'not json',
-			'{"id":"bd-1","title":"real","status":"open","priority":1,"issue_type":"task","created_at":"2026-01-01"}'
-		].join('\n')
-	);
-	expect(rows.map((r) => r.id)).toEqual(['bd-1']);
+test('mapIssues adds global sequence, counts, and agent metadata', () => {
+	const [mapped] = mapIssues(rows, [issue], false);
+	expect(mapped.seq).toBe(2);
+	expect(mapped.dependency_count).toBe(1);
+	expect(mapped.dependent_count).toBe(0);
+	expect(mapped.agent_model).toBe('opus');
+	expect(mapped.agent_effort).toBe('high');
+	expect(mapped.attachments).toHaveLength(1);
 });
 
-test('isFresh requires matching generation, mtime and an unexpired entry', () => {
-	const entry = { gen: 3, mtimeMs: 100, at: 1_000, rows: [] };
-	expect(isFresh(entry, 3, 100, 1_000)).toBe(true);
-	expect(isFresh(entry, 4, 100, 1_000)).toBe(false); // a write landed
-	expect(isFresh(entry, 3, 101, 1_000)).toBe(false); // JSONL changed underneath
-	expect(isFresh(entry, 3, 100, 40_000)).toBe(false); // older than the TTL
+test('mapIssues slim mode removes detail-only payloads', () => {
+	const [mapped] = mapIssues(rows, [issue], true);
+	expect(mapped).not.toHaveProperty('design');
+	expect(mapped).not.toHaveProperty('acceptance_criteria');
+	expect(mapped).not.toHaveProperty('notes');
+	expect(mapped).not.toHaveProperty('comments');
+	expect(mapped).not.toHaveProperty('attachments');
+	expect(mapped.description).toBe('description');
 });
 
 test('beads() memoizes one client per cwd', () => {

@@ -11,10 +11,10 @@ export const GET: RequestHandler = wrap(async ({ url }) => {
 	// ?ids=a,b,c → only those issues, full fidelity (deep links + the detail panel's lazy
 	// fetch of the fields the slim list omits).
 	const ids = url.searchParams.get('ids')?.split(',').map((s) => s.trim()).filter(Boolean);
-	if (ids?.length) return ok({ issues: await beads(cwd).issues(ids) });
+	if (ids?.length) return ok({ issues: await beads(cwd).issues({ ids }) });
 	// List reads are slim; ?scope=active omits closed issues (board's first paint).
 	const scope = url.searchParams.get('scope') === 'active' ? 'active' : 'all';
-	return ok({ issues: await beads(cwd).issues(undefined, { slim: true, scope }) });
+	return ok({ issues: await beads(cwd).issues({ slim: true, scope }) });
 });
 
 export const POST: RequestHandler = wrap(async ({ request, url }) => {

@@ -24,8 +24,8 @@ export const load: PageServerLoad = async ({ url }) => {
 	let issues: Issue[] = [];
 	let zenIssues: Issue[] = [];
 	try {
-		if (zenIds?.length) zenIssues = await bd.issues(zenIds);
-		else if ((await bd.count()) <= SSR_SEED_MAX_ISSUES) issues = await bd.issues(undefined, { slim: true });
+		if (zenIds?.length) zenIssues = await bd.issues({ ids: zenIds });
+		else if ((await bd.count()) <= SSR_SEED_MAX_ISSUES) issues = await bd.issues({ slim: true });
 	} catch {
 		// bd unavailable/unhealthy in the server env — fall through to empty; the
 		// client's existing fetch/retry path repopulates the board.

@@ -17,7 +17,7 @@ bun run check    # Type-check with svelte-check
 ## Architecture
 
 ### Data Flow
-- **Backend**: API routes in `src/routes/api/` use `$lib/db.ts` for reads (via `bd sql --json`, backend-agnostic), shell out to `bd` CLI for writes
+- **Backend**: API routes use the `beads-sdk` package through `src/lib/server/beads/`; the app layer adds UI-only sequence/slim/event mapping
 - **Frontend**: Single-page Kanban in `src/routes/+page.svelte`
 - Issues flow: SQLite DB → `$lib/db.ts` → API → Svelte state → Kanban columns
 
@@ -43,7 +43,7 @@ bun run check    # Type-check with svelte-check
 Each status maps to a Kanban column (Backlog, In Progress, Hooked, Blocked, Complete).
 
 ### Beads CLI Integration
-Write operations shell out to `bd` commands:
+`beads-sdk` runs `bd` asynchronously with argv arrays and owns export caching plus typed reads/writes. The app facade preserves touched-cwd tracking, UI issue fields, attachments, and event formatting. Typical write operations are:
 - `bd create "title" --json` - Create issue
 - `bd update ID --status STATUS` - Update issue
 - `bd close ID --reason "..."` - Close/delete issue
