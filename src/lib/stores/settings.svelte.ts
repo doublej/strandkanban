@@ -5,7 +5,7 @@ import type { CodexSandbox } from '$lib/agent/provider-options';
 import { coerceViewMode, type ViewRecipe, type ViewMode, type SortBy, type TableColumnConfig, type TableSortState } from '$lib/types';
 import { defaultTableColumns, reconcileTableColumns } from '$lib/table-columns';
 
-const DEFAULT_AGENT_FIRST_MESSAGE = 'You are an agent named "{name}". Await further instructions.';
+const DEFAULT_AGENT_FIRST_MESSAGE = 'You are an agent named "{name}". Acknowledge briefly and await further instructions.';
 
 const DEFAULT_AGENT_WORKFLOW = `## MANDATORY Ticket Workflow
 
