@@ -12,7 +12,7 @@ export type HttpConfig = {
   getSessionsCount: () => number;
   listSdkSessions: (cwd: string) => unknown[];
   getSessionHistory: (cwd: string, sessionId: string) => unknown[];
-  handleUpgrade: (req: Request, server: Server) => boolean;
+  handleUpgrade: (req: Request, server: Server<WSData>) => boolean;
   queue: AgentQueue;
   sessions: Map<string, AgentSession>;
 };
@@ -38,7 +38,7 @@ function requireCwd(url: URL): string | Response {
 }
 
 export function createHttpHandler(config: HttpConfig) {
-  return async function fetch(req: Request, server: Server): Promise<Response | undefined> {
+  return async function fetch(req: Request, server: Server<WSData>): Promise<Response | undefined> {
     const url = new URL(req.url);
 
     if (url.pathname === "/health") {
