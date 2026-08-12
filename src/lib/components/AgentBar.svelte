@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Pane, SdkSessionInfo } from '$lib/wsStore.svelte';
+	import type { Pane, SdkSessionInfo, ChatImage } from '$lib/wsStore.svelte';
 	import type { LoadingStatus } from '$lib/types';
 	import PaneActivity from './PaneActivity.svelte';
 	import StatusBar from './StatusBar.svelte';
@@ -43,7 +43,7 @@
 		extractTicketIdFromName: (name: string) => string | undefined;
 		onaddpane: (name: string, projectPath: string, firstMsg: string, systemPrompt: string, sessionId?: string, ticketId?: string) => void;
 		onremovepane: (name: string) => void;
-		onsendtopane: (name: string, msg: string, projectPath: string) => void;
+		onsendtopane: (name: string, msg: string, projectPath: string, images?: ChatImage[]) => void;
 		onstartagentserver: () => void;
 		onrestartagentserver: () => void;
 		onfetchsdksessions: (projectPath: string) => Promise<SdkSessionInfo[]>;
@@ -210,7 +210,7 @@
 		onCyclePaneSize={oncyclePaneSize}
 		onRemovePane={onremovepane}
 		onMinimizePane={(name) => { expandedPanes.delete(name); expandedPanes = new Set(expandedPanes); }}
-		onSendMessage={(name, msg) => onsendtopane(name, msg, currentProjectPath)}
+		onSendMessage={(name, msg, images) => onsendtopane(name, msg, currentProjectPath, images)}
 		onMouseMove={onhandleMouseMove}
 		onMouseUp={onhandleMouseUp}
 		onEndSession={onendSession}

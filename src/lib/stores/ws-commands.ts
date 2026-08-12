@@ -1,7 +1,7 @@
 // Per-session commands: leader-tab implementations plus the public wrappers
 // that forward to the leader when this tab is a follower.
 import { tabCoordinator } from '../tabCoordinator';
-import type { AgentSession, NotificationType, ProviderId } from './ws-types';
+import type { AgentSession, NotificationType, ProviderId, ChatImage } from './ws-types';
 import { getSessions, setSessions, getIsTabLeader, updateSession } from './agent-sessions.svelte';
 import { fetchSessionHistory } from '../session-persistence';
 import {
@@ -71,7 +71,7 @@ async function startSessionInternal(name: string, cwd: string, briefing: string,
 	});
 }
 
-function sendMessageInternal(name: string, text: string) {
+function sendMessageInternal(name: string, text: string, images?: ChatImage[]) {
 	const session = getSessions().get(name);
 	if (!session) return;
 
@@ -79,11 +79,12 @@ function sendMessageInternal(name: string, text: string) {
 		messages: [...session.messages, {
 			role: 'user',
 			content: text,
-			timestamp: new Date().toISOString()
+			timestamp: new Date().toISOString(),
+			...(images && images.length > 0 && { images })
 		}]
 	});
 
-	sendToSocket(name, { type: 'message', text });
+	sendToSocket(name, { type: 'message', text, ...(images && images.length > 0 && { images }) });
 }
 
 function interruptInternal(name: string) {
@@ -274,8 +275,8 @@ export function clearAllSessions() {
 	}
 }
 
-export async function sendToPane(name: string, message: string, cwd: string) {
-	console.log('[agent] sendToPane:', name, 'cwd:', cwd);
+export async function sendToPane(name: string, message: string, cwd: string, images?: ChatImage[]) {
+	console.log('[agent] sendToPane:', name, 'cwd:', cwd, 'images:', images?.length ?? 0);
 	const session = getSessions().get(name);
 
 	if (!session) {
@@ -285,12 +286,12 @@ export async function sendToPane(name: string, message: string, cwd: string) {
 		if (getIsTabLeader()) {
 			const ws = await getOrCreateSocket(name);
 			if (!ws) return;
-			sendWhenOpen(name, ws, { type: 'message', text: message });
+			sendWhenOpen(name, ws, { type: 'message', text: message, ...(images && images.length > 0 && { images }) });
 		} else {
-			tabCoordinator.requestAction({ action: 'sendMessage', sessionName: name, args: [message] });
+			tabCoordinator.requestAction({ action: 'sendMessage', sessionName: name, args: [message, images] });
 		}
 	} else {
-		sendMessage(name, message);
+		sendMessage(name, message, images);
 	}
 }
 

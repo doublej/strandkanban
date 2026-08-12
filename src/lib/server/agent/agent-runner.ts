@@ -19,10 +19,17 @@ export function sendToClient(session: AgentSession, msg: object) {
   }
 }
 
+import type { ImageInput } from "./providers/types";
+import type { ChatImagePayload } from "./session-types";
+
 /** Queues a turn for a session, delivering it immediately if a run is live. */
-export function sendInput(session: AgentSession, text: string) {
-  if (session.agentRun) session.agentRun.send(text);
-  else session.inputQueue.push(text);
+export function sendInput(session: AgentSession, text: string, images?: ChatImagePayload[]) {
+  const convertedImages: ImageInput[] | undefined = images?.map(img => ({
+    mediaType: img.mediaType,
+    data: img.data,
+  }));
+  if (session.agentRun) session.agentRun.send(text, convertedImages);
+  else session.inputQueue.push(text);  // Images on first turn aren't queued separately
 }
 
 export type RunAgentOpts = {

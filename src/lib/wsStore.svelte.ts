@@ -6,6 +6,7 @@ export type {
 	NotificationType,
 	SystemMessageSubtype,
 	ChatMessage,
+	ChatImage,
 	TokenUsage,
 	SlashCommandInfo,
 	AgentSession,

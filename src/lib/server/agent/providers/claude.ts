@@ -7,12 +7,13 @@ import { listSdkSessions, getSessionHistory } from "../sdk-sessions";
 import type { AgentSession } from "../session-types";
 import type { AgentQueue } from "../queue-manager";
 import { log } from "../../logger";
-import { EventChannel, InputChannel } from "./channel";
+import { EventChannel, InputChannel, type UserTurn } from "./channel";
 import type {
   AgentEvent,
   AgentProvider,
   AgentRun,
   ChatMessage,
+  ImageInput,
   SessionSummary,
   StartOptions,
   TokenTotals,
@@ -88,7 +89,7 @@ function startRun(ctx: ClaudeContext, opts: StartOptions): AgentRun {
 
   return {
     events,
-    send: (text: string) => input.push(text),
+    send: (text: string, images?: ImageInput[]) => input.push(text, images),
     async interrupt() {
       // A graceful SDK interrupt stops the turn but keeps the session resumable.
       try {
@@ -111,9 +112,32 @@ function startRun(ctx: ClaudeContext, opts: StartOptions): AgentRun {
   };
 }
 
-async function* toSdkMessages(input: AsyncIterable<string>, runId: string): AsyncIterable<SDKUserMessage> {
-  for await (const content of input) {
-    yield { type: "user", session_id: runId, parent_tool_use_id: null, message: { role: "user", content } };
+async function* toSdkMessages(input: AsyncIterable<UserTurn>, runId: string): AsyncIterable<SDKUserMessage> {
+  for await (const turn of input) {
+    // Build content array: images first (if any), then text
+    const hasImages = turn.images && turn.images.length > 0;
+    if (hasImages) {
+      const content: Array<
+        | { type: "image"; source: { type: "base64"; media_type: string; data: string } }
+        | { type: "text"; text: string }
+      > = [];
+      for (const img of turn.images!) {
+        content.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: img.mediaType,
+            data: img.data,
+          },
+        });
+      }
+      if (turn.text) {
+        content.push({ type: "text", text: turn.text });
+      }
+      yield { type: "user", session_id: runId, parent_tool_use_id: null, message: { role: "user", content } };
+    } else {
+      yield { type: "user", session_id: runId, parent_tool_use_id: null, message: { role: "user", content: turn.text } };
+    }
   }
 }
 

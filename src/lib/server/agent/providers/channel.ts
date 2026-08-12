@@ -54,18 +54,27 @@ export class EventChannel<T> implements AsyncIterable<T> {
   }
 }
 
-/** Never-ending queue of user turns. Blocks until the next one is pushed. */
-export class InputChannel implements AsyncIterable<string> {
-  private queue: string[] = [];
-  private resolve: ((text: string) => void) | null = null;
+import type { ImageInput } from "./types";
 
-  push(text: string) {
+/** A user turn with optional attached images. */
+export type UserTurn = {
+  text: string;
+  images?: ImageInput[];
+};
+
+/** Never-ending queue of user turns. Blocks until the next one is pushed. */
+export class InputChannel implements AsyncIterable<UserTurn> {
+  private queue: UserTurn[] = [];
+  private resolve: ((turn: UserTurn) => void) | null = null;
+
+  push(text: string, images?: ImageInput[]) {
+    const turn: UserTurn = { text, images };
     const resolve = this.resolve;
     if (resolve) {
       this.resolve = null;
-      resolve(text);
+      resolve(turn);
     } else {
-      this.queue.push(text);
+      this.queue.push(turn);
     }
   }
 
@@ -75,7 +84,7 @@ export class InputChannel implements AsyncIterable<string> {
         yield this.queue.shift()!;
         continue;
       }
-      yield await new Promise<string>((resolve) => {
+      yield await new Promise<UserTurn>((resolve) => {
         this.resolve = resolve;
       });
     }

@@ -8,6 +8,14 @@ export type NotificationType = 'comment' | 'dependency' | 'attachment' | 'status
 
 export type SystemMessageSubtype = 'init' | 'compact_start' | 'compact_done' | 'subagent_start' | 'subagent_end' | 'info' | 'worktree_progress' | 'error' | 'tool_failure' | 'notification';
 
+/** Base64-encoded image attachment for chat messages. */
+export interface ChatImage {
+	/** MIME type: image/jpeg, image/png, image/gif, image/webp */
+	mediaType: string;
+	/** Base64-encoded image data */
+	data: string;
+}
+
 export interface ChatMessage {
 	role: 'user' | 'assistant' | 'tool' | 'notification' | 'system';
 	content: string;
@@ -21,6 +29,8 @@ export interface ChatMessage {
 	systemSubtype?: SystemMessageSubtype;
 	/** Extended-thinking (reasoning) content, rendered as a collapsible block. */
 	thinking?: boolean;
+	/** Images attached to this message (user messages only). */
+	images?: ChatImage[];
 }
 
 export interface TokenUsage {

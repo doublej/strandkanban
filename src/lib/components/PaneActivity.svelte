@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import type { Pane, SdkSessionInfo } from '$lib/wsStore.svelte';
+	import type { Pane, SdkSessionInfo, ChatImage } from '$lib/wsStore.svelte';
 	import AgentPane from './AgentPane.svelte';
 	import SessionPickerModal from './SessionPickerModal.svelte';
 
@@ -21,7 +21,7 @@
 		onCyclePaneSize: (name: string) => void;
 		onRemovePane: (name: string) => void;
 		onMinimizePane: (name: string) => void;
-		onSendMessage: (name: string, message: string) => void;
+		onSendMessage: (name: string, message: string, images?: ChatImage[]) => void;
 		onMouseMove: (e: MouseEvent) => void;
 		onMouseUp: () => void;
 		onEndSession?: (name: string) => void;

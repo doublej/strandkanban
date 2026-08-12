@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Pane, SdkSessionInfo } from '$lib/wsStore.svelte';
+	import type { Pane, SdkSessionInfo, ChatImage } from '$lib/wsStore.svelte';
 	import AgentPaneHeader from './AgentPaneHeader.svelte';
 	import AgentMessageList from './AgentMessageList.svelte';
 	import AgentPaneInput from './AgentPaneInput.svelte';
@@ -26,7 +26,7 @@
 		onRemovePane: (name: string) => void;
 		onMinimizePane: (name: string) => void;
 		onCyclePaneSize: (name: string) => void;
-		onSendMessage: (name: string, message: string) => void;
+		onSendMessage: (name: string, message: string, images?: ChatImage[]) => void;
 		onInputChange: (value: string) => void;
 		onToggleMenu: () => void;
 		onCloseMenu: () => void;

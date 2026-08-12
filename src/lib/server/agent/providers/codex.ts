@@ -15,6 +15,7 @@ import type {
   AgentProvider,
   AgentRun,
   ChatMessage,
+  ImageInput,
   McpStdioSpec,
   SessionSummary,
   StartOptions,
@@ -321,7 +322,8 @@ async function startRun(opts: StartOptions): Promise<AgentRun> {
 
   return {
     events,
-    send: (text: string) => void deliver(text).catch((err) => log.warn("[codex] send failed:", err)),
+    // Codex doesn't support images yet — ignore them
+    send: (text: string, _images?: ImageInput[]) => void deliver(text).catch((err) => log.warn("[codex] send failed:", err)),
     interrupt,
     // codex takes the model on turn/start; it applies from the next turn on.
     async setModel(next?: string) {

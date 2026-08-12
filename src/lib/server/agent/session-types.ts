@@ -34,11 +34,19 @@ export type AgentSession = {
   usage: { inputTokens: number; outputTokens: number; cacheRead: number; cacheCreation: number };
 };
 
+/** Base64-encoded image attachment for chat messages. */
+export type ChatImagePayload = {
+  /** MIME type: image/jpeg, image/png, image/gif, image/webp */
+  mediaType: string;
+  /** Base64-encoded image data */
+  data: string;
+};
+
 export type ClientMessage =
   | { type: "start"; cwd: string; agentName?: string; systemPromptAppend?: string; briefing: string; allowedTools?: string[]; disallowedTools?: string[]; resumeSessionId?: string; model?: string; isManager?: boolean; provider?: ProviderId; permissionMode?: string; sandbox?: string }
   | { type: "resume"; sessionId: string }
   | { type: "continue"; text: string }
-  | { type: "message"; text: string }
+  | { type: "message"; text: string; images?: ChatImagePayload[] }
   | { type: "inject_context"; context: string }
   | { type: "interrupt" }
   | { type: "end" }

@@ -117,10 +117,16 @@ export type StartOptions = {
   onToolStart?: (toolName: string, input: Record<string, unknown>) => Promise<void> | void;
 };
 
+/** Base64-encoded image for multimodal input. */
+export type ImageInput = {
+  mediaType: string;
+  data: string;
+};
+
 export type AgentRun = {
   events: AsyncIterable<AgentEvent>;
-  /** Mid-turn steering. */
-  send(text: string): void;
+  /** Mid-turn steering, optionally with images. */
+  send(text: string, images?: ImageInput[]): void;
   interrupt(): Promise<void>;
   setModel(model?: string): Promise<void>;
   setPermissionMode(mode: string): Promise<void>;

@@ -192,7 +192,16 @@
 				</div>
 			{:else}
 				<div class="content">
-					<MarkdownContent content={msg.content} maxLength={size === 'large' ? undefined : 3000} />
+					{#if msg.images && msg.images.length > 0}
+						<div class="message-images">
+							{#each msg.images as img}
+								<img src="data:{img.mediaType};base64,{img.data}" alt="Attached" class="message-image" />
+							{/each}
+						</div>
+					{/if}
+					{#if msg.content}
+						<MarkdownContent content={msg.content} maxLength={size === 'large' ? undefined : 3000} />
+					{/if}
 				</div>
 			{/if}
 		</div>
@@ -493,6 +502,33 @@
 	.content {
 		flex: 1; margin: 0; color: var(--text-primary);
 		word-break: break-word; font: inherit; min-width: 0; overflow: hidden;
+	}
+
+	/* User message images */
+	.message-images {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.375rem;
+		margin-bottom: 0.375rem;
+	}
+
+	.message-image {
+		max-width: 120px;
+		max-height: 120px;
+		border-radius: 4px;
+		object-fit: cover;
+		border: 1px solid rgba(255, 255, 255, 0.1);
+		cursor: pointer;
+		transition: transform 100ms ease;
+	}
+
+	.message-image:hover {
+		transform: scale(1.02);
+		border-color: rgba(99, 102, 241, 0.4);
+	}
+
+	:global(.app.light) .message-image {
+		border-color: rgba(0, 0, 0, 0.1);
 	}
 
 	.streaming-content { display: flex; align-items: flex-end; gap: 2px; }

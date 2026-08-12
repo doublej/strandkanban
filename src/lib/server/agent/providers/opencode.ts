@@ -13,6 +13,7 @@ import type {
   AgentProvider,
   AgentRun,
   ChatMessage,
+  ImageInput,
   SessionSummary,
   StartOptions,
   TokenTotals,
@@ -298,7 +299,8 @@ async function startRun(opts: StartOptions): Promise<AgentRun> {
   events.push({ type: "session", sdkSessionId: sessionId, source: opts.resumeSessionId ? "resume" : "new" });
   void emitCapabilities(events, opts.model);
 
-  const send = (text: string) =>
+  // opencode doesn't support images yet — ignore them
+  const send = (text: string, _images?: ImageInput[]) =>
     void api(`/api/session/${sessionId}/prompt`, {
       method: "POST",
       body: JSON.stringify({ prompt: { text }, delivery: "steer" }),

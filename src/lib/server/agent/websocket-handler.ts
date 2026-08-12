@@ -172,7 +172,7 @@ export function createWebSocketHandlers(config: WebSocketConfig) {
       switch (msg.type) {
         case "message": {
           sendToClient(session, { type: "user_text", text: msg.text });
-          sendInput(session, msg.text);
+          sendInput(session, msg.text, msg.images);
           return;
         }
 
