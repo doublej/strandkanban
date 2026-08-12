@@ -159,6 +159,9 @@ function createSettings() {
 	let showAgentBar = $state(true);
 	let managerEnabled = $state(false);
 	let managerModel = $state('');
+	/** Workers allowed to run at once. Worktrees let several share one repo, so the
+	 *  one-per-cwd rule is no longer the ceiling — this is. */
+	let maxConcurrentAgents = $state(3);
 
 	// Layout
 	let collapsedColumns = $state<Set<string>>(new Set());
@@ -205,6 +208,7 @@ function createSettings() {
 		showAgentBar = loadBool('showAgentBar', showAgentBar);
 		managerEnabled = loadBool('managerEnabled', managerEnabled);
 		managerModel = loadString('managerModel', managerModel);
+		maxConcurrentAgents = loadNumber('maxConcurrentAgents', maxConcurrentAgents);
 		colorScheme = loadString('colorScheme', colorScheme);
 		notificationsEnabled = loadBool('notificationsEnabled', notificationsEnabled);
 		notificationMode = loadString('notificationMode', notificationMode) as NotificationMode;
@@ -310,6 +314,8 @@ function createSettings() {
 		set managerEnabled(v: boolean) { managerEnabled = v; persist('managerEnabled', String(v)); },
 		get managerModel() { return managerModel; },
 		set managerModel(v: string) { managerModel = v; persist('managerModel', v); },
+		get maxConcurrentAgents() { return maxConcurrentAgents; },
+		set maxConcurrentAgents(v: number) { maxConcurrentAgents = v; persist('maxConcurrentAgents', String(v)); },
 		get defaultViewMode() { return defaultViewMode; },
 		set defaultViewMode(v: ViewMode) { defaultViewMode = v; persist('defaultViewMode', v); },
 		get defaultColumnSort() { return defaultColumnSort; },

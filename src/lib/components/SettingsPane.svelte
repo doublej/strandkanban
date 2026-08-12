@@ -25,6 +25,7 @@
 		agentToolsExpanded: boolean;
 		showAgentBar: boolean;
 		conflictStrategy: 'ask' | 'worktree' | 'queue' | 'same';
+		maxConcurrentAgents: number;
 		managerEnabled: boolean;
 		managerModel: string;
 		colorScheme: string;
@@ -47,6 +48,7 @@
 		agentToolsExpanded = $bindable(),
 		showAgentBar = $bindable(),
 		conflictStrategy = $bindable(),
+		maxConcurrentAgents = $bindable(),
 		managerEnabled = $bindable(),
 		managerModel = $bindable(),
 		colorScheme,
@@ -173,6 +175,7 @@
 						bind:agentToolsExpanded
 						bind:showAgentBar
 						bind:conflictStrategy
+						bind:maxConcurrentAgents
 						bind:managerEnabled
 						bind:managerModel
 						onopenPromptsEditor={openAgentPrompts}

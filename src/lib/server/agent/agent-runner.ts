@@ -12,6 +12,17 @@ import { markWorktreeCompleted } from "./worktree-registry";
 import { getProvider } from "./providers";
 import type { McpStdioSpec } from "./providers/types";
 import { log } from "../logger";
+import { beads } from "../beads/client";
+
+// The manager fans out through enqueue_ticket, which creates a real AgentSession
+// and therefore a visible chat pane. An SDK subagent would run invisibly — the
+// SubagentStart/Stop hooks only yield a one-line notice chip, never a transcript.
+// Enforced here rather than client-side so no caller can forget it.
+const MANAGER_BLOCKED_TOOLS = ["Task"];
+
+/** Comfortably inside bd's claim lease TTL (5 minutes on 1.2.1), so a live worker never
+ *  looks abandoned to the reclaim sweep. */
+const HEARTBEAT_INTERVAL_MS = 90_000;
 
 export function sendToClient(session: AgentSession, msg: object) {
   if (session.ws) {
@@ -74,6 +85,22 @@ export async function runAgent(session: AgentSession, briefing: string, opts: Ru
 
   let runError: unknown = null;
 
+  // Keep this worker's claim alive for as long as it runs. Only the lease holder may
+  // heartbeat, so this no-ops until the agent claims and once the ticket closes — warn once
+  // per run rather than every 90s, since a missed heartbeat only risks an early reclaim.
+  let heartbeatWarned = false;
+  const heartbeat = !session.isManager && ticketId
+    ? setInterval(() => {
+        beads(projectCwd)
+          .heartbeat(ticketId, session.agentName ?? "agent")
+          .catch((err) => {
+            if (heartbeatWarned) return;
+            heartbeatWarned = true;
+            log.warn(`[heartbeat] ${ticketId} not refreshed (silencing further warnings): ${err}`);
+          });
+      }, HEARTBEAT_INTERVAL_MS)
+    : undefined;
+
   const provider = getProvider(session.provider, { sessions: opts.sessions, queue: opts.queue });
   const run = await provider.start({
     cwd: session.cwd,
@@ -89,7 +116,7 @@ export async function runAgent(session: AgentSession, briefing: string, opts: Ru
     systemPromptAppend: session.isManager ? buildManagerPrompt() : buildSystemPrompt(session),
     allowedTools: opts.allowedTools,
     disallowedTools: session.isManager
-      ? opts.disallowedTools
+      ? [...(opts.disallowedTools || []), ...MANAGER_BLOCKED_TOOLS]
       : session.agentName
         ? [...(opts.disallowedTools || []), ...BLOCKED_BEADS_TOOLS]
         : opts.disallowedTools,
@@ -146,6 +173,7 @@ export async function runAgent(session: AgentSession, briefing: string, opts: Ru
     runError = err;
     throw err;
   } finally {
+    if (heartbeat) clearInterval(heartbeat);
     session.isRunning = false;
     session.agentRun = undefined;
     const threwError = runError !== null;

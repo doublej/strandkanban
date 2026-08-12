@@ -1,5 +1,6 @@
 // Server-side queue subscriber — receives queue_state from WS, sends commands back
 import type { QueueItem } from '$lib/server/agent/queue-types';
+import { settings } from './settings.svelte';
 
 let queueItems = $state<QueueItem[]>([]);
 let initialized = $state(false);
@@ -54,8 +55,14 @@ export function requestQueueList() {
 	sendWsCommand?.({ type: 'queue_list' });
 }
 
+/** set_project doubles as the channel that keeps the server's concurrency cap current —
+ *  it is re-sent on every reconnect and project switch. */
+export function setProjectPayload(cwd: string): Record<string, unknown> {
+	return { type: 'set_project', cwd, maxConcurrent: settings.maxConcurrentAgents };
+}
+
 export function sendSetProject(cwd: string) {
-	sendWsCommand?.({ type: 'set_project', cwd });
+	sendWsCommand?.(setProjectPayload(cwd));
 }
 
 export function isTicketQueued(ticketId: string): boolean {

@@ -262,6 +262,17 @@ export class Beads {
 		return unwrapBdJson<T>(await this.read(args));
 	}
 
+	/**
+	 * Ids bd considers blocked by an open dependency. The dependency oracle for the agent
+	 * queue — gating on this rather than on `bd ready` deliberately: `ready` also excludes
+	 * anything not `open`, which would refuse the follow-up dispatches the manager makes
+	 * against an in_progress ticket. Blocked is the condition we actually care about.
+	 */
+	async blockedIds(): Promise<Set<string>> {
+		const rows = await this.readJson<{ id: string }[]>(['blocked', '--json']);
+		return new Set(rows.map((r) => r.id));
+	}
+
 	// --- writes ---
 
 	async create(title: string, opts?: CreateOpts): Promise<{ id?: string; issue: unknown }> {
@@ -273,6 +284,29 @@ export class Beads {
 	async update(id: string, updates: UpdateOpts): Promise<void> {
 		const args = updateArgs(id, updates);
 		if (args) await this.write(args);
+	}
+
+	/**
+	 * Claim an issue as `actor`: sets status in_progress and assignee, and takes a lease that
+	 * expires after bd's TTL (measured at 5 minutes on 1.2.1). A worker that dies stops
+	 * heartbeating, so `bd reclaim` can hand its ticket back — which a plain
+	 * `update --status in_progress` never allows, because it takes no lease.
+	 * Idempotent when this actor already holds the claim.
+	 */
+	async claim(id: string, actor: string): Promise<void> {
+		await this.write(['update', safeId(id), '--claim', '--actor', actor]);
+	}
+
+	/** Push the lease expiry forward. Only the current owner may heartbeat; throws once the
+	 *  lease has been reclaimed or the issue closed, which is how a worker learns to stop. */
+	async heartbeat(id: string, actor: string): Promise<void> {
+		await this.read(['heartbeat', safeId(id), '--actor', actor]);
+	}
+
+	/** Revert in_progress issues whose lease expired more than `olderThan` ago back to open.
+	 *  Returns bd's raw report. Only ever touches leases this replica granted. */
+	async reclaim(olderThan = '10m'): Promise<string> {
+		return this.write(['reclaim', '--older-than', olderThan]);
 	}
 
 	async delete(id: string): Promise<void> {

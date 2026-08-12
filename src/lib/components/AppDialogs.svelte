@@ -85,6 +85,7 @@
 	bind:agentToolsExpanded={settings.agentToolsExpanded}
 	bind:showAgentBar={settings.showAgentBar}
 	bind:conflictStrategy={settings.conflictStrategy}
+	bind:maxConcurrentAgents={settings.maxConcurrentAgents}
 	bind:managerEnabled={settings.managerEnabled}
 	bind:managerModel={settings.managerModel}
 	isDarkMode={viewState.isDarkMode}

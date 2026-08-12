@@ -34,11 +34,19 @@ export function createBeadsToolsServer(agentName: string, cwd: string) {
         },
         async ({ issue_id, ...fields }) => {
           try {
-            await beads(cwd).update(issue_id, {
-              ...fields,
-              // Explicit assignee wins; otherwise auto-inject when claiming work.
-              assignee: fields.assignee ?? (fields.status === "in_progress" ? agentName : undefined),
-            });
+            const client = beads(cwd);
+            // Taking work goes through `--claim` so it carries a lease: if this agent dies,
+            // the lease goes stale and the reclaim sweep hands the ticket back. A plain
+            // status update would strand it in_progress forever. An explicit assignee means
+            // the agent is assigning someone else, which is not a claim.
+            const isClaim = fields.status === "in_progress" && !fields.assignee;
+            if (isClaim) await client.claim(issue_id, agentName);
+
+            const { status, assignee, ...rest } = fields;
+            const remaining = isClaim ? rest : { ...rest, status, assignee };
+            if (Object.values(remaining).some((v) => v !== undefined)) {
+              await client.update(issue_id, remaining);
+            }
             return { content: [{ type: "text" as const, text: `Updated ${issue_id}` }] };
           } catch (err) {
             return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };

@@ -7,6 +7,7 @@ import { calculateSessionUsage } from "./sdk-sessions";
 import type { AgentQueue } from "./queue-manager";
 import { pruneStale } from "./worktree-registry";
 import { log } from "../logger";
+import { beads } from "../beads/client";
 
 const prunedCwds = new Set<string>();
 
@@ -63,9 +64,19 @@ export function createWebSocketHandlers(config: WebSocketConfig) {
       if (msg.type === "set_project") {
         clientCwdByWs.set(ws, msg.cwd);
         queue.setClientCwd(ws, msg.cwd);
+        // Re-sent on every reconnect and project switch, so the queue always reads a live
+        // cap rather than one captured when the first session started.
+        if (msg.maxConcurrent !== undefined) queue.setMaxConcurrent(msg.maxConcurrent);
         if (!prunedCwds.has(msg.cwd)) {
           prunedCwds.add(msg.cwd);
           pruneStale(msg.cwd).catch(err => log.warn(`[worktree-registry] pruneStale failed:`, err));
+          // Workers that died with this server down never released their claims. The grace
+          // window is 2x bd's 5-minute lease TTL, so a worker still running under another
+          // live board is never robbed. ponytail: first-sight sweep only — a worker that
+          // dies while this server keeps running recovers on the next board open, not sooner.
+          beads(msg.cwd).reclaim("10m")
+            .then(out => { if (out.trim()) log.info(`[reclaim] ${msg.cwd}: ${out.trim()}`); })
+            .catch(err => log.warn(`[reclaim] sweep failed for ${msg.cwd}:`, err));
         }
         return;
       }

@@ -59,7 +59,7 @@ export type ClientMessage =
   | { type: "queue_cancel"; ticketId: string }
   | { type: "queue_reorder"; fromIndex: number; toIndex: number }
   | { type: "queue_list" }
-  | { type: "set_project"; cwd: string };
+  | { type: "set_project"; cwd: string; maxConcurrent?: number };
 
 export type SdkSessionInfo = {
   sessionId: string;

@@ -9,6 +9,7 @@
 		agentToolsExpanded: boolean;
 		showAgentBar: boolean;
 		conflictStrategy: 'ask' | 'worktree' | 'queue' | 'same';
+		maxConcurrentAgents: number;
 		managerEnabled: boolean;
 		managerModel: string;
 		onopenPromptsEditor: () => void;
@@ -21,6 +22,7 @@
 		agentToolsExpanded = $bindable(),
 		showAgentBar = $bindable(),
 		conflictStrategy = $bindable(),
+		maxConcurrentAgents = $bindable(),
 		managerEnabled = $bindable(),
 		managerModel = $bindable(),
 		onopenPromptsEditor
@@ -170,6 +172,25 @@
 					<span class="toggle-thumb"></span>
 				</span>
 			</button>
+		</div>
+
+		<div class="setting-row" style="margin-top: 0.5rem;">
+			<div class="setting-info">
+				<span class="setting-name">Max Concurrent Agents</span>
+				<span class="setting-desc">Workers allowed to run at once across all worktrees</span>
+			</div>
+		</div>
+		<div class="strategy-selector">
+			{#each [1, 2, 3, 5, 8] as n}
+				<button
+					class="strategy-option"
+					class:active={maxConcurrentAgents === n}
+					onclick={() => maxConcurrentAgents = n}
+				>
+					<span class="strategy-label">{n}</span>
+					<span class="strategy-hint">{n === 1 ? 'One at a time' : `Up to ${n}`}</span>
+				</button>
+			{/each}
 		</div>
 
 		{#if managerEnabled}

@@ -10,7 +10,7 @@ import {
 	setSessionError,
 	createMessageHandler,
 } from './agent-sessions.svelte';
-import { sendSetProject } from './queue.svelte';
+import { sendSetProject, setProjectPayload } from './queue.svelte';
 
 let currentServerProject: string | null = null;
 
@@ -21,7 +21,7 @@ export function setServerProject(cwd: string) {
 	// Also directly broadcast on all open sockets so every tab-local socket filters correctly.
 	for (const [, ws] of getSessionSockets()) {
 		if (ws.readyState === WebSocket.OPEN) {
-			ws.send(JSON.stringify({ type: 'set_project', cwd }));
+			ws.send(JSON.stringify(setProjectPayload(cwd)));
 		}
 	}
 }
@@ -77,7 +77,7 @@ export async function getOrCreateSocket(sessionName: string): Promise<WebSocket 
 		setServerAvailable(true);
 		if (currentServerProject) {
 			try {
-				socket.send(JSON.stringify({ type: 'set_project', cwd: currentServerProject }));
+				socket.send(JSON.stringify(setProjectPayload(currentServerProject)));
 			} catch {}
 		}
 	};

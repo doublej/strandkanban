@@ -21,12 +21,136 @@ export function createManagerToolsServer(
 			// --- Board tools ---
 			tool(
 				"list_issues",
-				"List all issues with status, priority, assignee, and dependencies.",
+				"List all issues with status, priority, assignee, and dependencies. Summary fields only — use get_issue for the full body of one issue.",
 				{},
 				async () => {
 					try {
-						const result = unwrapEnvelopeText(await beads(cwd).read(["list", "--json"]));
+						// --brief drops description/design/acceptance/notes/payload. The manager
+						// reads the whole board to decide what to dispatch; carrying every body
+						// through that call is most of the payload and none of the decision.
+						const result = unwrapEnvelopeText(await beads(cwd).read(["list", "--json", "--brief"]));
 						return { content: [{ type: "text" as const, text: result || "No issues found" }] };
+					} catch (err) {
+						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
+					}
+				}
+			),
+
+			tool(
+				"ready",
+				"List work that is ready to start right now — open issues with no unresolved blockers. Prefer this over list_issues when deciding what to dispatch.",
+				{},
+				async () => {
+					try {
+						const result = unwrapEnvelopeText(await beads(cwd).read(["ready", "--json", "--brief"]));
+						return { content: [{ type: "text" as const, text: result === "[]" ? "No ready work" : result }] };
+					} catch (err) {
+						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
+					}
+				}
+			),
+
+			tool(
+				"create_issue",
+				"Create a new issue on the board.",
+				{
+					title: z.string().describe("Issue title"),
+					description: z.string().optional().describe("Issue description"),
+					priority: z.number().optional().describe("Priority (0 highest, 4 lowest)"),
+					issue_type: z.string().optional().describe("Issue type, e.g. task, bug, feature, epic"),
+					labels: z.array(z.string()).optional().describe("Labels to attach"),
+				},
+				async ({ title, description, priority, issue_type, labels }) => {
+					try {
+						const { id } = await beads(cwd).create(title, { description, priority, issue_type, labels });
+						return { content: [{ type: "text" as const, text: `Created ${id ?? "issue"}` }] };
+					} catch (err) {
+						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
+					}
+				}
+			),
+
+			tool(
+				"update_issue",
+				"Update an issue's status, priority, assignee, or title.",
+				{
+					id: z.string().describe("Issue ID"),
+					status: z.string().optional().describe("New status: open, in_progress, blocked, closed"),
+					priority: z.number().optional().describe("Priority (0 highest, 4 lowest)"),
+					assignee: z.string().optional().describe("Assignee"),
+					title: z.string().optional().describe("New title"),
+				},
+				async ({ id, status, priority, assignee, title }) => {
+					try {
+						await beads(cwd).update(id, { status, priority, assignee, title });
+						return { content: [{ type: "text" as const, text: `Updated ${id}` }] };
+					} catch (err) {
+						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
+					}
+				}
+			),
+
+			tool(
+				"search_issues",
+				"Search issues by text across title and ID, including closed ones.",
+				{ query: z.string().describe("Search text") },
+				async ({ query }) => {
+					try {
+						const result = unwrapEnvelopeText(await beads(cwd).read(["search", query, "--json"]));
+						return { content: [{ type: "text" as const, text: result === "[]" ? "No matches" : result }] };
+					} catch (err) {
+						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
+					}
+				}
+			),
+
+			tool(
+				"board_stats",
+				"Board-level counts: open, in progress, blocked, ready, closed, and epic closure eligibility.",
+				{},
+				async () => {
+					try {
+						const result = unwrapEnvelopeText(await beads(cwd).read(["stats", "--json"]));
+						return { content: [{ type: "text" as const, text: result }] };
+					} catch (err) {
+						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
+					}
+				}
+			),
+
+			tool(
+				"epic_status",
+				"Show epic completion status across the board.",
+				{},
+				async () => {
+					try {
+						return { content: [{ type: "text" as const, text: await beads(cwd).read(["epic", "status"]) || "No epics" }] };
+					} catch (err) {
+						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
+					}
+				}
+			),
+
+			tool(
+				"dep_tree",
+				"Show the dependency tree rooted at an issue — what it is waiting on, and how deep.",
+				{ id: z.string().describe("Issue ID") },
+				async ({ id }) => {
+					try {
+						return { content: [{ type: "text" as const, text: await beads(cwd).read(["dep", "tree", id]) }] };
+					} catch (err) {
+						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
+					}
+				}
+			),
+
+			tool(
+				"list_worktrees",
+				"List git worktrees for this project — which isolated checkouts exist for parallel workers.",
+				{},
+				async () => {
+					try {
+						return { content: [{ type: "text" as const, text: await beads(cwd).read(["worktree", "list"]) || "No worktrees" }] };
 					} catch (err) {
 						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };
 					}
