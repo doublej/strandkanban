@@ -120,6 +120,20 @@ Then launch with `strand /path/to/project`. The CLI starts the agent server on p
 - Browser push notifications use the service worker. VAPID keys are generated on first use and stored in `.beads/beads-app.db`.
 - Desktop notifications go through the Consult User MCP server when it is available.
 
+### Opening the board from another device
+
+The board serves plain HTTP. That is a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts) on `localhost`, so service workers and push notifications work with no certificate and no browser warning.
+
+Reaching the board from a phone or another machine needs HTTPS, since a non-localhost origin is not a secure context:
+
+```bash
+STRAND_HTTPS=1 strand
+```
+
+This serves a self-signed certificate, so each device shows a one-time warning you have to accept. To avoid the warning entirely, generate a locally-trusted certificate with [mkcert](https://github.com/FiloSottile/mkcert) and point `server.https` in `vite.config.ts` at it.
+
+Note that the agent WebSocket on port 9347 is plain `ws://`. Browsers block that as mixed content from an HTTPS page on a non-localhost hostname, so agent panes may not connect over `STRAND_HTTPS=1`.
+
 ### `strand://` links on macOS
 
 ```bash

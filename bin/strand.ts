@@ -358,6 +358,9 @@ function reapOnShutdown(parentPid: number): void {
 
 // --- Browser open + readiness ---
 
+/** Must match the STRAND_HTTPS check in vite.config.ts. */
+const SCHEME = process.env.STRAND_HTTPS === '1' ? 'https' : 'http'
+
 function openBrowser(url: string): void {
 	const cmd = process.platform === 'darwin' ? 'open'
 		: process.platform === 'win32' ? 'start'
@@ -454,9 +457,9 @@ async function startServer(target: string, opts: { openPath?: string } = {}): Pr
 		env: childEnv,
 	})
 
-	// Once the dev server is listening, open the requested deep link (vite uses HTTPS).
+	// Once the dev server is listening, open the requested deep link.
 	if (opts.openPath) {
-		const url = `https://localhost:${port}${opts.openPath}`
+		const url = `${SCHEME}://localhost:${port}${opts.openPath}`
 		waitForPort(port).then((up) => {
 			if (up) { console.log(`Opening ${url}`); openBrowser(url) }
 			else console.log(`Server not ready in time. Open manually: ${url}`)
@@ -578,7 +581,7 @@ async function runOpen(arg: string | undefined): Promise<void> {
 	// Reuse a live board if one is running.
 	const active = readActiveServer()
 	if (active && isPidAlive(active.pid) && await isPortInUse(active.port)) {
-		const url = `https://localhost:${active.port}${openPath}`
+		const url = `${SCHEME}://localhost:${active.port}${openPath}`
 		console.log(`Opening ${url}`)
 		openBrowser(url)
 		return
