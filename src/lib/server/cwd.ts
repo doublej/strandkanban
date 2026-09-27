@@ -9,7 +9,7 @@
  */
 import { basename, join, resolve } from 'path';
 import { homedir } from 'os';
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, realpathSync, writeFileSync } from 'fs';
 import { ApiError } from './response';
 
 /** Written by /api/projects — the set of projects the user picked in the switcher. */
@@ -39,10 +39,16 @@ export function markDoctorRan(cwd: string): boolean {
 	return true;
 }
 
+/** One spelling per directory: symlinked paths (e.g. ~/Documents/development → ~/dev)
+ *  must not become a second project, beads instance or dolt server. */
+export function canonicalPath(path: string): string {
+	return existsSync(path) ? realpathSync(path) : resolve(path);
+}
+
 export function getStoredCwd(): string {
 	if (existsSync(CWD_FILE)) {
 		const stored = readFileSync(CWD_FILE, 'utf-8').trim();
-		if (stored && existsSync(stored)) return stored;
+		if (stored && existsSync(stored)) return canonicalPath(stored);
 	}
 	const bdDb = resolveBdDbFallback();
 	if (bdDb) return bdDb;
@@ -61,7 +67,7 @@ function registeredProjects(): Set<string> {
 		if (!Array.isArray(parsed)) return new Set();
 		return new Set(
 			parsed
-				.map((p: { path?: string }) => (p?.path ? resolve(p.path) : ''))
+				.map((p: { path?: string }) => (p?.path ? canonicalPath(p.path) : ''))
 				.filter(Boolean)
 		);
 	} catch {
@@ -82,7 +88,7 @@ export function resolveProjectCwd(url: URL): string {
 	const project = url.searchParams.get('project');
 	const stored = getStoredCwd();
 	if (project) {
-		const resolved = resolve(project);
+		const resolved = canonicalPath(project);
 		const allowed = resolved === stored || registeredProjects().has(resolved);
 		if (allowed && existsSync(resolved)) return resolved;
 	}

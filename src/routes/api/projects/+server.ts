@@ -4,6 +4,7 @@ import { join } from 'path';
 import type { RequestHandler } from './$types';
 import { ok, wrap, ApiError } from '$lib/server/response';
 import { enrichProjects } from '$lib/server/project-stats';
+import { canonicalPath } from '$lib/server/cwd';
 
 const PROJECTS_FILE = join(homedir(), '.strandkanban-projects.json');
 
@@ -30,11 +31,20 @@ function generateColor(path: string): string {
 }
 
 async function loadProjects(): Promise<Project[]> {
+	let stored: Project[];
 	try {
-		return JSON.parse(await readFile(PROJECTS_FILE, 'utf-8'));
+		stored = JSON.parse(await readFile(PROJECTS_FILE, 'utf-8'));
 	} catch {
 		return [];
 	}
+	// Merge entries that are one directory under two spellings; the most recent visit wins.
+	const byPath = new Map<string, Project>();
+	for (const p of stored) {
+		const path = canonicalPath(p.path);
+		const seen = byPath.get(path);
+		if (!seen || p.lastAccess > seen.lastAccess) byPath.set(path, { ...p, path });
+	}
+	return [...byPath.values()];
 }
 
 async function saveProjects(projects: Project[]): Promise<void> {
@@ -50,8 +60,9 @@ export const GET: RequestHandler = wrap(async () => {
 });
 
 export const POST: RequestHandler = wrap(async ({ request }) => {
-	const { path, name, color } = (await request.json()) ?? {};
-	if (!path) throw new ApiError('path required', 400, 'VALIDATION');
+	const { path: rawPath, name, color } = (await request.json()) ?? {};
+	if (!rawPath) throw new ApiError('path required', 400, 'VALIDATION');
+	const path = canonicalPath(rawPath);
 
 	const projects = await loadProjects();
 	const existing = projects.find((p) => p.path === path);
