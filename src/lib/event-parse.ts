@@ -96,3 +96,66 @@ export function parseEvent(ev: DbEvent): MutationEntry[] {
 			return [];
 	}
 }
+
+/** One `bd events tail` line. `issue` is the full state after the change (null on delete). */
+export interface JournalRecord {
+	seq: number;
+	ts: string;
+	op: 'create' | 'update' | 'close' | 'delete' | 'dep_add' | 'dep_remove' | 'comment';
+	issue_id: string;
+	actor?: string;
+	issue: Record<string, unknown> | null;
+	dep?: { kind: string; target: string };
+	comment?: { id: string; author: string; text: string };
+}
+
+/** Full-state fields that move as a side effect of another change. */
+const JOURNAL_NOISE = new Set(['updated_at', 'started_at', 'closed_at', 'close_reason', 'is_blocked']);
+
+/**
+ * Map a journal record onto the events-table shape so parseEvent formats both feeds alike.
+ * `prev` is the issue state from the previous record for the same id, if one was seen.
+ */
+export function parseJournalRecord(rec: JournalRecord, prev: Record<string, unknown> | undefined): MutationEntry[] {
+	const ev = { id: rec.seq, issue_id: rec.issue_id, actor: rec.actor ?? '', created_at: rec.ts, comment: null };
+	const title = (rec.issue?.title ?? prev?.title ?? rec.issue_id) as string;
+	const base = { id: String(rec.seq), timestamp: Date.parse(rec.ts), ticketId: rec.issue_id, ticketTitle: title, actor: rec.actor || 'unknown' };
+	const json = (v: unknown) => (v == null ? null : JSON.stringify(v));
+
+	switch (rec.op) {
+		case 'create':
+			return parseEvent({ ...ev, event_type: 'created', old_value: null, new_value: json(rec.issue) });
+		case 'close':
+			return parseEvent({ ...ev, event_type: 'closed', old_value: json(prev), new_value: json(rec.issue) });
+		case 'delete':
+			return [{ ...base, mutationType: 'field', field: 'issue', previousValue: null, newValue: 'deleted' }];
+		case 'comment':
+			return [{ ...base, actor: rec.comment?.author || base.actor, mutationType: 'comment', field: 'comment', previousValue: null, newValue: rec.comment?.text ?? '' }];
+		case 'dep_add':
+		case 'dep_remove':
+			return parseEvent({
+				...ev,
+				event_type: rec.op === 'dep_add' ? 'dependency_added' : 'dependency_removed',
+				old_value: null,
+				new_value: null,
+				comment: `dependency: ${rec.issue_id} blocks ${rec.dep?.target ?? '?'}`
+			});
+		case 'update': {
+			// No earlier state in view: there is nothing to diff against.
+			if (!prev || !rec.issue) return [];
+			const cur = rec.issue;
+			const changed = [...new Set([...Object.keys(prev), ...Object.keys(cur)])]
+				.filter((k) => !JOURNAL_NOISE.has(k) && json(prev[k]) !== json(cur[k]));
+			if (changed.length === 0) return [];
+			const reopened = prev.status === 'closed' && cur.status !== 'closed';
+			return parseEvent({
+				...ev,
+				event_type: reopened ? 'reopened' : 'updated',
+				old_value: json(prev),
+				new_value: json(Object.fromEntries(changed.map((k) => [k, cur[k] ?? null])))
+			});
+		}
+		default:
+			return [];
+	}
+}

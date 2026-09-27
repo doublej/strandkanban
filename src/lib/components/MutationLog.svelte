@@ -158,7 +158,7 @@
 				{#if searchQuery || filterType !== 'all'}
 					No matching events
 				{:else if store.unsupported}
-					This project runs beads in embedded mode, which has no queryable event feed.
+					This project runs beads in embedded mode. Run <code>bd config set events-journal true</code> to record activity.
 				{:else}
 					No activity yet
 				{/if}

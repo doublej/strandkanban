@@ -3,6 +3,7 @@ import type { Comment, Issue, MutationEntry } from '$lib/types';
 import { parseEvent, type DbEvent } from '$lib/event-parse';
 import { BeadsMutations } from './mutations';
 import { mapIssues } from './issue-view';
+import { journal, journalEnabled } from './journal';
 
 export { bdEnv, unwrapBdJson } from 'beads-sdk';
 export type { BdDoctorFinding } from 'beads-sdk';
@@ -47,6 +48,8 @@ export class Beads extends BeadsMutations {
 	}
 
 	async recentEvents(limit = 100): Promise<{ events: MutationEntry[]; unsupported: boolean }> {
+		// The journal works in every storage mode; the events table needs a Dolt server.
+		if (journalEnabled(this.cwd)) return { events: await journal(this.cwd).recent(limit), unsupported: false };
 		const result = await this.sdk.events(limit);
 		return { events: result.events.flatMap((row) => parseEvent(row as DbEvent)), unsupported: result.unsupported };
 	}

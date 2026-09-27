@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import type { RequestHandler } from './$types';
 import { requireProjectCwd } from '$lib/server/cwd';
 import { beads } from '$lib/server/beads/client';
+import { journal, journalEnabled } from '$lib/server/beads/journal';
 import { notificationEmitter } from '$lib/notifications/event-emitter';
 import type { NotificationEventType } from '$lib/notifications/types';
 
@@ -35,6 +36,7 @@ export const GET: RequestHandler = async ({ url }) => {
 	let heartbeat: ReturnType<typeof setInterval> | null = null;
 	let watcher: FSWatcher | null = null;
 	let watchDebounce: ReturnType<typeof setTimeout> | null = null;
+	let stopJournal: (() => void) | null = null;
 
 	const stream = new ReadableStream({
 		start(controller) {
@@ -65,18 +67,29 @@ export const GET: RequestHandler = async ({ url }) => {
 
 			heartbeat = setInterval(() => send({ type: 'heartbeat', timestamp: Date.now() }), HEARTBEAT_MS);
 
-			// Watch .beads for external writes (bd CLI, agents) the emitter can't observe.
+			// External writes (bd CLI, agents) the emitter can't observe. Invalidation runs
+			// outside the debounce: it must always precede the SSE send that makes the client
+			// refetch, otherwise it refetches into a stale cache.
+			const sendExternalChange = (source: 'journal' | 'fs') => {
+				beads(cwd).invalidate();
+				if (watchDebounce) clearTimeout(watchDebounce);
+				watchDebounce = setTimeout(
+					() => send({ type: 'event', name: 'issue.updated', source, timestamp: Date.now() }),
+					WATCH_DEBOUNCE_MS
+				);
+			};
+
+			// The events journal streams each committed change when the workspace enabled it.
+			if (journalEnabled(cwd)) {
+				stopJournal = journal(cwd).subscribe(() => sendExternalChange('journal'));
+				return;
+			}
+
+			// Otherwise watch bd's delayed auto-export files.
 			try {
 				watcher = watch(join(cwd, '.beads'), (_event, filename) => {
 					if (!filename || !WATCH_FILES.has(filename)) return;
-					// Outside the debounce: invalidation must always precede the SSE send that
-					// makes the client refetch, otherwise it refetches into a stale cache.
-					beads(cwd).invalidate();
-					if (watchDebounce) clearTimeout(watchDebounce);
-					watchDebounce = setTimeout(
-						() => send({ type: 'event', name: 'issue.updated', source: 'fs', timestamp: Date.now() }),
-						WATCH_DEBOUNCE_MS
-					);
+					sendExternalChange('fs');
 				});
 			} catch {
 				// .beads may not exist yet; in-app writes still flow via the emitter.
@@ -88,6 +101,7 @@ export const GET: RequestHandler = async ({ url }) => {
 			if (heartbeat) clearInterval(heartbeat);
 			if (watchDebounce) clearTimeout(watchDebounce);
 			watcher?.close();
+			stopJournal?.();
 		},
 	});
 

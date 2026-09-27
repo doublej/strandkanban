@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { parseEvent, type DbEvent } from './event-parse';
+import { parseEvent, parseJournalRecord, type DbEvent, type JournalRecord } from './event-parse';
 
 const row = (over: Partial<DbEvent>): DbEvent => ({
 	id: 1,
@@ -39,4 +39,29 @@ test('status_changed yields the status transition', () => {
 	}));
 	expect(out).toHaveLength(1);
 	expect([out[0].previousValue, out[0].newValue]).toEqual(['open', 'in_progress']);
+});
+
+const rec = (op: JournalRecord['op'], issue: Record<string, unknown> | null, extra: Partial<JournalRecord> = {}): JournalRecord => ({
+	seq: 7, ts: '2026-09-27T16:25:30Z', op, issue_id: 'demo-1', issue, ...extra
+});
+const open = { id: 'demo-1', title: 'first', status: 'open', priority: 2, updated_at: 'a' };
+
+test('update diffs against the previous state and skips side-effect fields', () => {
+	const next = { ...open, status: 'in_progress', labels: ['x'], updated_at: 'b', started_at: 'b' };
+	const entries = parseJournalRecord(rec('update', next), open);
+	expect(entries.map((e) => [e.mutationType, e.previousValue, e.newValue])).toEqual([
+		['status', 'open', 'in_progress'],
+		['field', '—', '["x"]'],
+	]);
+});
+
+test('update without a previous state yields nothing', () => {
+	expect(parseJournalRecord(rec('update', open), undefined)).toEqual([]);
+});
+
+test('close, create, dep and reopen map onto the events-table vocabulary', () => {
+	expect(parseJournalRecord(rec('create', open), undefined)[0].mutationType).toBe('created');
+	expect(parseJournalRecord(rec('close', { ...open, status: 'closed' }), open)[0]).toMatchObject({ mutationType: 'closed', previousValue: 'open' });
+	expect(parseJournalRecord(rec('dep_add', open, { dep: { kind: 'blocks', target: 'demo-2' } }), open)[0].newValue).toBe('+demo-2');
+	expect(parseJournalRecord(rec('update', open), { ...open, status: 'closed' })[0]).toMatchObject({ mutationType: 'status', previousValue: 'closed', newValue: 'open' });
 });
