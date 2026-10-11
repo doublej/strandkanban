@@ -44,6 +44,7 @@
 		issue={menu.issue}
 		onSetPriority={(p) => ops.setIssuePriority(menu.issue.id, p)}
 		onStartRopeDrag={(e) => ops.startRopeDrag(e, menu.issue.id)}
+		onCopyId={() => { ops.copyToClipboard(menu.issue.id, menu.issue.id); ops.closeContextMenu() }}
 		onClose={ops.closeContextMenu}
 	/>
 {/if}
