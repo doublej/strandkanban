@@ -32,6 +32,13 @@
 		...(issue.dependents ?? []).map((dep) => ({ dep, verb: verb(dep.dependency_type, false), from: dep.id, to: issue.id }))
 	])
 
+	/** Grouped by direction so "Blocked by" never reads like "Blocks"; blockers lead. */
+	const groups = $derived.by(() => {
+		const byVerb = new Map<string, Row[]>()
+		for (const row of rows) byVerb.set(row.verb, [...(byVerb.get(row.verb) ?? []), row])
+		return [...byVerb].sort(([a], [b]) => Number(b === 'Blocked by') - Number(a === 'Blocked by'))
+	})
+
 	function seqOf(id: string): string {
 		const seq = issues.find((i) => i.id === id)?.seq
 		return seq ? `#${seq}` : id
@@ -49,27 +56,49 @@
 			<h3 class="pane-section-label">Relations</h3>
 			<span class="count">{rows.length}</span>
 		</div>
-		<ul>
-			{#each rows as row (row.from + row.to)}
-				{@const col = getIssueColumn({ ...issue, status: row.dep.status })}
-				{@const kind = getDepTypeConfig(row.dep.dependency_type)}
-				<li>
-					<span class="kind" style:color={kind.color}><Icon name={kind.icon} size={13} /></span>
-					<span class="verb">{row.verb}</span>
-					<span class="dot" style:background={col.accent} title={col.label}></span>
-					<span class="seq" title={row.dep.id}>{seqOf(row.dep.id)}</span>
-					<span class="title" class:done={row.dep.status === 'closed'}>{row.dep.title}</span>
-					<button class="pane-icon-btn rm" aria-label="Remove link to {row.dep.id}" title="Remove link" onclick={() => remove(row)}>
-						<Icon name="unlink" size={13} />
-					</button>
-				</li>
-			{/each}
-		</ul>
+		{#each groups as [verb, group] (verb)}
+			{@const blockedBy = verb === 'Blocked by'}
+			{@const open = blockedBy && group.some((r) => r.dep.status !== 'closed')}
+			<div class="group">
+				<h4 class:open>
+					<Icon name={blockedBy ? 'alert-circle' : getDepTypeConfig(group[0].dep.dependency_type).icon} size={12} />
+					{verb} <span class="n">{group.length}</span>
+				</h4>
+				<ul>
+					{#each group as row (row.from + row.to)}
+						{@const col = getIssueColumn({ ...issue, status: row.dep.status })}
+						<li>
+							<span class="dot" style:background={col.accent} title={col.label}></span>
+							<span class="seq" title={row.dep.id}>{seqOf(row.dep.id)}</span>
+							<span class="title" class:done={row.dep.status === 'closed'}>{row.dep.title}</span>
+							<button class="pane-icon-btn rm" aria-label="Remove link: {row.verb} {seqOf(row.dep.id)}" title="Remove link" onclick={() => remove(row)}>
+								<Icon name="close" size={13} />
+							</button>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/each}
 	</section>
 {/if}
 
 <style>
 	h3 { margin: 0; }
+
+	.group { display: flex; flex-direction: column; gap: 0.125rem; }
+
+	h4 {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		margin: 0;
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: var(--text-secondary);
+	}
+
+	h4.open { color: var(--pane-danger); font-weight: 600; }
+	.n { font-variant-numeric: tabular-nums; opacity: 0.8; }
 
 	ul {
 		margin: 0;
@@ -84,21 +113,12 @@
 		align-items: center;
 		gap: 0.5rem;
 		min-height: 2rem;
-		padding: 0 0.25rem;
+		padding: 0 0.25rem 0 1.125rem;
 		border-radius: var(--radius-sm);
 		font-size: 0.8125rem;
 	}
 
 	li:hover { background: var(--cta-muted); }
-
-	.kind { display: inline-flex; flex: none; }
-
-	.verb {
-		flex: none;
-		width: 5.5rem;
-		color: var(--text-secondary);
-		font-size: 0.75rem;
-	}
 
 	.dot {
 		flex: none;
@@ -125,4 +145,5 @@
 	.title.done { color: var(--text-secondary); text-decoration: line-through; }
 
 	.rm { flex: none; width: 1.5rem; height: 1.5rem; }
+	.rm:hover { color: var(--pane-danger); }
 </style>
