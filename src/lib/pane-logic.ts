@@ -1,4 +1,4 @@
-import type { Issue } from './types';
+import type { Issue, Dependency } from './types';
 import { calendarDay } from './utils';
 
 /** Long-text fields that are edited with an explicit Save/Cancel (everything else saves on change). */
@@ -75,8 +75,12 @@ export function typeLabel(type: string): string {
 }
 
 /** Open `blocks` links only: parent/child and discovered-from links don't stop work. */
+export function openBlocks(deps: Dependency[] = []): Dependency[] {
+	return deps.filter((d) => d.dependency_type === 'blocks' && d.status !== 'closed');
+}
+
 export function openBlockerCount(issue: Issue): number {
-	return (issue.dependencies ?? []).filter((d) => d.dependency_type === 'blocks' && d.status !== 'closed').length;
+	return openBlocks(issue.dependencies).length;
 }
 
 /** Header chip text for a getDueInfo label: "Due today", "Due in 2d", "Due Oct 20", "3d late". */
