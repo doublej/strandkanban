@@ -24,5 +24,5 @@
 		margin: -0.5rem 0 0;
 	}
 
-	.flag { color: var(--pane-warn); }
+	.flag { color: var(--tone-warn); }
 </style>

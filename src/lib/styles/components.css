@@ -40,6 +40,12 @@
 	--state-done: #10b981;
 	--state-focus: var(--accent-primary);
 
+	/* ─── Tones shared by the ticket card and pane (agent, warning, danger, P1) ─── */
+	--tone-agent: #2dd4bf;
+	--tone-warn: #f59e0b;
+	--tone-danger: #f87171;
+	--tone-orange: #fb923c;
+
 	/* ─── Radius Scale (8 / 12 / 16) ─── */
 	--radius-xs: 4px;
 	--radius-sm: 8px;

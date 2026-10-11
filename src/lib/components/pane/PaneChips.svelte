@@ -140,8 +140,8 @@
 	}
 
 	/* Priority is a neutral-to-red ramp: only P0/P1 draw attention. */
-	.prio-0 { background: rgba(239, 68, 68, 0.16); color: var(--pane-danger); font-weight: 600; }
-	.prio-1 { background: rgba(249, 115, 22, 0.16); color: var(--pane-orange); font-weight: 600; }
+	.prio-0 { background: rgba(239, 68, 68, 0.16); color: var(--tone-danger); font-weight: 600; }
+	.prio-1 { background: rgba(249, 115, 22, 0.16); color: var(--tone-orange); font-weight: 600; }
 
 	.flag {
 		display: inline-flex;
@@ -166,22 +166,22 @@
 	.due-overdue {
 		border-color: rgba(239, 68, 68, 0.4);
 		background: rgba(239, 68, 68, 0.1);
-		color: var(--pane-danger);
+		color: var(--tone-danger);
 		font-weight: 600;
 	}
 
-	button.danger:hover { color: var(--pane-danger); border-color: var(--pane-danger); }
+	button.danger:hover { color: var(--tone-danger); border-color: var(--tone-danger); }
 
-	.due-soon { border-color: rgba(217, 119, 6, 0.4); color: var(--pane-warn); }
+	.due-soon { border-color: rgba(217, 119, 6, 0.4); color: var(--tone-warn); }
 
-	.agent { border-color: rgba(20, 184, 166, 0.4); color: var(--pane-agent); }
-	button.agent:hover { color: var(--pane-agent); border-color: var(--pane-agent); }
+	.agent { border-color: rgba(20, 184, 166, 0.4); color: var(--tone-agent); }
+	button.agent:hover { color: var(--tone-agent); border-color: var(--tone-agent); }
 
 	.pulse {
 		width: 0.375rem;
 		height: 0.375rem;
 		border-radius: var(--radius-full);
-		background: var(--pane-agent);
+		background: var(--tone-agent);
 		animation: pulse 1.6s ease-in-out infinite;
 	}
 

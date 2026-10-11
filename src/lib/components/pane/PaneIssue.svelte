@@ -156,7 +156,7 @@
 		color: var(--state-done);
 	}
 
-	.recommend { margin: calc(-1 * var(--pane-gap) + 0.25rem) 0 0; color: var(--pane-warn); }
+	.recommend { margin: calc(-1 * var(--pane-gap) + 0.25rem) 0 0; color: var(--tone-warn); }
 
 	.add-sections {
 		display: flex;
@@ -165,5 +165,5 @@
 		margin: calc(-1 * var(--pane-gap) + 0.5rem) 0 0 -0.375rem;
 	}
 
-	.rec { color: var(--pane-warn); }
+	.rec { color: var(--tone-warn); }
 </style>

@@ -97,7 +97,7 @@
 		color: var(--text-secondary);
 	}
 
-	h4.open { color: var(--pane-danger); font-weight: 600; }
+	h4.open { color: var(--tone-danger); font-weight: 600; }
 	.n { font-variant-numeric: tabular-nums; opacity: 0.8; }
 
 	ul {
@@ -145,5 +145,5 @@
 	.title.done { color: var(--text-secondary); text-decoration: line-through; }
 
 	.rm { flex: none; width: 1.5rem; height: 1.5rem; }
-	.rm:hover { color: var(--pane-danger); }
+	.rm:hover { color: var(--tone-danger); }
 </style>
