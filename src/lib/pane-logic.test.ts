@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
 import type { Issue } from './types';
-import { hasDirtyDrafts, mergeLiveIssue, labelUpdate, toDateInput, parseEstimate } from './pane-logic';
+import { hasDirtyDrafts, mergeLiveIssue, labelUpdate, toDateInput, parseEstimate, typeLabel, openBlockerCount, dueChipLabel } from './pane-logic';
 
 const issue = (over: Partial<Issue>): Issue => ({
 	id: 'a-1', seq: 1, title: 't', description: '', status: 'open', priority: 2, issue_type: 'task', ...over
@@ -48,5 +48,23 @@ describe('field parsing', () => {
 		expect(parseEstimate('')).toBe(0);
 		expect(parseEstimate('-5')).toBe(0);
 		expect(parseEstimate('44.6')).toBe(45);
+	});
+});
+
+describe('header chips', () => {
+	it('capitalises types', () => {
+		expect(typeLabel('bug')).toBe('Bug');
+	});
+	it('counts only open blocks links as blockers', () => {
+		const dep = (dependency_type: string, status: string) => ({ id: 'x', title: 'x', status, dependency_type });
+		const deps = [dep('blocks', 'open'), dep('blocks', 'closed'), dep('parent-child', 'open')];
+		expect(openBlockerCount(issue({ dependencies: deps }))).toBe(1);
+		expect(openBlockerCount(issue({}))).toBe(0);
+	});
+	it('words the due chip', () => {
+		expect(dueChipLabel('today')).toBe('Due today');
+		expect(dueChipLabel('2d')).toBe('Due in 2d');
+		expect(dueChipLabel('Oct 20')).toBe('Due Oct 20');
+		expect(dueChipLabel('3d late')).toBe('3d late');
 	});
 });

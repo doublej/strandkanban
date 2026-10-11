@@ -2,9 +2,11 @@
    Type floor is 11px; meta text uses --text-secondary (muted tokens fail contrast at this size). */
 
 .panel {
-	--pane-agent: #14b8a6;
-	--pane-warn: #d97706;
-	--pane-danger: #ef4444;
+	--pane-agent: #2dd4bf;
+	--pane-warn: #f59e0b;
+	--pane-danger: #f87171;
+	--pane-orange: #fb923c;
+	--pane-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8b93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 	--pane-gap: 1.25rem;
 	flex: 0 0 440px;
 	min-width: 440px;
@@ -24,6 +26,14 @@
 }
 
 .panel.dragging { transition: none; }
+
+/* Status hues darkened for light surfaces so 11–12px text keeps ≥4.5:1. */
+.app.light .panel {
+	--pane-agent: #0f766e;
+	--pane-warn: #b45309;
+	--pane-danger: #dc2626;
+	--pane-orange: #c2410c;
+}
 
 @media (min-width: 1400px) {
 	.panel { flex-basis: 480px; min-width: 480px; max-width: 480px; }
@@ -192,7 +202,7 @@
 	cursor: pointer;
 	appearance: none;
 	padding-right: 1.5rem;
-	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b8b93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+	background-image: var(--pane-chevron);
 	background-repeat: no-repeat;
 	background-position: right 0.5rem center;
 }

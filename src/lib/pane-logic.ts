@@ -59,3 +59,19 @@ export function parseEstimate(raw: string): number {
 
 /** Allowed characters for both halves of an operational state (`bd set-state`). */
 export const STATE_PART = /^[A-Za-z0-9_-]+$/;
+
+/** Display label for an issue type ("bug" → "Bug"); bd stores types lower-case. */
+export function typeLabel(type: string): string {
+	return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
+/** Open `blocks` links only: parent/child and discovered-from links don't stop work. */
+export function openBlockerCount(issue: Issue): number {
+	return (issue.dependencies ?? []).filter((d) => d.dependency_type === 'blocks' && d.status !== 'closed').length;
+}
+
+/** Header chip text for a getDueInfo label: "Due today", "Due in 2d", "Due Oct 20", "3d late". */
+export function dueChipLabel(label: string): string {
+	if (label.endsWith('late')) return label;
+	return /^\d+d$/.test(label) ? `Due in ${label}` : `Due ${label}`;
+}

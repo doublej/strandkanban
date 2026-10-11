@@ -66,13 +66,9 @@
 	function startAgent() {
 		if (ops.confirmDiscard()) ops.startAgentForIssue(issue)
 	}
-
-	function showRelations() {
-		document.getElementById('pane-relations')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-	}
 </script>
 
-<PaneHeader {ops} {issue} />
+<PaneHeader {ops} {issue} {issues} {activeAgents} />
 
 <div class="pane-body">
 	{#if ops.issueClosedExternally}
@@ -97,7 +93,7 @@
 		</div>
 	{/if}
 
-	<PaneProperties {ops} {issue} {issues} {activeAgents} onshowrelations={showRelations} />
+	<PaneProperties {ops} {issue} {activeAgents} />
 
 	<PaneText {ops} field="description" label="Description" value={issue.description} placeholder="Add a description…" />
 	{#if otherMissing.length > 0}

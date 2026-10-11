@@ -3,6 +3,8 @@
 	import type { PageOps } from '$lib/stores/page-ops.svelte'
 	import { getPriorityConfig, getIssueColumn } from '$lib/utils'
 	import { settings } from '$lib/stores/settings.svelte'
+	import { TYPE_OPTS } from '$lib/stores/table-edit.svelte'
+	import { typeLabel } from '$lib/pane-logic'
 	import Icon from '../Icon.svelte'
 	import IssueSearch from '../IssueSearch.svelte'
 
@@ -13,7 +15,6 @@
 
 	let { ops, issues }: Props = $props()
 
-	const TYPES = ['task', 'bug', 'feature', 'epic', 'chore']
 	const form = $derived(ops.createForm)
 	const canCreate = $derived(form.title.trim().length > 0)
 	const blockers = $derived(form.deps.map((id) => issues.find((i) => i.id === id)).filter((i): i is Issue => !!i))
@@ -49,7 +50,7 @@
 		<label>
 			<span class="pane-section-label">Type</span>
 			<select class="pane-select boxed" bind:value={form.issue_type}>
-				{#each TYPES as t}<option value={t}>{t}</option>{/each}
+				{#each TYPE_OPTS as t}<option value={t}>{typeLabel(t)}</option>{/each}
 			</select>
 		</label>
 	</div>

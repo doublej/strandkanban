@@ -1,16 +1,18 @@
 <script lang="ts">
 	import type { Issue } from '$lib/types'
 	import type { PageOps } from '$lib/stores/page-ops.svelte'
-	import { getTypeIcon } from '$lib/utils'
 	import { copyState } from '$lib/stores/copy-state.svelte'
 	import Icon from '../Icon.svelte'
+	import PaneChips from './PaneChips.svelte'
 
 	interface Props {
 		ops: PageOps
 		issue: Issue
+		issues: Issue[]
+		activeAgents: string[]
 	}
 
-	let { ops, issue }: Props = $props()
+	let { ops, issue, issues, activeAgents }: Props = $props()
 
 	let editingTitle = $state(false)
 	let titleDraft = $state('')
@@ -55,9 +57,6 @@
 
 <header class="panel-header">
 	<div class="bar">
-		<span class="type" title={issue.issue_type}>
-			<Icon name={getTypeIcon(issue.issue_type)} size={14} />
-		</span>
 		<button
 			class="seq"
 			class:copied
@@ -116,6 +115,8 @@
 			<button class="title-btn" title="Click to rename" onclick={startTitleEdit}>{issue.title}</button>
 		</h2>
 	{/if}
+
+	<PaneChips {ops} {issue} {issues} {activeAgents} />
 </header>
 
 <style>
@@ -135,15 +136,11 @@
 
 	.spacer { flex: 1; }
 
-	.type {
-		display: inline-flex;
-		color: var(--text-secondary);
-	}
-
 	.seq {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.25rem;
+		margin-left: -0.375rem;
 		padding: 0.125rem 0.375rem;
 		border: none;
 		border-radius: var(--radius-xs);
