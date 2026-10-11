@@ -160,8 +160,10 @@
 
 .panel .pane-icon-btn:hover { background: var(--cta-muted-hover); color: var(--text-primary); }
 
-.panel .pane-link:focus-visible,
-.panel .pane-icon-btn:focus-visible {
+/* Every pane control shows where keyboard focus is (title, #seq, chips, menu items, remove ×). */
+.panel button:focus-visible,
+.panel a:focus-visible,
+.panel select:focus-visible {
 	outline: 2px solid var(--accent-primary);
 	outline-offset: 1px;
 }
