@@ -50,11 +50,20 @@ export function toDateInput(iso?: string): string {
 	return `${day.getFullYear()}-${pad(day.getMonth() + 1)}-${pad(day.getDate())}`;
 }
 
-/** Minutes from the estimate field: empty clears (0), negatives clamp to 0, fractions round. */
-export function parseEstimate(raw: string): number {
-	const n = Number(raw);
-	if (raw.trim() === '' || !Number.isFinite(n)) return 0;
-	return Math.max(0, Math.round(n));
+const ESTIMATE_UNITS: Record<string, number> = { d: 1440, h: 60, m: 1 };
+const ESTIMATE_PART = /(\d+(?:\.\d+)?)\s*([dhm])/g;
+
+/**
+ * Minutes from the estimate field, which shows formatMinutes ("2h 30m", "1d 2h"). Accepts that
+ * form, a bare number of minutes, or decimals ("1.5h"). Empty clears (0); anything else is null.
+ */
+export function parseEstimate(raw: string): number | null {
+	const text = raw.trim().toLowerCase();
+	if (text === '') return 0;
+	if (/^\d+(\.\d+)?$/.test(text)) return Math.round(Number(text));
+	if (text.replace(ESTIMATE_PART, '').trim() !== '') return null;
+	const parts = [...text.matchAll(ESTIMATE_PART)];
+	return Math.round(parts.reduce((sum, [, n, unit]) => sum + Number(n) * ESTIMATE_UNITS[unit], 0));
 }
 
 /** Allowed characters for both halves of an operational state (`bd set-state`). */

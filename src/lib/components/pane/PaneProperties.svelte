@@ -4,6 +4,7 @@
 	import { tick } from 'svelte'
 	import { formatMinutes, parseStateLabels, pluralize } from '$lib/utils'
 	import { toDateInput, parseEstimate } from '$lib/pane-logic'
+	import { toastQueue } from '$lib/notifications/toast-queue.svelte'
 	import Icon from '../Icon.svelte'
 	import PaneLabels from './PaneLabels.svelte'
 	import PaneMeta from './PaneMeta.svelte'
@@ -59,6 +60,18 @@
 	function saveText(field: 'assignee' | 'spec_id' | 'external_ref', e: Event) {
 		const next = val(e).trim()
 		if (next !== (issue[field] ?? '')) save({ [field]: next })
+	}
+
+	/** Shown humanised ("2h 30m"); typed as that or plain minutes. Empty clears, junk reverts. */
+	function saveEstimate(e: Event) {
+		const input = e.currentTarget as HTMLInputElement
+		const minutes = parseEstimate(input.value)
+		if (minutes === null) {
+			toastQueue.show({ type: 'warning', title: 'Estimate not saved', message: `Couldn't read "${input.value}". Try 2h 30m or 90.`, duration: 4000 })
+		} else if (minutes !== (issue.estimated_minutes ?? 0)) {
+			save({ estimated_minutes: minutes })
+		}
+		input.value = formatMinutes(minutes ?? issue.estimated_minutes)
 	}
 
 	function blurOnEnter(e: KeyboardEvent) {
@@ -118,16 +131,12 @@
 		<dd>
 			<input
 				id="p-estimate"
-				type="number"
-				min="0"
-				step="15"
 				class="pane-input"
-				placeholder="Minutes"
-				value={issue.estimated_minutes || ''}
-				onchange={(e) => save({ estimated_minutes: parseEstimate(val(e)) })}
+				placeholder="e.g. 2h 30m"
+				value={formatMinutes(issue.estimated_minutes)}
+				onchange={saveEstimate}
 				onkeydown={blurOnEnter}
 			/>
-			{#if issue.estimated_minutes}<span class="hint">{formatMinutes(issue.estimated_minutes)}</span>{/if}
 		</dd>
 	{/if}
 
@@ -211,13 +220,6 @@
 	.add-prop:hover { background: var(--cta-muted); color: var(--text-primary); }
 	.add-prop:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 1px; }
 	.add-prop option { background: var(--surface-elevated); color: var(--text-primary); }
-
-	.hint {
-		flex: none;
-		font-size: 0.75rem;
-		color: var(--text-secondary);
-		white-space: nowrap;
-	}
 
 	input[type='date'] { color-scheme: dark; }
 	:global(.app.light) input[type='date'] { color-scheme: light; }

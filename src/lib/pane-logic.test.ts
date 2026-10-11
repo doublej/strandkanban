@@ -44,10 +44,16 @@ describe('field parsing', () => {
 		expect(toDateInput(undefined)).toBe('');
 		expect(toDateInput('nope')).toBe('');
 	});
-	it('parses estimates: empty clears, clamps, rounds', () => {
+	it('parses estimates: empty clears, minutes or humanised, rejects junk', () => {
 		expect(parseEstimate('')).toBe(0);
-		expect(parseEstimate('-5')).toBe(0);
 		expect(parseEstimate('44.6')).toBe(45);
+		expect(parseEstimate('2h 30m')).toBe(150);
+		expect(parseEstimate('1d 2h')).toBe(1560);
+		expect(parseEstimate('1.5H')).toBe(90);
+		expect(parseEstimate('45m')).toBe(45);
+		expect(parseEstimate('-5')).toBeNull();
+		expect(parseEstimate('2 hours')).toBeNull();
+		expect(parseEstimate('abc')).toBeNull();
 	});
 });
 
