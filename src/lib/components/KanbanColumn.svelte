@@ -3,12 +3,12 @@
 	import Icon from './Icon.svelte';
 	import IssueCard from './IssueCard.svelte';
 	import ColumnHeader from './ColumnHeader.svelte';
-	import { hasOpenBlockers } from '$lib/utils';
 
 	interface Props {
 		column: Column;
 		columnIndex: number;
 		allColumnIssues: Issue[];
+		seqById: Map<string, number>;
 		matchingCount: number;
 		isCollapsed: boolean;
 		currentSort: 'priority' | 'created' | 'title' | undefined;
@@ -45,7 +45,6 @@
 		// signature just hid that from callers.
 		oncarddragend: (e: DragEvent) => void;
 		oncardcontextmenu: (e: MouseEvent, issue: Issue) => void;
-		oncopyid: (id: string, text: string) => void;
 		onaddclick?: () => void;
 	}
 
@@ -53,6 +52,7 @@
 		column,
 		columnIndex,
 		allColumnIssues,
+		seqById,
 		matchingCount,
 		isCollapsed,
 		currentSort,
@@ -87,7 +87,6 @@
 		oncarddragstart,
 		oncarddragend,
 		oncardcontextmenu,
-		oncopyid,
 		onaddclick
 	}: Props = $props();
 </script>
@@ -135,7 +134,6 @@
 			{/each}
 
 			{#each allColumnIssues as issue, idx}
-				{@const isBlocked = hasOpenBlockers(issue)}
 				{@const matchesFilter = issueMatchesFilters(issue)}
 				{@const isFlying = flyingCards.has(issue.id)}
 				{@const isShrinking = shrinkingSourceIds.has(issue.id)}
@@ -143,10 +141,10 @@
 				{#if !shouldHide}
 					<IssueCard
 						{issue}
+						{seqById}
 						selected={selectedId === issue.id}
 						dragging={draggedId === issue.id}
 						animating={animatingIds.has(issue.id)}
-						hasOpenBlockers={isBlocked}
 						editing={editingIssue?.id === issue.id}
 						filterDimmed={hasActiveFilters && isFilterPreviewing && !matchesFilter}
 						flyingHidden={isFlying}
@@ -157,7 +155,6 @@
 						ondragstart={(e) => oncarddragstart(e, issue.id)}
 						ondragend={oncarddragend}
 						oncontextmenu={(e) => oncardcontextmenu(e, issue)}
-						oncopyid={(id) => oncopyid(id, id)}
 					/>
 				{/if}
 

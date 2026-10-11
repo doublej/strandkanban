@@ -54,6 +54,9 @@
 		currentProjectPath
 	}: Props = $props();
 
+	// One lookup for every card's dependency refs (#seq instead of raw ids).
+	const seqById = $derived(new Map(issues.map((i) => [i.id, i.seq])));
+
 	function toggleSortMenu(columnKey: string, e: MouseEvent) {
 		e.stopPropagation();
 		ops.sortMenuOpen = ops.sortMenuOpen === columnKey ? null : columnKey;
@@ -88,6 +91,7 @@
 				{column}
 				columnIndex={i}
 				{allColumnIssues}
+				{seqById}
 				{matchingCount}
 				{isCollapsed}
 				{currentSort}
@@ -121,7 +125,6 @@
 				oncarddragstart={(e, id) => cardDrag.handleDragStart(e, id)}
 				oncarddragend={cardDrag.handleDragEnd}
 				oncardcontextmenu={(e, issue) => ops.openContextMenu(e, issue)}
-				oncopyid={(id, text) => ops.copyToClipboard(id, text)}
 				showAddButton={i === 0}
 				onaddclick={ops.openCreatePanel}
 			/>

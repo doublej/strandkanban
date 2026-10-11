@@ -146,18 +146,6 @@ export function formatTimestamp(dateStr?: string): { relative: string; absolute:
 	return { relative, absolute, time };
 }
 
-export function formatDuration(startDate?: string, endDate?: string): string {
-	if (!startDate || !endDate) return '';
-	const start = new Date(startDate).getTime();
-	const end = new Date(endDate).getTime();
-	const diff = end - start;
-	const hours = Math.floor(diff / 3600000);
-	const days = Math.floor(hours / 24);
-	if (days > 0) return `${days}d ${hours % 24}h`;
-	if (hours > 0) return `${hours}h`;
-	return `${Math.floor(diff / 60000)}m`;
-}
-
 export type DueLevel = 'overdue' | 'soon' | 'normal';
 
 /**

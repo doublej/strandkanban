@@ -1,92 +1,108 @@
 <script lang="ts">
-	import type { Issue } from '$lib/types';
-	import { getPriorityConfig, isAgentAssignee as checkAgentAssignee } from '$lib/utils';
-	import IssueCardBadges from './IssueCardBadges.svelte';
-	import IssueCardMeta from './IssueCardMeta.svelte';
+	import type { Issue } from '$lib/types'
+	import { getDueInfo, isAgentAssignee } from '$lib/utils'
+	import { relationSummary } from '$lib/card-logic'
+	import { typeLabel, dueChipLabel } from '$lib/pane-logic'
+	import IssueCardTop from './IssueCardTop.svelte'
+	import IssueCardFooter from './IssueCardFooter.svelte'
 
 	interface Props {
-		issue: Issue;
-		selected: boolean;
-		dragging: boolean;
-		animating: boolean;
-		hasOpenBlockers: boolean;
-		editing?: boolean;
-		filterDimmed?: boolean;
-		flyingHidden?: boolean;
-		shrinkingSource?: boolean;
-		showImpact?: boolean;
-		inWorktree?: boolean;
-		registerCard: (node: HTMLElement, id: string) => void;
-		onclick: () => void;
-		ondragstart: (e: DragEvent) => void;
-		ondragend: (e: DragEvent) => void;
-		oncontextmenu: (e: MouseEvent) => void;
-		oncopyid: (id: string) => void;
+		issue: Issue
+		seqById: Map<string, number>
+		selected: boolean
+		dragging: boolean
+		animating: boolean
+		editing?: boolean
+		filterDimmed?: boolean
+		flyingHidden?: boolean
+		shrinkingSource?: boolean
+		inWorktree?: boolean
+		registerCard: (node: HTMLElement, id: string) => void
+		onclick: () => void
+		ondragstart: (e: DragEvent) => void
+		ondragend: (e: DragEvent) => void
+		oncontextmenu: (e: MouseEvent) => void
 	}
 
 	let {
 		issue,
+		seqById,
 		selected,
 		dragging,
 		animating,
-		hasOpenBlockers,
 		editing = false,
 		filterDimmed = false,
 		flyingHidden = false,
 		shrinkingSource = false,
-		showImpact = true,
 		inWorktree = false,
 		registerCard,
 		onclick,
 		ondragstart,
 		ondragend,
-		oncontextmenu,
-		oncopyid
-	}: Props = $props();
+		oncontextmenu
+	}: Props = $props()
 
-	const priorityConfig = $derived(getPriorityConfig(issue.priority));
+	// A finished issue can't be late or hold anything up, so it shows neither.
+	const closed = $derived(issue.status === 'closed')
+	const relation = $derived(closed ? null : relationSummary(issue, seqById))
+	const due = $derived(closed ? null : getDueInfo(issue.due_at))
+	const agent = $derived(isAgentAssignee(issue.assignee))
 
-	const isAgentAssignee = $derived(checkAgentAssignee(issue.assignee));
+	// Screen readers get the card as one sentence instead of a run of badges.
+	const ariaLabel = $derived(
+		[
+			`#${issue.seq} ${issue.title}`,
+			typeLabel(issue.issue_type),
+			issue.priority <= 1 ? `P${issue.priority}` : '',
+			relation?.text ?? '',
+			due ? dueChipLabel(due.label) : '',
+			issue.assignee ? `assigned to ${issue.assignee}` : ''
+		].filter(Boolean).join(', ')
+	)
+
+	function handleKey(e: KeyboardEvent) {
+		if (e.key !== 'Enter' && e.key !== ' ') return
+		e.preventDefault()
+		onclick()
+	}
 </script>
 
 <div
 	role="button"
 	tabindex="0"
+	aria-label={ariaLabel}
 	class="card"
-	class:animating={animating}
-	class:selected={selected}
-	class:editing={editing}
-	class:dragging={dragging}
-	class:has-blockers={hasOpenBlockers}
+	class:animating
+	class:selected
+	class:editing
+	class:dragging
+	class:wisp={issue.ephemeral}
 	class:filter-dimmed={filterDimmed}
 	class:flying-hidden={flyingHidden}
 	class:shrinking-source={shrinkingSource}
-	style="--priority-color: {priorityConfig.color}"
 	draggable="true"
-	ondragstart={ondragstart}
-	ondragend={ondragend}
-	onclick={onclick}
-	onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') onclick(); }}
-	oncontextmenu={oncontextmenu}
+	{ondragstart}
+	{ondragend}
+	{onclick}
+	onkeydown={handleKey}
+	{oncontextmenu}
 	use:registerCard={issue.id}
 	data-card-id={issue.id}
 >
-	<div class="card-content">
-		<IssueCardBadges {issue} {hasOpenBlockers} {showImpact} {isAgentAssignee} {inWorktree} {oncopyid} />
-		<h3 class="card-title">{issue.title}</h3>
-		{#if issue.description}
-			<p class="card-description">{issue.description}</p>
-		{/if}
-		<IssueCardMeta {issue} {isAgentAssignee} />
-	</div>
+	<IssueCardTop {issue} {relation} {due} />
+	<h3 class="title">{issue.title}</h3>
+	{#if issue.description}
+		<p class="description">{issue.description}</p>
+	{/if}
+	<IssueCardFooter {issue} {agent} {inWorktree} />
 </div>
 
 <style>
 	.card {
 		position: relative;
-		display: flex;
 		flex-shrink: 0;
 		margin: 2px 4px;
+		padding: 0.625rem 0.75rem 0.6875rem;
 		background: var(--surface-card);
 		border: 1px solid var(--border-subtle);
 		border-radius: var(--radius-sm);
@@ -100,19 +116,7 @@
 		   keyboard nav, drag targets and counts keep working) — only layout/paint is
 		   deferred, which is why this beats a virtual list here. */
 		content-visibility: auto;
-		contain-intrinsic-size: auto 120px;
-	}
-
-	.card::before {
-		content: '';
-		position: absolute;
-		top: 0.5rem;
-		left: 0;
-		width: 3px;
-		height: 3px;
-		border-radius: 0 50% 50% 0;
-		background: var(--priority-color, var(--text-tertiary));
-		opacity: 0.8;
+		contain-intrinsic-size: auto 96px;
 	}
 
 	.card:hover {
@@ -125,17 +129,21 @@
 		transition: transform 80ms ease-out;
 	}
 
-	.card-content {
-		flex: 1;
-		padding: 0.625rem 0.75rem;
-		min-width: 0;
-		overflow: hidden;
+	.card:focus-visible {
+		outline: 2px solid var(--accent-primary);
+		outline-offset: 2px;
 	}
 
-	.card.selected {
+	.card.selected,
+	.card.editing {
 		border-color: var(--accent-primary);
 		box-shadow: 0 0 0 1px var(--accent-primary);
 	}
+
+	.card.editing { z-index: 5; }
+
+	/* Wisps are temporary: a dashed edge says so without another badge. */
+	.card.wisp { border-style: dashed; border-color: var(--border-strong); }
 
 	.card.dragging {
 		opacity: 0.85;
@@ -153,12 +161,6 @@
 	@keyframes cardPulse {
 		0% { box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.5); }
 		100% { box-shadow: none; }
-	}
-
-	.card.editing {
-		border-color: var(--accent-primary);
-		box-shadow: 0 0 0 1px var(--accent-primary);
-		z-index: 5;
 	}
 
 	.card.filter-dimmed {
@@ -193,21 +195,12 @@
 		pointer-events: none;
 	}
 
-	.card.has-blockers {
-		border-color: rgba(239, 68, 68, 0.3);
-	}
-
-	.card.has-blockers::before {
-		background: var(--state-blocked);
-		opacity: 1;
-	}
-
-	.card-title {
+	.title {
+		margin: 0.4375rem 0 0;
 		font-size: 0.8125rem;
 		font-weight: 550;
+		line-height: 1.25rem;
 		color: var(--text-primary);
-		line-height: 1.35;
-		margin-bottom: 0.25rem;
 		display: -webkit-box;
 		-webkit-line-clamp: 2;
 		line-clamp: 2;
@@ -215,56 +208,24 @@
 		overflow: hidden;
 	}
 
-	.card-description {
-		font-size: 0.6875rem;
-		color: var(--text-tertiary);
-		line-height: 1.4;
-		margin-bottom: 0.375rem;
-		display: -webkit-box;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
-		-webkit-box-orient: vertical;
+	.description {
+		margin: 0.125rem 0 0;
+		font-size: 0.75rem;
+		line-height: 1.125rem;
+		color: var(--text-secondary);
+		white-space: nowrap;
 		overflow: hidden;
+		text-overflow: ellipsis;
 	}
 
-	/* Mobile */
 	@media (max-width: 768px) {
-		.card {
-			margin: 1px 2px;
-		}
-
-		.card-content {
-			padding: 0.625rem 0.75rem;
-		}
-
-		.card-title {
-			font-size: 0.8125rem;
-			line-height: 1.3;
-			margin-bottom: 0.125rem;
-		}
-
-		.card-description {
-			font-size: 0.625rem;
-			margin-bottom: 0.375rem;
-			-webkit-line-clamp: 1;
-			line-clamp: 1;
-		}
+		.card { margin: 1px 2px; }
 	}
 
 	/* Light theme */
-	:global(.app.light) .card {
-		box-shadow: var(--shadow-sm);
-	}
-
-	:global(.app.light) .card:hover {
-		box-shadow: var(--shadow-md);
-	}
-
-	:global(.app.light) .card.selected {
-		box-shadow: 0 0 0 1px var(--accent-primary), var(--shadow-sm);
-	}
-
-	:global(.app.light) .card.dragging {
-		box-shadow: var(--shadow-lg);
-	}
+	:global(.app.light) .card { box-shadow: var(--shadow-sm); }
+	:global(.app.light) .card:hover { box-shadow: var(--shadow-md); }
+	:global(.app.light) .card.selected,
+	:global(.app.light) .card.editing { box-shadow: 0 0 0 1px var(--accent-primary), var(--shadow-sm); }
+	:global(.app.light) .card.dragging { box-shadow: var(--shadow-lg); }
 </style>
