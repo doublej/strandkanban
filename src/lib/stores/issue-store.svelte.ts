@@ -276,7 +276,8 @@ export function createIssueStore(callbacks: IssueStoreCallbacks, initialIssues: 
 		return true;
 	}
 
-	async function createIssue(form: { title: string; description: string; priority: number; issue_type: string }): Promise<string | null> {
+	/** `deps` are ids the new issue is blocked by; bd links them in the same create call. */
+	async function createIssue(form: { title: string; description: string; priority: number; issue_type: string; deps?: string[] }): Promise<string | null> {
 		if (!form.title.trim()) return null;
 
 		const tempId = `temp-${Date.now()}`;
@@ -291,7 +292,10 @@ export function createIssueStore(callbacks: IssueStoreCallbacks, initialIssues: 
 			priority: form.priority as Issue['priority'],
 			issue_type: form.issue_type,
 			labels: [],
-			dependencies: [],
+			dependencies: (form.deps ?? []).map((id) => {
+				const dep = issues.find((i) => i.id === id);
+				return { id, title: dep?.title ?? id, status: dep?.status ?? 'open', dependency_type: 'blocks' };
+			}),
 			dependents: [],
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString()

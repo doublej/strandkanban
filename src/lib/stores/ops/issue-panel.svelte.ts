@@ -231,9 +231,7 @@ export function createIssuePanel(ctx: IssuePanelContext, notifyTicket: NotifyTic
 
 	async function createIssue() {
 		if (!createForm.title.trim()) return;
-		const form = { title: createForm.title, description: createForm.description, priority: createForm.priority, issue_type: createForm.issue_type };
-		createForm = { title: '', description: '', priority: 2, issue_type: 'task', deps: [] };
-		isCreating = false;
+		const form = consumeCreateForm();
 		await ctx.issueStore.createIssue(form);
 	}
 
@@ -254,7 +252,7 @@ export function createIssuePanel(ctx: IssuePanelContext, notifyTicket: NotifyTic
 
 	/** Take the pending create form and clear it — the caller owns the values from here. */
 	function consumeCreateForm() {
-		const form = { title: createForm.title, description: createForm.description, priority: createForm.priority, issue_type: createForm.issue_type };
+		const form = { ...createForm, deps: [...createForm.deps] };
 		createForm = { title: '', description: '', priority: 2, issue_type: 'task', deps: [] };
 		isCreating = false;
 		return form;
