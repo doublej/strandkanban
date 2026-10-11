@@ -1,63 +1,51 @@
 <script lang="ts">
-	import type { Issue } from '$lib/types';
-	import type { PageOps } from '$lib/stores/page-ops.svelte';
-	import type { CardDrag } from '$lib/drag-drop/card-drag.svelte';
-	import { getColumnsWithCustom } from '$lib/utils';
-	import { settings } from '$lib/stores/settings.svelte';
-	import DetailPanel from './DetailPanel.svelte';
+	import type { Issue } from '$lib/types'
+	import type { PageOps } from '$lib/stores/page-ops.svelte'
+	import type { CardDrag } from '$lib/drag-drop/card-drag.svelte'
+	import PaneIssue from './pane/PaneIssue.svelte'
+	import PaneCreate from './pane/PaneCreate.svelte'
+	import './pane/pane.css'
 
 	interface Props {
-		ops: PageOps;
-		cardDrag: CardDrag;
-		issues: Issue[];
-		activeAgents: string[];
+		ops: PageOps
+		cardDrag: CardDrag
+		issues: Issue[]
+		activeAgents: string[]
 	}
 
-	let { ops, cardDrag, issues, activeAgents }: Props = $props();
+	let { ops, cardDrag, issues, activeAgents }: Props = $props()
 
-	const statusColumns = $derived(getColumnsWithCustom(issues));
+	const dragOffset = $derived(cardDrag.isPanelDragging ? cardDrag.panelDragOffset : 0)
+
+	/** A pasted image anywhere in the open pane becomes an attachment. */
+	function handlePaste(e: ClipboardEvent) {
+		if (!ops.editingIssue) return
+		const item = [...(e.clipboardData?.items ?? [])].find((i) => i.type.startsWith('image/'))
+		const file = item?.getAsFile()
+		if (!file) return
+		e.preventDefault()
+		ops.handleUploadAttachment(file)
+	}
 </script>
 
-<DetailPanel
-	bind:editingIssue={ops.editingIssue}
-	isCreating={ops.isCreating}
-	bind:createForm={ops.createForm}
-	allIssues={issues}
-	{activeAgents}
-	agentEnabled={settings.agentEnabled}
-	{statusColumns}
-	comments={ops.comments}
-	bind:newLabelInput={ops.newLabelInput}
-	bind:newComment={ops.newComment}
-	loadingComments={ops.loadingComments}
-	attachments={ops.attachments}
-	loadingAttachments={ops.loadingAttachments}
-	onuploadattachment={ops.handleUploadAttachment}
-	ondeleteattachment={ops.handleDeleteAttachment}
-	originalLabels={ops.originalLabels}
-	isPanelDragging={cardDrag.isPanelDragging}
-	panelDragOffset={cardDrag.panelDragOffset}
-	issueClosedExternally={ops.issueClosedExternally}
-	onclose={ops.closePanel}
-	oncreate={ops.createIssue}
-	oncreateandstartagent={ops.createIssueAndStartAgent}
-	onstartagent={ops.startAgentForIssue}
-	onviewchat={ops.openAgentPane}
-	ondelete={(id) => ops.deleteIssue(id)}
-	onsave={(id, updates) => ops.updateIssue(id, updates)}
-	onaddcomment={ops.addComment}
-	oncopyid={(text, id) => ops.copyToClipboard(text, id)}
-	onsetcolumn={(key) => ops.setEditingColumn(key)}
-	onaddlabel={(label) => ops.addLabelToEditing(label)}
-	onremovelabel={(label) => ops.removeLabelFromEditing(label)}
-	onsetstate={(dimension, value, reason) => ops.setIssueState(dimension, value, reason)}
-	onpromote={(reason) => ops.promoteWisp(reason)}
-	onremovedep={(issueId, depId) => ops.removeDependency(issueId, depId)}
-	onpaneltouchstart={cardDrag.handlePanelTouchStart}
-	onpaneltouchmove={cardDrag.handlePanelTouchMove}
-	onpaneltouchend={cardDrag.handlePanelTouchEnd}
-	updatecreateform={(key, value) => { (ops.createForm as Record<string, unknown>)[key] = value; }}
-	updatenewlabel={(value) => ops.newLabelInput = value}
-	ondismissclosedwarning={() => ops.issueClosedExternally = false}
-	updatenewcomment={(value) => ops.newComment = value}
-/>
+<!-- Swipe-down-to-close listens on the whole pane; card-drag only starts it from .panel-header. -->
+<aside
+	class="panel"
+	class:dragging={cardDrag.isPanelDragging}
+	aria-label={ops.isCreating ? 'New issue' : 'Issue details'}
+	style:transform={dragOffset ? `translateY(${dragOffset}px)` : undefined}
+	style:opacity={dragOffset ? Math.max(0.3, 1 - dragOffset / 300) : undefined}
+	ontouchstart={cardDrag.handlePanelTouchStart}
+	ontouchmove={cardDrag.handlePanelTouchMove}
+	ontouchend={cardDrag.handlePanelTouchEnd}
+	onpaste={handlePaste}
+>
+	{#if ops.isCreating}
+		<PaneCreate {ops} {issues} />
+	{:else if ops.editingIssue}
+		<!-- Keyed: per-issue UI state (menus, inputs, open sections) never leaks to the next issue. -->
+		{#key ops.editingIssue.id}
+			<PaneIssue {ops} {issues} {activeAgents} />
+		{/key}
+	{/if}
+</aside>

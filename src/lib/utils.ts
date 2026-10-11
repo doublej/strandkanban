@@ -160,6 +160,19 @@ export function formatDuration(startDate?: string, endDate?: string): string {
 
 export type DueLevel = 'overdue' | 'soon' | 'normal';
 
+/**
+ * The calendar day a stored date-only value means, as a local-midnight Date. bd 1.x stores
+ * `--due 2026-10-13` as local midnight (2026-10-12T22:00Z in CEST); older data is UTC
+ * midnight. Exactly-UTC-midnight values are read in UTC, everything else locally, so
+ * the day is right on both sides of UTC.
+ */
+export function calendarDay(date: Date): Date {
+	const utcMidnight = date.getUTCHours() === 0 && date.getUTCMinutes() === 0 && date.getUTCSeconds() === 0;
+	return utcMidnight
+		? new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+		: new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
 /** Classify and label a due date for compact badges. Returns null if unset/invalid. */
 export function getDueInfo(dueAt?: string): { label: string; level: DueLevel; absolute: string } | null {
 	if (!dueAt) return null;
@@ -170,10 +183,7 @@ export function getDueInfo(dueAt?: string): { label: string; level: DueLevel; ab
 	const dayMs = 86400000;
 	const startToday = new Date();
 	startToday.setHours(0, 0, 0, 0);
-	// bd stores date-only due dates as UTC midnight; read the calendar day in UTC so
-	// the badge doesn't shift back a day for users west of UTC (and stays consistent
-	// with the YYYY-MM-DD shown in the date input).
-	const dueDay = new Date(due.getUTCFullYear(), due.getUTCMonth(), due.getUTCDate());
+	const dueDay = calendarDay(due);
 	const dayDiff = Math.round((dueDay.getTime() - startToday.getTime()) / dayMs);
 
 	const level: DueLevel = dayDiff < 0 ? 'overdue' : dayDiff <= 2 ? 'soon' : 'normal';
@@ -198,6 +208,11 @@ export function formatMinutes(minutes?: number): string {
 	if (days > 0) return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
 	if (hours > 0) return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 	return `${mins}m`;
+}
+
+/** "1 link" / "3 links"; pass `many` for irregular plurals ("dependency" → "dependencies"). */
+export function pluralize(n: number, one: string, many = `${one}s`): string {
+	return `${n} ${n === 1 ? one : many}`;
 }
 
 /** True when an open issue hasn't been updated within `days` (default 30). */

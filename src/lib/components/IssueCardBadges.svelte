@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Issue } from '$lib/types';
-	import { getPriorityConfig, calculateImpactScore, getImpactLevel, getDueInfo, formatMinutes, isStale } from '$lib/utils';
+	import { getPriorityConfig, calculateImpactScore, getImpactLevel, getDueInfo, formatMinutes, isStale, pluralize } from '$lib/utils';
 	import Icon from './Icon.svelte';
 	import { copyState } from '$lib/stores/copy-state.svelte';
 
@@ -54,7 +54,7 @@
 	{/if}
 	{#if (issue.dependencies && issue.dependencies.length > 0) || (issue.dependents && issue.dependents.length > 0)}
 		{@const totalDeps = (issue.dependencies?.length || 0) + (issue.dependents?.length || 0)}
-		<span class="deps-indicator" title="{issue.dependencies?.length || 0} dependencies, {issue.dependents?.length || 0} dependents">
+		<span class="deps-indicator" title="{pluralize(issue.dependencies?.length || 0, 'dependency', 'dependencies')}, {pluralize(issue.dependents?.length || 0, 'dependent')}">
 			<Icon name="link" size={10} />
 			<span class="count">{totalDeps}</span>
 		</span>

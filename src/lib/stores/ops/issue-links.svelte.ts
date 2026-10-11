@@ -125,13 +125,10 @@ export function createIssueLinks(ctx: IssueLinksContext, panel: IssuePanel, noti
 			return;
 		}
 		const editing = panel.editingIssue;
-		if (editing) {
-			if (editing.dependencies) {
-				editing.dependencies = editing.dependencies.filter(d => d.id !== dependsOnId);
-			}
-			if (editing.dependents) {
-				editing.dependents = editing.dependents.filter(d => d.id !== issueId);
-			}
+		if (editing?.id === issueId) {
+			panel.patchOpenIssue({ dependencies: (editing.dependencies ?? []).filter(d => d.id !== dependsOnId) });
+		} else if (editing?.id === dependsOnId) {
+			panel.patchOpenIssue({ dependents: (editing.dependents ?? []).filter(d => d.id !== issueId) });
 		}
 		notifyTicket(issueId, `Dependency removed: → ${dependsOnId}`, 'dependency', { ticketTitle: getIssueTitle(issueId), sender: 'user' });
 		notifyTicket(dependsOnId, `Dependency removed: ${issueId} no longer blocks`, 'dependency', { ticketTitle: getIssueTitle(dependsOnId), sender: 'user' });

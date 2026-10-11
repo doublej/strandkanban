@@ -2,6 +2,7 @@ import type { Issue, LoadingStatus } from '$lib/types';
 import type { BoardAnimation } from '$lib/stores/board-animation.svelte';
 import { fetchMutations } from '$lib/mutationStore.svelte';
 import { appendProjectParam } from '$lib/project';
+import { toastQueue } from '$lib/notifications/toast-queue.svelte';
 
 /**
  * Backstop poll interval. bd's Dolt backend flushes .beads/issues.jsonl on a delayed,
@@ -228,27 +229,43 @@ export function createIssueStore(callbacks: IssueStoreCallbacks, initialIssues: 
 		}, 600);
 	}
 
+	/**
+	 * Show a change on the board before the tracker confirms it. Pending changes to the same
+	 * issue accumulate, so two quick edits don't let the first one flicker back.
+	 */
+	function patchLocal(id: string, updates: Partial<Issue>, displayOnly: Partial<Issue> = {}) {
+		const prev = pendingUpdates.get(id)?.updates;
+		pendingUpdates.set(id, { updates: { ...prev, ...updates }, timestamp: Date.now() });
+		pendingUpdates = new Map(pendingUpdates);
+
+		const idx = issues.findIndex(i => i.id === id);
+		if (idx !== -1) {
+			issues = [...issues.slice(0, idx), { ...issues[idx], ...updates, ...displayOnly }, ...issues.slice(idx + 1)];
+		}
+	}
+
 	async function updateIssue(id: string, updates: Partial<Issue>) {
 		const original = issues.find(i => i.id === id);
 		const title = original?.title ?? id;
 
-		// Track pending update
-		pendingUpdates.set(id, { updates, timestamp: Date.now() });
-		pendingUpdates = new Map(pendingUpdates);
-
-		// Optimistic update
-		const idx = issues.findIndex(i => i.id === id);
-		if (idx !== -1) {
-			const updated = { ...issues[idx], ...updates, updated_at: new Date().toISOString() };
-			issues = [...issues.slice(0, idx), updated, ...issues.slice(idx + 1)];
-		}
+		// updated_at is display-only: the tracker's own timestamp never matches it, so it must
+		// not join the pending set that waits for confirmation.
+		patchLocal(id, updates, { updated_at: new Date().toISOString() });
 		addAnimatingId(id);
 
-		await fetch(appendProjectParam(`/api/issues/${id}`), {
+		const res = await fetch(appendProjectParam(`/api/issues/${id}`), {
 			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(updates)
 		});
+		const payload = await res.json();
+		if (!payload?.ok) {
+			// Drop the optimistic value so the next refresh shows what the tracker really has.
+			pendingUpdates.delete(id);
+			pendingUpdates = new Map(pendingUpdates);
+			toastQueue.show({ type: 'error', title: 'Save failed', message: payload?.error?.message ?? `Could not update ${id}`, duration: 6000 });
+			return;
+		}
 		fetchMutations();
 
 		// Notify agents about field changes
@@ -276,7 +293,8 @@ export function createIssueStore(callbacks: IssueStoreCallbacks, initialIssues: 
 		return true;
 	}
 
-	async function createIssue(form: { title: string; description: string; priority: number; issue_type: string }): Promise<string | null> {
+	/** `deps` are ids the new issue is blocked by; bd links them in the same create call. */
+	async function createIssue(form: { title: string; description: string; priority: number; issue_type: string; deps?: string[] }): Promise<string | null> {
 		if (!form.title.trim()) return null;
 
 		const tempId = `temp-${Date.now()}`;
@@ -291,7 +309,10 @@ export function createIssueStore(callbacks: IssueStoreCallbacks, initialIssues: 
 			priority: form.priority as Issue['priority'],
 			issue_type: form.issue_type,
 			labels: [],
-			dependencies: [],
+			dependencies: (form.deps ?? []).map((id) => {
+				const dep = issues.find((i) => i.id === id);
+				return { id, title: dep?.title ?? id, status: dep?.status ?? 'open', dependency_type: 'blocks' };
+			}),
 			dependents: [],
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString()
@@ -336,6 +357,7 @@ export function createIssueStore(callbacks: IssueStoreCallbacks, initialIssues: 
 		connectSSE,
 		closeSse,
 		setIssues,
+		patchLocal,
 		updateIssue,
 		deleteIssue,
 		createIssue

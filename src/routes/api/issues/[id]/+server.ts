@@ -9,7 +9,7 @@ import { parseBody, UpdateIssueSchema } from '$lib/server/schemas';
 export const PATCH: RequestHandler = wrap(async ({ params, request, url }) => {
 	const body = await parseBody(request, UpdateIssueSchema);
 	const {
-		status, title, description, priority, design,
+		status, title, description, priority, issue_type, design,
 		acceptance_criteria, notes, assignee, addLabels, removeLabels,
 		agent_model, agent_effort,
 		due_at, defer_until, external_ref, spec_id, estimated_minutes,
@@ -42,6 +42,9 @@ export const PATCH: RequestHandler = wrap(async ({ params, request, url }) => {
 		due: due_at, defer: defer_until, external_ref, spec_id, estimate: estimated_minutes,
 		addLabels, removeLabels, setMetadata, unsetMetadata,
 	});
+	// ponytail: the SDK's UpdateIssueOptions has no type field, so a type change is a second
+	// `bd update`. Fold it into the call above once beads-sdk grows `issue_type`.
+	if (issue_type !== undefined) await bd.write(['update', params.id, '--type', issue_type]);
 
 	const afterIssue = await bd.issue(params.id);
 	if (beforeIssue && afterIssue) {
