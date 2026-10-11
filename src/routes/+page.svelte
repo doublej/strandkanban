@@ -204,7 +204,7 @@
 
 <svelte:window onkeydown={handleKeydown} onkeyup={handleKeyup} onpopstate={handlePopState} onclick={ops.closeContextMenu} onmousemove={ops.handleMouseMove} onmouseup={ops.handleMouseUp} onblur={handleWindowBlur} />
 
-<div class="app scheme-{viewState.colorScheme}" class:light={!viewState.isDarkMode} class:panel-open={ops.panelOpen} class:show-hotkeys={showHotkeys || settings.alwaysShowHotkeys} class:has-chat-bar={agentPanes.wsConnected && agentPanes.showActivityBar} style="--project-color: {session.projectColor}; --chat-bar-space: {agentPanes.chatBarReserve}px">
+<div class="app scheme-{viewState.colorScheme}" class:light={!viewState.isDarkMode} class:panel-open={ops.panelOpen} class:show-hotkeys={showHotkeys || settings.alwaysShowHotkeys} class:has-chat-bar={agentPanes.wsConnected && agentPanes.showActivityBar} class:agent-offline={!agentPanes.wsConnected} style="--project-color: {session.projectColor}; --chat-bar-space: {agentPanes.chatBarReserve}px">
 
 <AppDialogs
 	{ops}

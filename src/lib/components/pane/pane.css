@@ -39,7 +39,16 @@
 	.panel { flex-basis: 480px; min-width: 480px; max-width: 480px; }
 }
 
+/* App chrome floats bottom-right (status pill while the agent server is offline, the agent bar
+   on mobile): end the pane above it so it never covers the footer. */
+.app.agent-offline .panel { margin-bottom: 2.5rem; }
+
 @media (max-width: 768px) {
+	.app.agent-offline .panel {
+		margin-bottom: 0;
+		padding-bottom: calc(2.875rem + env(safe-area-inset-bottom));
+	}
+	.app.has-chat-bar .panel { bottom: var(--chat-bar-space); }
 	.panel {
 		position: fixed;
 		inset: auto 0 0 0;
