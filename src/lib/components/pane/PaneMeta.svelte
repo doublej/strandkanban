@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Issue } from '$lib/types'
-	import { formatTimestamp, formatDate, isStale } from '$lib/utils'
-	import { isIssueDeferred } from '$lib/filters'
+	import { formatTimestamp, isStale } from '$lib/utils'
 
 	let { issue }: { issue: Issue } = $props()
 
@@ -15,7 +14,6 @@
 	{#if created.relative}<span title="{created.absolute} {created.time}">Created {lower(created.relative)}</span>{/if}
 	{#if updated.relative}<span title="{updated.absolute} {updated.time}">Updated {lower(updated.relative)}</span>{/if}
 	{#if isStale(issue)}<span class="flag">Stale</span>{/if}
-	{#if isIssueDeferred(issue)}<span class="flag">Deferred · {formatDate(issue.defer_until)}</span>{/if}
 </p>
 
 <style>
