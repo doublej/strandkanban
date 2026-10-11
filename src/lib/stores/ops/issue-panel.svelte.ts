@@ -3,7 +3,9 @@ import { pushState as svelteKitPushState } from '$app/navigation';
 import { fetchMutations } from '$lib/mutationStore.svelte';
 import { appendProjectParam } from '$lib/project';
 import type { Issue, Comment, Attachment } from '$lib/types';
-import { getIssueColumn, columns, getColumnMoveUpdates } from '$lib/utils';
+import { getIssueColumn, columns } from '$lib/utils';
+import { hasDirtyDrafts, labelUpdate, type DraftField, type Drafts } from '$lib/pane-logic';
+import { ApiClientError } from '$lib/http';
 import {
 	loadAttachmentsApi,
 	uploadAttachmentApi,
@@ -21,10 +23,14 @@ export interface IssuePanelContext {
 	setSelectedId: (id: string | null) => void;
 }
 
-/** The detail panel: which issue is open, its draft edits, comments and attachments. */
+/**
+ * The detail panel: which issue is open, its comments and attachments, and its unsaved text.
+ * Properties save as they change (saveFields); only long text is drafted (drafts) and saved
+ * explicitly, so drafts are the one thing that can be lost — every exit path asks first.
+ */
 export function createIssuePanel(ctx: IssuePanelContext, notifyTicket: NotifyTicket) {
 	let editingIssue = $state<Issue | null>(null);
-	let originalLabels = $state<string[]>([]);
+	let drafts = $state<Drafts>({});
 	let panelColumnIndex = $state<number | null>(null);
 	let isCreating = $state(false);
 	let createForm = $state({ title: '', description: '', priority: 2, issue_type: 'task', deps: [] as string[] });
@@ -33,7 +39,6 @@ export function createIssuePanel(ctx: IssuePanelContext, notifyTicket: NotifyTic
 	let loadingComments = $state(false);
 	let attachments = $state<Attachment[]>([]);
 	let loadingAttachments = $state(false);
-	let newLabelInput = $state('');
 	let issueClosedExternally = $state(false);
 
 	// --- Panel operations ---
@@ -42,14 +47,24 @@ export function createIssuePanel(ctx: IssuePanelContext, notifyTicket: NotifyTic
 		return isCreating && (createForm.title.trim() !== '' || createForm.description.trim() !== '');
 	}
 
+	/** True when it's fine to leave the current pane state: nothing unsaved, or the user agreed to drop it. */
+	function confirmDiscard(): boolean {
+		if (!hasUnsavedCreate() && !hasDirtyDrafts(drafts) && !newComment.trim()) return true;
+		return confirm('You have unsaved changes. Discard them?');
+	}
+
 	function openEditPanel(issue: Issue, pushState = true) {
-		if (hasUnsavedCreate()) {
-			if (!confirm('You have unsaved changes. Discard them?')) return;
+		// Re-opening the same issue (table paging, a second click) keeps its drafts.
+		if (editingIssue?.id !== issue.id) {
+			if (!confirmDiscard()) return;
+			drafts = {};
+			attachments = [];
+			newComment = '';
+			issueClosedExternally = false;
 		}
 		isCreating = false;
 		createForm = { title: '', description: '', priority: 2, issue_type: 'task', deps: [] };
 		editingIssue = { ...issue, labels: issue.labels ? [...issue.labels] : [] };
-		originalLabels = issue.labels ? [...issue.labels] : [];
 		const col = getIssueColumn(issue);
 		const idx = columns.findIndex(c => c.key === col.key);
 		panelColumnIndex = idx >= 0 ? idx : 0;
@@ -66,10 +81,9 @@ export function createIssuePanel(ctx: IssuePanelContext, notifyTicket: NotifyTic
 	}
 
 	function closePanel(pushState = true, force = false) {
-		if (!force && hasUnsavedCreate()) {
-			if (!confirm('You have unsaved changes. Discard them?')) return;
-		}
+		if (!force && !confirmDiscard()) return;
 		editingIssue = null;
+		drafts = {};
 		panelColumnIndex = null;
 		isCreating = false;
 		issueClosedExternally = false;
@@ -84,19 +98,17 @@ export function createIssuePanel(ctx: IssuePanelContext, notifyTicket: NotifyTic
 	}
 
 	function openCreatePanel() {
-		editingIssue = null;
-		isCreating = true;
-		createForm = { title: '', description: '', priority: 2, issue_type: 'task', deps: [] };
+		if (!isCreating) {
+			if (!confirmDiscard()) return;
+			editingIssue = null;
+			drafts = {};
+			isCreating = true;
+			createForm = { title: '', description: '', priority: 2, issue_type: 'task', deps: [] };
+		}
 		requestAnimationFrame(() => {
 			const titleInput = document.getElementById('create-title') as HTMLInputElement;
 			titleInput?.focus();
 		});
-	}
-
-	function setEditingColumn(columnKey: string) {
-		if (!editingIssue) return;
-		const updates = getColumnMoveUpdates(editingIssue, columnKey);
-		if (updates.status) editingIssue.status = updates.status;
 	}
 
 	function openIssueById(id: string, pushState = true) {
@@ -122,22 +134,41 @@ export function createIssuePanel(ctx: IssuePanelContext, notifyTicket: NotifyTic
 		else closePanel(false);
 	}
 
-	// --- Labels ---
+	// --- Saving the open issue ---
 
-	function addLabelToEditing(label: string) {
+	/** Show a change on the open issue right away: its full read and its board card. */
+	function patchOpenIssue(updates: Partial<Issue>) {
 		if (!editingIssue) return;
-		const trimmed = label.trim().toLowerCase();
-		if (!trimmed) return;
-		const labels = editingIssue.labels || [];
-		if (!labels.includes(trimmed)) {
-			editingIssue.labels = [...labels, trimmed];
-		}
-		newLabelInput = '';
+		Object.assign(editingIssue, updates);
+		ctx.issueStore.patchLocal(editingIssue.id, updates);
 	}
 
-	function removeLabelFromEditing(label: string) {
+	/** Write changed fields straight to the tracker (the pane has no global Save). */
+	async function saveFields(updates: Partial<Issue>) {
 		if (!editingIssue) return;
-		editingIssue.labels = (editingIssue.labels || []).filter(l => l !== label);
+		Object.assign(editingIssue, updates);
+		await ctx.issueStore.updateIssue(editingIssue.id, updates);
+	}
+
+	async function setLabels(next: string[]) {
+		if (!editingIssue) return;
+		await saveFields(labelUpdate(editingIssue.labels ?? [], next));
+	}
+
+	function startDraft(field: DraftField) {
+		const base = editingIssue?.[field] ?? '';
+		drafts[field] = { base, value: base };
+	}
+
+	function cancelDraft(field: DraftField) {
+		delete drafts[field];
+	}
+
+	async function saveDraft(field: DraftField) {
+		const draft = drafts[field];
+		if (!draft) return;
+		delete drafts[field];
+		if (draft.value !== draft.base) await saveFields({ [field]: draft.value });
 	}
 
 	// --- Operational state (bd set-state) ---
@@ -148,7 +179,7 @@ export function createIssuePanel(ctx: IssuePanelContext, notifyTicket: NotifyTic
 		const id = editingIssue.id;
 		// Optimistic: replace any existing label for this dimension with the new value.
 		const others = (editingIssue.labels || []).filter(l => !l.startsWith(`${dimension}:`));
-		editingIssue.labels = [...others, `${dimension}:${value}`];
+		patchOpenIssue({ labels: [...others, `${dimension}:${value}`] });
 		await setIssueStateApi(id, dimension, value, reason);
 	}
 
@@ -156,7 +187,7 @@ export function createIssuePanel(ctx: IssuePanelContext, notifyTicket: NotifyTic
 	async function promoteWisp(reason?: string) {
 		if (!editingIssue || !editingIssue.ephemeral) return;
 		const id = editingIssue.id;
-		editingIssue.ephemeral = undefined; // optimistic
+		patchOpenIssue({ ephemeral: false });
 		await promoteWispApi(id, reason);
 	}
 
@@ -180,6 +211,7 @@ export function createIssuePanel(ctx: IssuePanelContext, notifyTicket: NotifyTic
 		loadingComments = true;
 		const res = await fetch(appendProjectParam(`/api/issues/${issueId}/comments`));
 		const payload = await res.json();
+		if (editingIssue?.id !== issueId) return; // a later open won the race
 		comments = payload?.ok ? (payload.data?.comments ?? []) : [];
 		loadingComments = false;
 	}
@@ -207,14 +239,21 @@ export function createIssuePanel(ctx: IssuePanelContext, notifyTicket: NotifyTic
 
 	async function loadAttachments(issueId: string) {
 		loadingAttachments = true;
-		attachments = await loadAttachmentsApi(issueId);
+		const loaded = await loadAttachmentsApi(issueId);
+		if (editingIssue?.id !== issueId) return; // a later open won the race
+		attachments = loaded;
 		loadingAttachments = false;
 	}
 
 	async function handleUploadAttachment(file: File) {
 		if (!editingIssue) return;
-		const attachment = await uploadAttachmentApi(editingIssue.id, file);
-		if (attachment) {
+		// A refused upload (too large, bad name) is expected: tell the user, don't throw.
+		const attachment = await uploadAttachmentApi(editingIssue.id, file).catch((e: unknown) => {
+			if (!(e instanceof ApiClientError)) throw e;
+			toastQueue.show({ type: 'error', title: 'Upload failed', message: e.message, duration: 6000 });
+			return null;
+		});
+		if (attachment && editingIssue) {
 			attachments = [...attachments, attachment];
 			notifyTicket(editingIssue.id, `Attachment added: ${file.name}`, 'attachment', { ticketTitle: editingIssue.title, sender: 'user' });
 		}
@@ -241,12 +280,16 @@ export function createIssuePanel(ctx: IssuePanelContext, notifyTicket: NotifyTic
 
 	async function deleteIssue(id: string) {
 		const deleted = await ctx.issueStore.deleteIssue(id);
-		if (deleted && editingIssue?.id === id) editingIssue = null;
+		if (deleted && editingIssue?.id === id) {
+			editingIssue = null;
+			drafts = {};
+		}
 	}
 
 	/** Reset the panel after an agent took over the issue. */
 	function releaseToAgent() {
 		editingIssue = null;
+		drafts = {};
 		isCreating = false;
 	}
 
@@ -261,7 +304,7 @@ export function createIssuePanel(ctx: IssuePanelContext, notifyTicket: NotifyTic
 	return {
 		get editingIssue() { return editingIssue; },
 		set editingIssue(v: Issue | null) { editingIssue = v; },
-		get originalLabels() { return originalLabels; },
+		get drafts() { return drafts; },
 		get panelColumnIndex() { return panelColumnIndex; },
 		set panelColumnIndex(v: number | null) { panelColumnIndex = v; },
 		get isCreating() { return isCreating; },
@@ -275,20 +318,21 @@ export function createIssuePanel(ctx: IssuePanelContext, notifyTicket: NotifyTic
 		get loadingComments() { return loadingComments; },
 		get attachments() { return attachments; },
 		get loadingAttachments() { return loadingAttachments; },
-		get newLabelInput() { return newLabelInput; },
-		set newLabelInput(v: string) { newLabelInput = v; },
 		get issueClosedExternally() { return issueClosedExternally; },
 		set issueClosedExternally(v: boolean) { issueClosedExternally = v; },
 		get panelOpen() { return editingIssue !== null || isCreating; },
 		openEditPanel,
 		closePanel,
 		openCreatePanel,
-		hasUnsavedCreate,
-		setEditingColumn,
+		confirmDiscard,
 		openIssueById,
 		handlePopState,
-		addLabelToEditing,
-		removeLabelFromEditing,
+		patchOpenIssue,
+		saveFields,
+		setLabels,
+		startDraft,
+		cancelDraft,
+		saveDraft,
 		setIssueState,
 		promoteWisp,
 		loadComments,
