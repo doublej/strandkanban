@@ -67,7 +67,7 @@ export function getPriorityConfig(priority: number) {
 		1: { color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.12)', label: 'High', lightBg: 'rgba(245, 158, 11, 0.08)' },
 		2: { color: '#6366f1', bg: 'rgba(99, 102, 241, 0.12)', label: 'Medium', lightBg: 'rgba(99, 102, 241, 0.08)' },
 		3: { color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)', label: 'Low', lightBg: 'rgba(16, 185, 129, 0.08)' },
-		4: { color: '#6b7280', bg: 'rgba(107, 114, 128, 0.12)', label: 'Backlog', lightBg: 'rgba(107, 114, 128, 0.08)' }
+		4: { color: '#6b7280', bg: 'rgba(107, 114, 128, 0.12)', label: 'Someday', lightBg: 'rgba(107, 114, 128, 0.08)' }
 	};
 	return configs[priority] || configs[2];
 }

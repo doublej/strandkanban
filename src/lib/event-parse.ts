@@ -12,7 +12,7 @@ export interface DbEvent {
 }
 
 const priorityLabels: Record<number, string> = {
-	0: 'Critical', 1: 'High', 2: 'Medium', 3: 'Low', 4: 'Backlog'
+	0: 'Critical', 1: 'High', 2: 'Medium', 3: 'Low', 4: 'Someday'
 };
 
 /** Parse an event's old/new value JSON. bd sometimes stores a plain (non-JSON) string

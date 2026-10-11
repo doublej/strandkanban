@@ -25,7 +25,7 @@
 		{ p: 1, label: 'P1 · High' },
 		{ p: 2, label: 'P2 · Medium' },
 		{ p: 3, label: 'P3 · Low' },
-		{ p: 4, label: 'P4 · Backlog' }
+		{ p: 4, label: 'P4 · Someday' }
 	];
 	const agents = ['agent-claude-1', 'agent-claude-2', 'agent-claude-3', 'jurre'];
 	const labelOptions = ['auth', 'frontend', 'backend', 'mobile', 'tech-debt', 'reports'];

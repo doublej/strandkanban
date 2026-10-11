@@ -28,7 +28,7 @@ interface HistoryEntry {
 	changes: string[];
 }
 
-const PRIORITY = ['Critical', 'High', 'Medium', 'Low', 'Backlog'];
+const PRIORITY = ['Critical', 'High', 'Medium', 'Low', 'Someday'];
 const prio = (p: number) => PRIORITY[p] ?? String(p);
 
 /** Diff a newer snapshot against the older one it replaced into human-readable change lines. */

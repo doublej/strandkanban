@@ -24,7 +24,7 @@ export const triageActions: TriageAction[] = [
 	{ value: 'now', label: 'I need it now', hint: 'P0 · Critical', icon: 'zap', color: '#ef4444', priority: 0, angle: -90 },
 	{ value: 'important', label: 'Important', hint: 'P1 · High', icon: 'pin', color: '#f59e0b', priority: 1, angle: -18 },
 	{ value: 'nice-to-have', label: 'Nice to have', hint: 'P3 · Low', icon: 'feature', color: '#10b981', priority: 3, angle: 54 },
-	{ value: 'stale', label: 'Don’t remember / care', hint: 'P4 · Backlog', icon: 'circle-slash', color: '#6b7280', priority: 4, angle: 126 },
+	{ value: 'stale', label: 'Don’t remember / care', hint: 'P4 · Someday', icon: 'circle-slash', color: '#6b7280', priority: 4, angle: 126 },
 	{ value: 'unclear', label: 'Don’t understand', hint: 'Needs clarification', icon: 'help', color: '#6366f1', angle: 198 }
 ];
 

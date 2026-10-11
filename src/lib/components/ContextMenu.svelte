@@ -40,7 +40,7 @@
 				<span class="priority-dot" style="background: #10b981"></span>Low
 			</button>
 			<button class="context-option" class:active={issue.priority === 4} onclick={() => onSetPriority(4)}>
-				<span class="priority-dot" style="background: #6b7280"></span>Backlog
+				<span class="priority-dot" style="background: #6b7280"></span>Someday
 			</button>
 		</div>
 	</div>
