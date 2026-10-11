@@ -210,6 +210,11 @@ export function formatMinutes(minutes?: number): string {
 	return `${mins}m`;
 }
 
+/** "1 link" / "3 links"; pass `many` for irregular plurals ("dependency" → "dependencies"). */
+export function pluralize(n: number, one: string, many = `${one}s`): string {
+	return `${n} ${n === 1 ? one : many}`;
+}
+
 /** True when an open issue hasn't been updated within `days` (default 30). */
 export function isStale(issue: Issue, days = 30): boolean {
 	if (issue.status === 'closed') return false;
