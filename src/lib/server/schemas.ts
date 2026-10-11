@@ -29,7 +29,8 @@ export const UpdateIssueSchema = z.object({
 	title: z.string().optional(),
 	description: z.string().optional(),
 	priority: Priority.optional(),
-	issue_type: z.string().optional(),
+	// Becomes a bd argv value — no leading dash, so it can't be read as a flag.
+	issue_type: z.string().regex(/^[a-z][a-z0-9_-]*$/, 'invalid issue type').optional(),
 	design: z.string().optional(),
 	acceptance_criteria: z.string().optional(),
 	notes: z.string().optional(),
