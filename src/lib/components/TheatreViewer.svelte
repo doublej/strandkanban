@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Attachment } from '$lib/types';
 	import Icon from './Icon.svelte';
+	import { attachmentUrl } from '$lib/api';
 
 	interface Props {
 		issueId: string;
@@ -83,7 +84,7 @@
 				{#if currentImage}
 					{#key currentImage.filename}
 						<img
-							src="/api/issues/{issueId}/attachments/{currentImage.filename}"
+							src={attachmentUrl(issueId, currentImage.filename)}
 							alt={currentImage.filename}
 							class="theatre-image"
 						/>
@@ -99,7 +100,7 @@
 						onclick={() => { currentIndex = i; }}
 					>
 						<img
-							src="/api/issues/{issueId}/attachments/{img.filename}"
+							src={attachmentUrl(issueId, img.filename)}
 							alt={img.filename}
 						/>
 					</button>

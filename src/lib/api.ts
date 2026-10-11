@@ -1,5 +1,6 @@
 import type { Issue, Comment, Attachment, DiffResult } from './types';
 import { fetchJSON, postJSON, patchJSON, deleteJSON, postFormData } from './http';
+import { appendProjectParam } from './project';
 
 export async function updateIssue(id: string, updates: Partial<Issue>): Promise<void> {
 	await patchJSON(`/api/issues/${id}`, updates);
@@ -69,6 +70,11 @@ export async function uploadAttachmentApi(issueId: string, file: File): Promise<
 	formData.append('file', file);
 	const data = await postFormData<{ attachment?: Attachment }>(`/api/issues/${issueId}/attachments`, formData);
 	return data.attachment ?? null;
+}
+
+/** Download/preview URL for an attachment; the server needs the project param like every other call. */
+export function attachmentUrl(issueId: string, filename: string): string {
+	return appendProjectParam(`/api/issues/${encodeURIComponent(issueId)}/attachments/${encodeURIComponent(filename)}`);
 }
 
 export async function deleteAttachmentApi(issueId: string, filename: string): Promise<void> {
