@@ -9,10 +9,11 @@
 		issue: Issue;
 		onSetPriority: (priority: Issue['priority']) => void;
 		onStartRopeDrag: (e: MouseEvent) => void;
+		onCopyId: () => void;
 		onClose: () => void;
 	}
 
-	let { x, y, issue, onSetPriority, onStartRopeDrag, onClose }: Props = $props();
+	let { x, y, issue, onSetPriority, onStartRopeDrag, onCopyId, onClose }: Props = $props();
 </script>
 
 <div
@@ -57,6 +58,9 @@
 			<Icon name="link" size={14} class="rope-icon" />
 			<span>Drag to link</span>
 		</div>
+		<button class="context-option" onclick={onCopyId} title={issue.id}>
+			<Icon name="copy" size={14} />Copy ID
+		</button>
 	</div>
 </div>
 

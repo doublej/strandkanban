@@ -86,7 +86,7 @@
 	.unsaved {
 		font-size: 0.6875rem;
 		font-weight: 600;
-		color: var(--pane-warn);
+		color: var(--tone-warn);
 	}
 
 	.empty {
