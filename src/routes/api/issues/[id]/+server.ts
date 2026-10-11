@@ -37,7 +37,7 @@ export const PATCH: RequestHandler = wrap(async ({ params, request, url }) => {
 	// update plus one spawn per label and per metadata key, which widened the lost-update
 	// window to N spawns — bd re-imports the full JSONL on every write.
 	await bd.update(params.id, {
-		status, title, description, priority, issue_type, design, acceptance_criteria, notes,
+		status, title, description, priority, design, acceptance_criteria, notes,
 		assignee: assignee ?? undefined,
 		due: due_at, defer: defer_until, external_ref, spec_id, estimate: estimated_minutes,
 		addLabels, removeLabels, setMetadata, unsetMetadata,
