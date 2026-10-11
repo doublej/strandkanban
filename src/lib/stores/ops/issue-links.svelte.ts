@@ -51,7 +51,7 @@ export function createIssueLinks(ctx: IssueLinksContext, panel: IssuePanel, noti
 			ropeDrag = { ...ropeDrag, currentX: e.clientX, currentY: e.clientY };
 			const elements = document.elementsFromPoint(e.clientX, e.clientY);
 			const card = elements.find(el => el.classList.contains('card')) as HTMLElement | null;
-			const targetId = card?.querySelector('.card-id')?.textContent?.trim() || null;
+			const targetId = card?.dataset.cardId ?? null;
 			if (targetId && targetId !== ropeDrag.fromId) {
 				ropeDrag = { ...ropeDrag, targetId };
 			} else {
