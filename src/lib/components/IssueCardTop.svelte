@@ -9,9 +9,10 @@
 		issue: Issue
 		relation: Relation | null
 		due: ReturnType<typeof getDueInfo>
+		allPriorities?: boolean
 	}
 
-	let { issue, relation, due }: Props = $props()
+	let { issue, relation, due, allPriorities = false }: Props = $props()
 
 	const stale = $derived(isStale(issue))
 	// Dates live in the #seq tooltip: they rarely decide what to pick up next.
@@ -30,7 +31,7 @@
 		<Icon name={getTypeIcon(issue.issue_type)} size={13} />
 	</span>
 	<span class="seq" title={idTitle}>#{issue.seq}</span>
-	{#if issue.priority <= 1}
+	{#if issue.priority <= 1 || allPriorities}
 		<span class="prio p{issue.priority}" title="Priority P{issue.priority}">P{issue.priority}</span>
 	{/if}
 	{#if issue.pinned}

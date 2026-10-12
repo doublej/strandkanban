@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Issue } from '$lib/types'
-	import { getDueInfo, isAgentAssignee } from '$lib/utils'
+	import { getDueInfo, isAgentAssignee, formatMinutes, formatTimestamp } from '$lib/utils'
+	import { settings } from '$lib/stores/settings.svelte'
 	import { relationSummary } from '$lib/card-logic'
 	import { typeLabel, dueChipLabel } from '$lib/pane-logic'
 	import IssueCardTop from './IssueCardTop.svelte'
@@ -47,6 +48,10 @@
 	const relation = $derived(closed ? null : relationSummary(issue, seqById))
 	const due = $derived(closed ? null : getDueInfo(issue.due_at))
 	const agent = $derived(isAgentAssignee(issue.assignee))
+	// Compact: top row + one-line title. Detailed: everything the standard card leaves out.
+	const compact = $derived(settings.cardDetail === 'compact')
+	const detailed = $derived(settings.cardDetail === 'detailed')
+	const estimate = $derived(formatMinutes(issue.estimated_minutes))
 
 	// Screen readers get the card as one sentence instead of a run of badges.
 	const ariaLabel = $derived(
@@ -77,6 +82,8 @@
 	class:editing
 	class:dragging
 	class:wisp={issue.ephemeral}
+	class:compact
+	class:detailed
 	class:filter-dimmed={filterDimmed}
 	class:flying-hidden={flyingHidden}
 	class:shrinking-source={shrinkingSource}
@@ -89,12 +96,20 @@
 	use:registerCard={issue.id}
 	data-card-id={issue.id}
 >
-	<IssueCardTop {issue} {relation} {due} />
+	<IssueCardTop {issue} {relation} {due} allPriorities={detailed} />
 	<h3 class="title">{issue.title}</h3>
-	{#if issue.description}
-		<p class="description">{issue.description}</p>
+	{#if !compact}
+		{#if issue.description}
+			<p class="description">{issue.description}</p>
+		{/if}
+		<IssueCardFooter {issue} {agent} {inWorktree} wrap={detailed} />
 	{/if}
-	<IssueCardFooter {issue} {agent} {inWorktree} />
+	{#if detailed}
+		<div class="meta">
+			{#if estimate}<span><span class="key">estimate</span>{estimate}</span>{/if}
+			{#if issue.updated_at}<span><span class="key">updated</span>{formatTimestamp(issue.updated_at).relative}</span>{/if}
+		</div>
+	{/if}
 </div>
 
 <style>
@@ -217,6 +232,28 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
+
+	.compact .title { -webkit-line-clamp: 1; line-clamp: 1; }
+
+	.detailed .description {
+		white-space: normal;
+		display: -webkit-box;
+		-webkit-line-clamp: 3;
+		line-clamp: 3;
+		-webkit-box-orient: vertical;
+	}
+
+	.meta {
+		display: flex;
+		gap: 0.625rem;
+		margin-top: 0.375rem;
+		font-size: 0.6875rem;
+		line-height: 1rem;
+		color: var(--text-secondary);
+	}
+
+	/* Same muted key + value as the footer's state labels. */
+	.meta .key { margin-right: 0.25em; color: var(--text-tertiary); }
 
 	@media (max-width: 768px) {
 		.card { margin: 1px 2px; }

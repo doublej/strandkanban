@@ -74,6 +74,8 @@ Review the notification content and apply any required action to ticket {id}.
 </instructions>
 </ticket_notification>`;
 
+export type CardDetail = 'compact' | 'standard' | 'detailed';
+
 function loadString(key: string, fallback: string): string {
 	if (!browser) return fallback;
 	return localStorage.getItem(key) ?? fallback;
@@ -118,6 +120,7 @@ function createSettings() {
 	let defaultViewMode = $state<ViewMode>('kanban');
 	let defaultColumnSort = $state<SortBy>('created');
 	let showColumnCounts = $state(true);
+	let cardDetail = $state<CardDetail>('standard');
 
 	// Notifications
 	let notificationMode = $state<NotificationMode>('none');
@@ -218,6 +221,7 @@ function createSettings() {
 		defaultViewMode = coerceViewMode(loadString('defaultViewMode', defaultViewMode));
 		defaultColumnSort = loadString('defaultColumnSort', defaultColumnSort) as SortBy;
 		showColumnCounts = loadBool('showColumnCounts', showColumnCounts);
+		cardDetail = loadString('cardDetail', cardDetail) as CardDetail;
 		alwaysShowHotkeys = loadBool('alwaysShowHotkeys', alwaysShowHotkeys);
 		// Default the filter sidebar to collapsed on small viewports (first load only),
 		// so the overlay drawer never covers the board before the user opens it.
@@ -322,6 +326,8 @@ function createSettings() {
 		set defaultColumnSort(v: SortBy) { defaultColumnSort = v; persist('defaultColumnSort', v); },
 		get showColumnCounts() { return showColumnCounts; },
 		set showColumnCounts(v: boolean) { showColumnCounts = v; persist('showColumnCounts', String(v)); },
+		get cardDetail() { return cardDetail; },
+		set cardDetail(v: CardDetail) { cardDetail = v; persist('cardDetail', v); },
 		get alwaysShowHotkeys() { return alwaysShowHotkeys; },
 		set alwaysShowHotkeys(v: boolean) { alwaysShowHotkeys = v; persist('alwaysShowHotkeys', String(v)); },
 		get sidebarCollapsed() { return sidebarCollapsed; },

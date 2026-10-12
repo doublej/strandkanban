@@ -7,9 +7,11 @@
 		issue: Issue
 		agent: boolean
 		inWorktree: boolean
+		/** Show every label on as many lines as needed instead of one line with "+n". */
+		wrap?: boolean
 	}
 
-	let { issue, agent, inWorktree }: Props = $props()
+	let { issue, agent, inWorktree, wrap = false }: Props = $props()
 
 	const labels = $derived(cardLabels(issue.labels))
 	const working = $derived(agent && issue.status === 'in_progress')
@@ -24,7 +26,10 @@
 
 	$effect(() => {
 		void labels
-		if (!row) return
+		if (!row || wrap) {
+			hidden = 0
+			return
+		}
 		const el = row
 		const observer = new ResizeObserver(() => {
 			const tags = [...el.querySelectorAll<HTMLElement>('.tag')]
@@ -43,7 +48,7 @@
 
 {#if labels.length > 0 || issue.assignee}
 	<div class="footer">
-		<div class="labels" class:overflowing={hidden > 0} bind:this={row}>
+		<div class="labels" class:overflowing={hidden > 0} class:wrap bind:this={row}>
 			{#each labels as label (`${label.key ?? ''}:${label.text}`)}
 				<span class="tag">{#if label.key}<span class="key">{label.key}</span>{/if}{label.text}</span>
 			{/each}
@@ -92,6 +97,7 @@
 	}
 
 	.labels.overflowing { padding-right: 2rem; }
+	.labels.wrap { height: auto; }
 
 	.tag {
 		max-width: 100%;

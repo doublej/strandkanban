@@ -7,6 +7,12 @@
 		{ key: 'flow', label: 'Graph' }
 	] as const
 
+	const cardDetails = [
+		{ key: 'compact', label: 'Compact' },
+		{ key: 'standard', label: 'Standard' },
+		{ key: 'detailed', label: 'Detailed' }
+	] as const
+
 	const sortModes = [
 		{ key: 'created', label: 'Newest' },
 		{ key: 'priority', label: 'Priority' },
@@ -47,6 +53,24 @@
 				class="segment-option"
 				class:active={settings.defaultColumnSort === mode.key}
 				onclick={() => settings.defaultColumnSort = mode.key}
+			>
+				{mode.label}
+			</button>
+		{/each}
+	</div>
+
+	<div class="setting-row" style="margin-top: 0.75rem">
+		<div class="setting-info">
+			<span class="setting-name">Card detail</span>
+			<span class="setting-desc">How much each card shows</span>
+		</div>
+	</div>
+	<div class="segmented">
+		{#each cardDetails as mode}
+			<button
+				class="segment-option"
+				class:active={settings.cardDetail === mode.key}
+				onclick={() => settings.cardDetail = mode.key}
 			>
 				{mode.label}
 			</button>
