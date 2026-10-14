@@ -12,8 +12,8 @@ The name is literal. A strand is a string of beads.
 
 ## Status
 
-- strandkanban: version 0.5.0
-- Beads (`bd`): tested against version 1.1.x, needs version 1.0.0 or newer
+- strandkanban: version 0.6.0
+- Beads (`bd`): tested against version 1.2.x, needs version 1.2.1 or newer
 
 ## Quick start
 
@@ -35,7 +35,7 @@ strand /path/to/project
 
 The launcher handles setup for you:
 
-- checks that `bd` is version 1.0.0 or newer
+- checks that `bd` is version 1.2.1 or newer
 - offers to run `bd init` when the target has no `.beads/`, then runs `bd doctor --fix --yes`
 - picks a free local port
 - starts the optional agent WebSocket server
