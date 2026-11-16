@@ -173,14 +173,15 @@ export function createManagerToolsServer(
 
 			tool(
 				"close_issue",
-				"Close an issue with a reason.",
+				"Close an issue with a reason. bd refuses to close an issue another actor (e.g. a worker) has claimed, or one with open blockers or children.",
 				{
 					id: z.string().describe("Issue ID"),
 					reason: z.string().describe("Reason for closing"),
+					force: z.boolean().optional().describe("Override bd's refusal. Only after confirming the claim holder is done and the blockers/children don't matter."),
 				},
-				async ({ id, reason }) => {
+				async ({ id, reason, force }) => {
 					try {
-						await beads(cwd).close(id, reason);
+						await beads(cwd).close(id, reason, force);
 						return { content: [{ type: "text" as const, text: `Closed ${id}` }] };
 					} catch (err) {
 						return { content: [{ type: "text" as const, text: `Error: ${err}` }], isError: true };

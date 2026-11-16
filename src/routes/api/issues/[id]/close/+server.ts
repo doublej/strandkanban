@@ -8,6 +8,6 @@ export const POST: RequestHandler = wrap(async ({ params, request, url }) => {
 	const reason = body?.reason || 'Completed';
 
 	const cwd = requireProjectCwd(url);
-	await beads(cwd).close(params.id, reason);
+	await beads(cwd).close(params.id, reason, body?.force === true);
 	return ok({ closed: true });
 });

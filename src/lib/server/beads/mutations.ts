@@ -74,8 +74,9 @@ export class BeadsMutations {
 		requireSuccess(await this.sdk.delete(id));
 	}
 
-	async close(id: string, reason = 'Completed'): Promise<void> {
-		requireSuccess(await this.sdk.close(id, reason));
+	/** `force` overrides bd's close guards: another actor's claim, open blockers, open children. */
+	async close(id: string, reason = 'Completed', force = false): Promise<void> {
+		requireSuccess(await this.sdk.close(id, reason, force));
 	}
 
 	async addDep(id: string, dependsOn: string, type = 'blocks'): Promise<void> {
