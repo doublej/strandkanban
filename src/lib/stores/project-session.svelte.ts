@@ -5,6 +5,7 @@ import { setCurrentProject, appendProjectParam } from '$lib/project';
 import type { Issue, Project } from '$lib/types';
 import { switchManagerProject, setServerProject } from '$lib/stores/ws-connection.svelte';
 import { fetchInitialQueue } from '$lib/stores/queue.svelte';
+import { toastQueue } from '$lib/notifications/toast-queue.svelte';
 
 const WIPE_DURATION = 350;
 
@@ -16,6 +17,13 @@ export interface ProjectSessionContext {
 	getWsConnected: () => boolean;
 	/** Clear per-project UI (selection, open panel) mid-switch. */
 	onSwitched: () => void;
+}
+
+/** Per-project repair pass (JSONL auto-export on, bd doctor); the server runs it once per project per run. */
+async function repairProject(cwd: string) {
+	const res = await fetch(`/api/health?project=${encodeURIComponent(cwd)}`, { method: 'POST' });
+	const findings: { message?: string }[] = (await res.json())?.data?.doctor?.findings ?? [];
+	if (findings.length) toastQueue.show({ type: 'warning', title: 'bd doctor', message: findings.map((f) => f.message).join(' · '), duration: 8000 });
 }
 
 /** Which project the board is pointed at, plus the SSE stream that feeds it. */
@@ -62,6 +70,7 @@ export function createProjectSession(ctx: ProjectSessionContext) {
 		});
 		const projPayload = await projRes.json();
 		const projData = projPayload?.ok ? projPayload.data : {};
+		void repairProject(cwd);
 		if (projData.projects) {
 			projects = projData.projects;
 			const current = projects.find((p: Project) => p.path === cwd);
@@ -97,6 +106,7 @@ export function createProjectSession(ctx: ProjectSessionContext) {
 			new Promise(r => setTimeout(r, WIPE_DURATION))
 		]);
 		if (!cwdRes.ok) { projectTransition = 'idle'; switchStatus = null; return; }
+		void repairProject(project.path);
 		switchStatus = 'Loading issues…';
 		const issuesRes = await fetch(appendProjectParam('/api/issues'));
 		const issuesPayload = await issuesRes.json();

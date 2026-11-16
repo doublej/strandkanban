@@ -22,7 +22,8 @@ export const POST: RequestHandler = wrap(async ({ url }) => {
 	if (ping.ok && markDoctorRan(cwd)) {
 		await bd.ensureAutoExport();
 		const report = await bd.doctor();
-		const noteworthy = report.findings.filter((f) => (f.severity ?? 'info') !== 'info' || f.fixed);
+		// Errors only: doctor warns about environment setup (plugins, gitignore, upstream) on most projects.
+		const noteworthy = report.findings.filter((f) => f.severity === 'error');
 		if (noteworthy.length > 0) doctor = { findings: noteworthy };
 	}
 	return ok({ ping, doctor });
