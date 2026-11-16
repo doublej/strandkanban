@@ -1,6 +1,6 @@
 {
   "name": "strandkanban",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Kanban board UI for the Beads issue tracker with drag-and-drop and agent integration",
   "type": "module",
   "files": [

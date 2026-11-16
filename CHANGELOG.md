@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.2] - 2026-11-16
+
+### Fixed
+
+- The manager's `close_issue` tool and `POST /api/issues/:id/close` can close a ticket a worker has claimed. bd refuses that by default, so both now take `force`. Without it, bd's guards still apply: another actor's claim, open blockers, open children.
+- Opening or switching to a project runs the per-project repair pass again: JSONL auto-export is turned on, and `bd doctor` errors show as a toast. Nothing had called it since the health badge left the header.
+
+### Changed
+
+- Dependencies upgraded for security: SvelteKit 2.70, Vite 7, vite-plugin-svelte 6, Svelte 5.57, zod 4 and the Claude agent SDK 0.3. `bun audit` drops from 60 advisories (20 high) to 4 low ones that need SvelteKit 3 or have no patched release.
+- Agent tool schemas keep their parameter descriptions and limits under zod 4.
+
 ## [0.6.1] - 2026-11-16
 
 Needs `bd` 1.3.4 or newer (was 1.2.1, which upstream has retracted). The launcher checks this on start.
