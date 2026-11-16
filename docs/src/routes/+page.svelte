@@ -1,1337 +1,1329 @@
 <script lang="ts">
 	import { base } from '$app/paths';
 
-	let copied = $state(false);
-	const cloneCommand = 'npx github:doublej/strandkanban /path/to/project';
+	const repo = 'https://github.com/doublej/strandkanban';
+	const beads = 'https://github.com/gastownhall/beads';
+	const installCommand = 'npm install -g github:doublej/strandkanban';
 
-	function copyCommand() {
-		navigator.clipboard.writeText(cloneCommand);
+	let copied = $state(false);
+
+	async function copyInstall() {
+		await navigator.clipboard.writeText(installCommand);
 		copied = true;
-		setTimeout(() => copied = false, 2000);
+		setTimeout(() => (copied = false), 2000);
 	}
 
-	const columns = [
-		{ name: 'Backlog', status: 'open', desc: 'New issues waiting to be worked on' },
-		{ name: 'In Progress', status: 'in_progress', desc: 'Currently being worked on' },
-		{ name: 'Hooked', status: 'hooked', desc: 'Waiting for agent action' },
-		{ name: 'Blocked', status: 'blocked', desc: 'Blocked by a dependency' },
-		{ name: 'Complete', status: 'closed', desc: 'Done and resolved' }
+	const statuses = [
+		{ name: 'Backlog', status: 'open', tone: 'open' },
+		{ name: 'In Progress', status: 'in_progress', tone: 'progress' },
+		{ name: 'Hooked', status: 'hooked', tone: 'hooked' },
+		{ name: 'Blocked', status: 'blocked', tone: 'blocked' },
+		{ name: 'Complete', status: 'closed', tone: 'closed' }
 	];
 
-	const features = [
+	const views = [
 		{
-			title: 'Drag & Drop',
-			desc: 'Move issues between columns to update their status. Reorder within columns to set priority.',
-			icon: '&#x2725;'
+			name: 'Board',
+			tone: 'open',
+			file: 'detail-panel-light.png',
+			alt: 'Board view with a ticket pane open next to the Backlog column',
+			desc: 'Drag a card to another column to change its status. Reorder cards inside a column to set priority. Edit titles, descriptions and comments in place.'
 		},
 		{
-			title: 'Keyboard Navigation',
-			desc: 'Navigate and manage issues entirely from the keyboard. Arrow keys, shortcuts, and quick actions.',
-			icon: '&#x2328;'
+			name: 'Table',
+			tone: 'progress',
+			file: 'table-view-light.png',
+			alt: 'Table view with a filter sidebar and sortable columns',
+			desc: 'Sortable, configurable columns with inline field editing. Select several rows for bulk actions.'
 		},
 		{
-			title: 'Dependency Tracking',
-			desc: 'Link issues with parent-child and blocker relationships. See what blocks what at a glance.',
-			icon: '&#x21C4;'
+			name: 'Tree',
+			tone: 'hooked',
+			file: 'tree-expanded-light.png',
+			alt: 'Tree view with child issues nested under their parents',
+			desc: 'Issues nested under their parents. Expand or collapse a branch.'
 		},
 		{
-			title: 'Inline Editing',
-			desc: 'Edit titles, descriptions, and comments directly on the board without leaving the view.',
-			icon: '&#x270E;'
+			name: 'Graph',
+			tone: 'blocked',
+			file: 'graph-view-light.png',
+			alt: 'Dependency graph view listing which issue blocks which',
+			desc: 'See what blocks what. The flow view draws dependencies as an interactive graph, with grouped and timeline layouts.'
 		},
 		{
-			title: 'Search & Filter',
-			desc: 'Filter issues by text, status, labels, and actionability. Find what matters quickly.',
-			icon: '&#x2315;'
-		},
-		{
-			title: 'CLI-Backed',
-			desc: 'All writes go through the bd CLI, keeping your .beads directory as the single source of truth.',
-			icon: '&#x2713;'
-		},
-		{
-			title: 'Notifications',
-			desc: 'Browser push and MCP desktop notifications keep you informed of issue changes without polling.',
-			icon: '&#x1F514;'
+			name: 'Stats',
+			tone: 'closed',
+			file: 'stats-view-light.png',
+			alt: 'Stats view with bar charts per status, priority and type',
+			desc: 'Issue counts by status, priority and type, next to created versus closed.'
 		}
 	];
 
-	const screenshots = [
-		{ file: 'kanban-wide-light.png', label: 'Kanban Board' },
-		{ file: 'detail-panel-light.png', label: 'Detail Panel' },
-		{ file: 'agent-kanban-light.png', label: 'Agent Pane' },
-		{ file: 'keyboard-hints-light.png', label: 'Keyboard Nav' },
-		{ file: 'graph-view-light.png', label: 'Dependency Graph' },
-		{ file: 'stats-view-light.png', label: 'Stats Dashboard' },
-		{ file: 'tree-expanded-light.png', label: 'Tree View' },
-		{ file: 'tree-view-light.png', label: 'Tree Collapsed' }
+	const queue = [
+		{ id: 'acme-21', state: 'claimed', note: 'worker 1, lease held' },
+		{ id: 'acme-22', state: 'claimed', note: 'worker 2, lease held' },
+		{ id: 'acme-24', state: 'claimed', note: 'worker 3, lease held' },
+		{ id: 'acme-23', state: 'skipped', note: 'listed by bd blocked' },
+		{ id: 'acme-25', state: 'waiting', note: 'cap reached' }
 	];
 
-	// Filmroll gallery state
-	let scrollContainer = $state<HTMLDivElement | undefined>(undefined);
-	let isDragging = $state(false);
-	let isHovering = $state(false);
-	let hoverPreview = $state<{ file: string; label: string } | null>(null);
-	let dragStartX = 0;
-	let dragScrollLeft = 0;
-	let scrollLeft = $state(0);
-	let hasDragged = false;
-
-	// Theater mode state
-	let theaterOpen = $state(false);
-	let theaterShot = $state(screenshots[0]);
-
-	function curveY(idx: number, total: number): number {
-		const c = (total - 1) / 2;
-		const n = (idx - c) / (c || 1);
-		return n * -12;
-	}
-
-	function curveZ(idx: number, total: number): number {
-		const c = (total - 1) / 2;
-		const n = (idx - c) / (c || 1);
-		return (1 - n * n) * 60;
-	}
-
-	function onPointerDown(e: PointerEvent) {
-		if (!scrollContainer) return;
-		isDragging = true;
-		hasDragged = false;
-		dragStartX = e.clientX;
-		dragScrollLeft = scrollContainer.scrollLeft;
-	}
-
-	function onPointerMove(e: PointerEvent) {
-		if (!isDragging || !scrollContainer) return;
-		const dx = e.clientX - dragStartX;
-		if (Math.abs(dx) > 5) hasDragged = true;
-		scrollContainer.scrollLeft = dragScrollLeft - dx;
-	}
-
-	function onPointerUp() {
-		isDragging = false;
-	}
-
-	function onTrackScroll() {
-		if (!scrollContainer) return;
-		scrollLeft = scrollContainer.scrollLeft;
-	}
-
-	const centerLabel = $derived.by(() => {
-		if (!scrollContainer) return screenshots[0].label;
-		const center = scrollLeft + (scrollContainer?.clientWidth ?? 0) / 2;
-		const frameW = 280 + 12; // width + gap
-		const idx = Math.round(center / frameW) % screenshots.length;
-		return screenshots[Math.abs(idx) % screenshots.length]?.label ?? '';
-	});
-
-	function setHoverPreview(shot: { file: string; label: string } | null) {
-		hoverPreview = shot;
-	}
-
-	let stageEl = $state<HTMLDivElement | undefined>(undefined);
-	let theaterAnimating = $state(false);
-
-	function openTheater(shot: { file: string; label: string }) {
-		if (hasDragged) return;
-		theaterShot = shot;
-		hoverPreview = null;
-		if (!stageEl) return;
-		// Clip to current position BEFORE going fixed, preventing full-screen black flash
-		const r = stageEl.getBoundingClientRect();
-		const top = (r.top / window.innerHeight) * 100;
-		const right = ((window.innerWidth - r.right) / window.innerWidth) * 100;
-		const bottom = ((window.innerHeight - r.bottom) / window.innerHeight) * 100;
-		const left = (r.left / window.innerWidth) * 100;
-		stageEl.style.clipPath = `inset(${top}% ${right}% ${bottom}% ${left}% round 8px)`;
-		theaterAnimating = true;
-		theaterOpen = true;
-		document.body.style.overflow = 'hidden';
-		// Next frame: transition clip-path to full screen
-		requestAnimationFrame(() => {
-			if (stageEl) stageEl.style.clipPath = 'inset(0 0 0 0 round 0)';
-		});
-		setTimeout(() => {
-			theaterAnimating = false;
-			if (stageEl) stageEl.style.clipPath = '';
-		}, 550);
-	}
-
-	function closeTheater() {
-		if (!stageEl) return;
-		theaterAnimating = true;
-		// Animate clip-path back to the original inset before removing theater mode
-		const r = stageEl.getBoundingClientRect();
-		// Use the filmroll-stage's non-theater position (approximate: re-read from CSS vars or use center)
-		stageEl.style.clipPath = '';
-		theaterOpen = false;
-		document.body.style.overflow = '';
-		setTimeout(() => { theaterAnimating = false; }, 500);
-	}
-
-	function onTheaterKey(e: KeyboardEvent) {
-		if (!theaterOpen) return;
-		if (e.key === 'Escape') return closeTheater();
-		const idx = screenshots.findIndex((s) => s.file === theaterShot.file);
-		if (e.key === 'ArrowRight') theaterShot = screenshots[(idx + 1) % screenshots.length];
-		if (e.key === 'ArrowLeft') theaterShot = screenshots[(idx - 1 + screenshots.length) % screenshots.length];
-	}
-
-	const architecture = [
-		{ layer: 'SQLite DB', desc: '.beads/ directory with issues.db', direction: 'down' },
-		{ layer: 'db.ts', desc: 'Direct SQLite reads for fast queries', direction: 'down' },
-		{ layer: 'API Routes', desc: 'SvelteKit endpoints: GET reads DB, POST/PATCH shell out to bd', direction: 'down' },
-		{ layer: 'Svelte State', desc: '$state runes for reactive Kanban columns', direction: 'down' },
-		{ layer: 'Kanban Board', desc: 'Drag-and-drop UI with keyboard navigation', direction: '' }
+	const commands = [
+		{ cmd: 'strand', desc: 'Start against the current directory' },
+		{ cmd: 'strand ~/code/my-project', desc: 'Start against another project' },
+		{ cmd: 'strand open strand://proj-123', desc: 'Focus an issue on the running board' },
+		{ cmd: 'strand zen proj-123,proj-456', desc: 'Open focus review for selected issues' },
+		{ cmd: 'strand reap', desc: 'Clean up stale dolt sql-server processes from old sessions' }
 	];
 </script>
 
-<svelte:window onkeydown={onTheaterKey} />
-
 <svelte:head>
-	<title>strandkanban</title>
-	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
-	<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+	<title>strandkanban: a Kanban board for Beads issues</title>
 </svelte:head>
 
-<main>
-	<header class="animate-in">
-		<nav>
-			<a href="{base}/" class="nav-logo">strandkanban</a>
-			<div class="nav-links">
-				<a href="#features" class="nav-link">Features</a>
-				<a href="#architecture" class="nav-link">Architecture</a>
-				<a href="#getting-started" class="nav-link">Install</a>
-				<a href="https://github.com/doublej/strandkanban" class="nav-link" target="_blank" rel="noopener">GitHub</a>
-			</div>
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="page">
+	<header class="top">
+		<a class="brand" href="{base}/">
+			<span class="bead" style="--c: var(--open)" aria-hidden="true"></span>strandkanban
+		</a>
+		<nav aria-label="Page sections">
+			<a href="#views">Views</a>
+			<a href="#agents">Agents</a>
+			<a href="#install">Install</a>
+			<a href={repo}>GitHub</a>
 		</nav>
 	</header>
 
-	<section class="hero animate-in" style="animation-delay: 200ms;">
-		<h1>Kanban board for <span class="nowrap">Beads issue tracking</span></h1>
-		<p class="lead">
-			A SvelteKit web app that wraps the <a href="https://github.com/gastownhall/beads" target="_blank" rel="noopener">Beads</a> CLI
-			with a drag-and-drop Kanban interface. Manage issues visually while keeping <code>.beads/</code> as the source of truth.
-		</p>
-		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div
-			class="filmroll-stage animate-in"
-			class:theater={theaterOpen}
-			class:theater-animating={theaterAnimating}
-			style="animation-delay: 350ms;"
-			bind:this={stageEl}
-			onpointerenter={() => isHovering = true}
-			onpointerleave={() => { isHovering = false; isDragging = false; }}
-		>
-			{#if theaterOpen}
-				<button class="theater-close" onclick={closeTheater} aria-label="Close theater">&times;</button>
-				<div class="theater-hero">
-					{#key theaterShot.file}
-						<img src="{base}/screenshots/{theaterShot.file}" alt={theaterShot.label} class="theater-hero-img" />
-					{/key}
-					<span class="theater-label">{theaterShot.label}</span>
+	<main id="main">
+		<section class="hero" aria-labelledby="hero-title">
+			<p class="label rise" style="--d: 0ms">Kanban board for the Beads issue tracker</p>
+			<h1 id="hero-title" class="rise" style="--d: 80ms">
+				Beads issues, on a live board<span class="full-stop" aria-hidden="true"></span>
+			</h1>
+
+			<div class="hero-cols">
+				<p class="lead rise" style="--d: 180ms">
+					strandkanban puts the issues from your repo's <code>.beads/</code> database on a
+					drag-and-drop board. Every edit goes through the <a href={beads}>Beads</a>
+					<code>bd</code> CLI, so the CLI, your agents and the board always work from the same data.
+					Your issues never leave your repo.
+				</p>
+
+				<div class="install-card rise" style="--d: 260ms">
+					<pre><code
+							><span class="prompt" aria-hidden="true">$ </span>{installCommand}
+<span class="prompt" aria-hidden="true">$ </span>strand /path/to/project</code
+						></pre>
+					<div class="install-meta">
+						<span>Needs <code>bd</code> 1.3.4+ and Node 20.19+ or Bun 1.0+</span>
+						<button type="button" onclick={copyInstall}>
+							<span aria-live="polite">{copied ? 'Copied' : 'Copy install'}</span>
+						</button>
+					</div>
 				</div>
-			{:else}
-				<span class="frame-label">{centerLabel}</span>
-			{/if}
-			<div class="filmroll-arc" class:theater-strip={theaterOpen}>
-				{#if theaterOpen}
-					<div
-						class="filmroll-track theater-thumbs"
-						role="region"
-						aria-label="Screenshot thumbnails"
-					>
-						{#each screenshots as shot}
-							<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-							<div
-								class="filmroll-frame"
-								class:active-thumb={shot.file === theaterShot.file}
-								onclick={() => { theaterShot = shot; }}
-							>
-								<img src="{base}/screenshots/{shot.file}" alt={shot.label} loading="lazy" draggable="false" />
-							</div>
+			</div>
+
+			<div class="rod-wrap">
+				<p class="label" id="rod-label">Five columns, five Beads statuses</p>
+				<ol class="rod" aria-labelledby="rod-label">
+					{#each statuses as s, i}
+						<li style="--c: var(--{s.tone}); --i: {i}">
+							<span class="bead" aria-hidden="true"></span>
+							<span class="rod-name">{s.name}</span>
+							<code>{s.status}</code>
+						</li>
+					{/each}
+				</ol>
+				<p class="aside">The name is literal. A strand is a string of beads.</p>
+			</div>
+
+			<figure class="plate wide">
+				<a href="{base}/screenshots/agent-kanban-light.png">
+					<img
+						src="{base}/screenshots/agent-kanban-light.png"
+						alt="The board with five columns of issue cards and an agent pane open in the corner"
+						width="1600"
+						height="900"
+						fetchpriority="high"
+					/>
+				</a>
+				<figcaption>The board, with an agent pane open bottom right.</figcaption>
+			</figure>
+		</section>
+
+		<section id="views" class="strung" style="--c: var(--progress)" aria-labelledby="views-title">
+			<header class="reveal">
+				<span class="bead mark" aria-hidden="true"></span>
+				<p class="label">01 / Views</p>
+				<h2 id="views-title">Five views of the same issues</h2>
+			</header>
+
+			<div class="viewer">
+				<fieldset class="tabs">
+					<legend class="sr-only">Choose a view</legend>
+					{#each views as view, i}
+						<label style="--c: var(--{view.tone})">
+							<input type="radio" name="view" value={view.name} checked={i === 0} />
+							<span class="bead" aria-hidden="true"></span>
+							<span class="tab-name">{view.name}</span>
+						</label>
+					{/each}
+				</fieldset>
+
+				{#each views as view}
+					<article class="panel" style="--c: var(--{view.tone})">
+						<div class="panel-text">
+							<h3>{view.name}</h3>
+							<p>{view.desc}</p>
+						</div>
+						<figure class="plate wide">
+							<a href="{base}/screenshots/{view.file}">
+								<img
+									src="{base}/screenshots/{view.file}"
+									alt={view.alt}
+									width="1600"
+									height="900"
+									loading="lazy"
+								/>
+							</a>
+						</figure>
+					</article>
+				{/each}
+			</div>
+
+			<div class="zen reveal">
+				<h3>Zen focus review</h3>
+				<p>
+					A full-screen review of a list of issues, one at a time. Press <kbd>z</kbd> on a selected
+					card, or run <code>strand zen proj-123,proj-456</code>. Cycle with <kbd>←</kbd>
+					<kbd>→</kbd> or <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd>, open the detail pane
+					with <kbd>Enter</kbd>, leave with <kbd>Esc</kbd>.
+				</p>
+			</div>
+		</section>
+
+		<section id="board" class="strung" style="--c: var(--hooked)" aria-labelledby="board-title">
+			<header class="reveal">
+				<span class="bead mark" aria-hidden="true"></span>
+				<p class="label">02 / Board</p>
+				<h2 id="board-title">Working the board</h2>
+			</header>
+
+			<dl class="facts cols-3 reveal">
+				<div>
+					<dt>Keyboard</dt>
+					<dd>Drive the whole board with arrow keys or vim-style <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd>.</dd>
+				</div>
+				<div>
+					<dt>Live updates</dt>
+					<dd>The board updates when the CLI or an agent changes an issue. No refresh.</dd>
+				</div>
+				<div>
+					<dt>Dependencies</dt>
+					<dd>Link issues as parent, child or blocker, and see what blocks what.</dd>
+				</div>
+				<div>
+					<dt>Search and filters</dt>
+					<dd>Filter by text, priority, type, label, time and whether an issue is actionable.</dd>
+				</div>
+				<div>
+					<dt>Notifications</dt>
+					<dd>Browser push and desktop notifications when issues change.</dd>
+				</div>
+				<div>
+					<dt>Deep links</dt>
+					<dd><code>strand://issue-id</code> jumps straight to an issue on a running board.</dd>
+				</div>
+			</dl>
+		</section>
+
+		<section id="agents" class="strung" style="--c: var(--blocked)" aria-labelledby="agents-title">
+			<header class="reveal">
+				<span class="bead mark" aria-hidden="true"></span>
+				<p class="label">03 / Agents</p>
+				<h2 id="agents-title">Agents next to the board</h2>
+			</header>
+
+			<div class="agents-cols">
+				<div class="reveal">
+					<p class="lead">
+						Run agent sessions in panes beside the board and hand them tickets. Pick the provider
+						in Settings.
+					</p>
+					<ul class="providers" aria-label="Agent providers">
+						<li><span class="bead" style="--c: var(--progress)" aria-hidden="true"></span>Claude</li>
+						<li><span class="bead" style="--c: var(--closed)" aria-hidden="true"></span>Codex</li>
+						<li><span class="bead" style="--c: var(--open)" aria-hidden="true"></span>OpenCode</li>
+					</ul>
+					<dl class="facts">
+						<div>
+							<dt>Manager queue</dt>
+							<dd>
+								Runs several workers at once, up to a cap you set in Settings (default 3). It skips
+								tickets that <code>bd blocked</code> lists instead of waiting behind them.
+							</dd>
+						</div>
+						<div>
+							<dt>Leased claims</dt>
+							<dd>
+								A worker claims its ticket with a lease and a heartbeat. A claim whose worker has
+								stopped is reclaimed after 10 minutes.
+							</dd>
+						</div>
+						<div>
+							<dt>Panes fit the provider</dt>
+							<dd>
+								Controls a provider does not have stay hidden. Codex workers reach Beads through a
+								built-in MCP bridge and never write to <code>~/.codex/config.toml</code>.
+							</dd>
+						</div>
+					</dl>
+				</div>
+
+				<figure class="queue reveal">
+					<div class="queue-head">
+						<span>manager queue</span>
+						<span>cap 3</span>
+					</div>
+					<ul>
+						{#each queue as row}
+							<li class={row.state}>
+								<span class="bead" aria-hidden="true"></span>
+								<code>{row.id}</code>
+								<strong>{row.state}</strong>
+								<span>{row.note}</span>
+							</li>
 						{/each}
-					</div>
-				{:else}
-					<div
-						class="filmroll-track"
-						class:grabbing={isDragging}
-						bind:this={scrollContainer}
-						onpointerdown={onPointerDown}
-						onpointermove={onPointerMove}
-						onpointerup={onPointerUp}
-						onscroll={onTrackScroll}
-						role="region"
-						aria-label="Screenshot gallery"
-					>
-						{#each [...screenshots, ...screenshots] as shot, i}
-							{@const idx = i % screenshots.length}
-							<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
-							<div
-								class="filmroll-frame"
-								style="--ry: {curveY(idx, screenshots.length)}deg; --tz: {curveZ(idx, screenshots.length)}px"
-								onclick={() => openTheater(shot)}
-							>
-								<img src="{base}/screenshots/{shot.file}" alt={shot.label} loading="lazy" draggable="false" />
-							</div>
-						{/each}
-					</div>
-				{/if}
+					</ul>
+					<figcaption>Illustration: five queued tickets with a cap of 3.</figcaption>
+				</figure>
 			</div>
-		</div>
-		{#if hoverPreview && !theaterOpen}
-			<div class="hover-preview">
-				<img src="{base}/screenshots/{hoverPreview.file}" alt={hoverPreview.label} />
-			</div>
-		{/if}
-		<div class="install-block animate-in" style="animation-delay: 400ms;">
-			<div class="code-line">
-				<code>{cloneCommand}</code>
-				<button onclick={copyCommand} class="copy-btn" aria-label="Copy install command">
-					{copied ? 'Copied' : 'Copy'}
-				</button>
-			</div>
-			<p class="install-note">
-				Requires Node 18+ or <a href="https://bun.sh" target="_blank" rel="noopener">Bun</a> and the <a href="https://github.com/gastownhall/beads" target="_blank" rel="noopener">Beads CLI</a>
-			</p>
-		</div>
-	</section>
+		</section>
 
-	<section class="section animate-in" style="animation-delay: 500ms;" id="features">
-		<h2>Features</h2>
-		<p class="section-desc">Everything you need to manage Beads issues visually.</p>
-		<div class="features-grid">
-			{#each features as feat}
-				<div class="feature-card">
-					<span class="feature-icon">{@html feat.icon}</span>
-					<h3>{feat.title}</h3>
-					<p>{feat.desc}</p>
-				</div>
-			{/each}
-		</div>
-	</section>
+		<section id="install" class="strung" style="--c: var(--closed)" aria-labelledby="install-title">
+			<header class="reveal">
+				<span class="bead mark" aria-hidden="true"></span>
+				<p class="label">04 / Install</p>
+				<h2 id="install-title">Three commands to a board</h2>
+			</header>
 
-	<section class="section animate-in" style="animation-delay: 600ms;">
-		<h2>Status Flow</h2>
-		<p class="section-desc">Issues move through five stages, each mapped to a Kanban column.</p>
-		<div class="columns-flow">
-			{#each columns as col, i}
-				<div class="column-card">
-					<span class="column-status">{col.status}</span>
-					<strong>{col.name}</strong>
-					<p>{col.desc}</p>
-				</div>
-				{#if i < columns.length - 1}
-					<span class="flow-arrow">&#x2192;</span>
-				{/if}
-			{/each}
-		</div>
-	</section>
-
-	<section class="section animate-in" style="animation-delay: 700ms;" id="architecture">
-		<h2>Architecture</h2>
-		<p class="section-desc">How data flows from the Beads database to the Kanban UI.</p>
-		<div class="arch-stack">
-			{#each architecture as layer, i}
-				<div class="arch-layer">
-					<strong>{layer.layer}</strong>
-					<span>{layer.desc}</span>
-				</div>
-				{#if layer.direction}
-					<div class="arch-arrow">&#x2193;</div>
-				{/if}
-			{/each}
-		</div>
-		<div class="arch-note">
-			<h3>Read vs Write path</h3>
-			<div class="rw-grid">
-				<div class="rw-card">
-					<strong>Reads</strong>
-					<p>Go directly to SQLite via <code>db.ts</code> for fast queries, bypassing the CLI.</p>
-				</div>
-				<div class="rw-card">
-					<strong>Writes</strong>
-					<p>Shell out to <code>bd</code> CLI commands (<code>bd create</code>, <code>bd update</code>, <code>bd close</code>) to keep the database consistent.</p>
-				</div>
-			</div>
-		</div>
-	</section>
-
-	<section class="section animate-in" style="animation-delay: 800ms;">
-		<h2>Tech Stack</h2>
-		<p class="section-desc">Built with modern tools for fast development and a snappy UI.</p>
-		<div class="stack-grid">
-			<div class="stack-item">
-				<strong>Svelte 5</strong>
-				<p>Runes (<code>$state</code>, <code>$derived</code>, <code>$effect</code>) for reactive UI</p>
-			</div>
-			<div class="stack-item">
-				<strong>SvelteKit 2</strong>
-				<p>File-based routing, API routes, server-side rendering</p>
-			</div>
-			<div class="stack-item">
-				<strong>TypeScript</strong>
-				<p>Type-safe interfaces for issues, deps, and columns</p>
-			</div>
-			<div class="stack-item">
-				<strong>SQLite</strong>
-				<p>Direct database reads via better-sqlite3 for performance</p>
-			</div>
-		</div>
-	</section>
-
-	<section class="section animate-in" style="animation-delay: 900ms;" id="getting-started">
-		<h2>Getting Started</h2>
-		<p class="section-desc">Set up the Kanban board for your Beads project.</p>
-		<div class="install-block standalone">
-			<div class="code-line">
-				<code>{cloneCommand}</code>
-				<button onclick={copyCommand} class="copy-btn" aria-label="Copy install command">
-					{copied ? 'Copied' : 'Copy'}
-				</button>
-			</div>
-		</div>
-
-		<div class="install-steps">
-			<h3>Setup steps</h3>
-			<ol class="steps-list">
+			<ol class="steps reveal">
 				<li>
-					<span class="step-num">1</span>
-					<div class="step-content">
-						<strong>Install prerequisites</strong>
-						<p>Install Node 18+ or <a href="https://bun.sh" target="_blank" rel="noopener">Bun</a>, then install the <a href="https://github.com/gastownhall/beads" target="_blank" rel="noopener">Beads CLI</a> with <code>brew install beads</code>.</p>
-					</div>
+					<h3>Install Beads</h3>
+					<pre><code><span class="prompt" aria-hidden="true">$ </span>brew install beads</code></pre>
+					<p>strandkanban needs <code>bd</code> 1.3.4 or newer.</p>
 				</li>
 				<li>
-					<span class="step-num">2</span>
-					<div class="step-content">
-						<strong>Run once</strong>
-						<p>Run <code>npx github:doublej/strandkanban /path/to/project</code>. The launcher checks <code>bd</code>, initializes <code>.beads/</code> if you approve, and starts the board.</p>
-					</div>
+					<h3>Install strandkanban</h3>
+					<pre><code><span class="prompt" aria-hidden="true">$ </span>{installCommand}</code></pre>
+					<p>Needs Node 20.19+ or Bun 1.0+, on macOS or Linux.</p>
 				</li>
 				<li>
-					<span class="step-num">3</span>
-					<div class="step-content">
-						<strong>Install the shortcut</strong>
-						<p>Run <code>npm install -g github:doublej/strandkanban</code> to get the shorter <code>strand</code> command.</p>
-					</div>
-				</li>
-				<li>
-					<span class="step-num">4</span>
-					<div class="step-content">
-						<strong>Launch daily</strong>
-						<p>Run <code>strand</code> inside a Beads project or <code>strand /path/to/project</code> from anywhere.</p>
-					</div>
+					<h3>Start a board</h3>
+					<pre><code><span class="prompt" aria-hidden="true">$ </span>strand /path/to/project</code></pre>
+					<p>
+						The launcher checks <code>bd</code>, offers to run <code>bd init</code> when there is no
+						<code>.beads/</code>, picks a free port and starts the agent server.
+					</p>
 				</li>
 			</ol>
-		</div>
 
-		<div class="commands-block">
-			<h3>Available commands</h3>
-			<div class="commands-grid">
-				<div class="command-item">
-					<code>bun run dev</code>
-					<span>Start dev server</span>
-				</div>
-				<div class="command-item">
-					<code>bun run build</code>
-					<span>Build for production</span>
-				</div>
-				<div class="command-item">
-					<code>bun run check</code>
-					<span>Type-check with svelte-check</span>
-				</div>
+			<p class="aside reveal">
+				To try it once without installing: <code>npx github:doublej/strandkanban /path/to/project</code>.
+				Agent panes need an <code>ANTHROPIC_API_KEY</code>; the rest of the board works without one.
+			</p>
+
+			<div class="usage reveal">
+				<h3>Daily use</h3>
+				<dl>
+					{#each commands as c}
+						<div>
+							<dt><code>{c.cmd}</code></dt>
+							<dd>{c.desc}</dd>
+						</div>
+					{/each}
+				</dl>
 			</div>
-		</div>
-	</section>
+		</section>
+	</main>
 
-	<footer class="animate-in" style="animation-delay: 1000ms;">
-		<p>Built on <a href="https://github.com/gastownhall/beads" target="_blank" rel="noopener">Beads</a></p>
-		<p><a href="https://github.com/doublej/strandkanban" target="_blank" rel="noopener">GitHub</a></p>
+	<footer>
+		<span class="bead knot" aria-hidden="true"></span>
+		<p>strandkanban is built on <a href={beads}>Beads</a>.</p>
+		<nav aria-label="Project links">
+			<a href={repo}>GitHub</a>
+			<a href="{repo}#readme">README</a>
+			<a href="{repo}/blob/main/CHANGELOG.md">Changelog</a>
+		</nav>
 	</footer>
-</main>
+</div>
 
 <style>
-	@keyframes fadeSlideUp {
-		from {
-			opacity: 0;
-			transform: translateY(20px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
-	}
-
-	.animate-in {
-		animation: fadeSlideUp 0.6s cubic-bezier(0.23, 1, 0.32, 1) backwards;
-	}
-
-	:global(*) {
+	:global(*),
+	:global(*::before),
+	:global(*::after) {
 		box-sizing: border-box;
 	}
 
+	:global(html) {
+		scroll-behavior: smooth;
+		-webkit-text-size-adjust: 100%;
+	}
+
 	:global(body) {
+		--ground: #15110d;
+		--ground-2: #1e1812;
+		--ground-3: #2a2219;
+		--line: #40362a;
+		--thread: #cdbb9a;
+		--text: #f3ead9;
+		--muted: #b9ac95;
+		--open: #5b8cff;
+		--progress: #f2a33a;
+		--hooked: #a97bff;
+		--blocked: #f0584a;
+		--closed: #3ec48b;
+		--serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+		--mono: 'Martian Mono', ui-monospace, Menlo, Consolas, monospace;
+
 		margin: 0;
-		font-family: 'Instrument Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-		background: #fafafa;
-		color: #404040;
-		min-height: 100vh;
+		color: var(--text);
+		background:
+			radial-gradient(90rem 50rem at 100% -10%, rgb(242 163 58 / 0.09), transparent 60%),
+			radial-gradient(70rem 50rem at -20% 45%, rgb(91 140 255 / 0.06), transparent 60%),
+			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .95 0 0 0 0 .85 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"),
+			var(--ground);
+		font-family: var(--serif);
+		font-size: 1.125rem;
 		line-height: 1.6;
+		font-variation-settings: 'SOFT' 50;
 		-webkit-font-smoothing: antialiased;
 		overflow-x: hidden;
 	}
 
-	main {
-		max-width: 1200px;
-		margin: 0 auto;
-		padding: 0 24px;
+	:global(:focus-visible) {
+		outline: 2px solid var(--progress);
+		outline-offset: 3px;
+		border-radius: 3px;
 	}
 
-	/* Header */
-	header {
-		padding: 20px 0;
-		border-bottom: 1px solid #e0e0e0;
-		margin-bottom: 60px;
+	.page {
+		--pad: clamp(16px, 4vw, 48px);
+		--gutter: clamp(30px, 6vw, 92px);
+		--thread-x: calc(9px - var(--gutter));
+		position: relative;
+		max-width: 1320px;
+		margin-inline: auto;
+		padding-inline: calc(var(--pad) + var(--gutter)) var(--pad);
 	}
 
-	nav {
+	/* The strand: one thread down the page, every section a bead on it. */
+	.page::before,
+	.page::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: calc(var(--pad) + 9px);
+		width: 1.5px;
+		margin-left: -0.75px;
+		background: var(--thread);
+	}
+
+	.page::before {
+		opacity: 0.22;
+	}
+
+	.page::after {
+		transform-origin: top;
+	}
+
+	.bead {
+		display: inline-block;
+		flex: none;
+		width: var(--size, 18px);
+		aspect-ratio: 1;
+		border-radius: 50%;
+		background:
+			radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.85) 0 7%, rgb(255 255 255 / 0) 27%),
+			radial-gradient(
+				circle at 40% 35%,
+				color-mix(in oklab, var(--c, var(--thread)) 78%, white),
+				var(--c, var(--thread)) 48%,
+				color-mix(in oklab, var(--c, var(--thread)) 55%, black) 100%
+			);
+		box-shadow:
+			0 0 0 4px var(--ground),
+			0 0 26px color-mix(in oklab, var(--c, var(--thread)) 50%, transparent);
+	}
+
+	.skip {
+		position: absolute;
+		left: 12px;
+		top: -100px;
+		z-index: 10;
+		padding: 10px 14px;
+		background: var(--text);
+		color: var(--ground);
+		font: 500 0.8rem var(--mono);
+	}
+
+	.skip:focus {
+		top: 12px;
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+
+	a {
+		color: inherit;
+		text-decoration: underline;
+		text-decoration-color: var(--thread);
+		text-decoration-thickness: 1px;
+		text-underline-offset: 0.22em;
+	}
+
+	a:hover {
+		text-decoration-color: var(--progress);
+		text-decoration-thickness: 2px;
+	}
+
+	code,
+	kbd,
+	pre {
+		font-family: var(--mono);
+		font-stretch: 82%;
+		font-size: 0.78em;
+	}
+
+	:not(pre) > code {
+		padding: 0.15em 0.4em;
+		border-radius: 4px;
+		background: var(--ground-3);
+		color: var(--text);
+		overflow-wrap: anywhere;
+	}
+
+	kbd {
+		display: inline-block;
+		min-width: 1.9em;
+		padding: 0.1em 0.45em;
+		border: 1px solid var(--line);
+		border-bottom-width: 3px;
+		border-radius: 6px;
+		background: var(--ground-2);
+		text-align: center;
+		line-height: 1.5;
+	}
+
+	pre {
+		margin: 0;
+		padding: 16px 18px;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+		border: 1px solid var(--line);
+		border-radius: 10px;
+		background: #0e0b08;
+		color: var(--text);
+		font-size: 0.8rem;
+		line-height: 1.9;
+	}
+
+	.prompt {
+		color: var(--thread);
+		opacity: 0.6;
+		user-select: none;
+	}
+
+	.label {
+		margin: 0 0 18px;
+		color: var(--muted);
+		font: 500 0.72rem / 1.4 var(--mono);
+		font-stretch: 88%;
+		letter-spacing: 0.1em;
+		text-transform: uppercase;
+	}
+
+	.aside {
+		max-width: 44rem;
+		color: var(--muted);
+		font-size: 1rem;
+	}
+
+	h1,
+	h2,
+	h3 {
+		margin: 0;
+		font-weight: 700;
+		font-variation-settings: 'SOFT' 100;
+		text-wrap: balance;
+	}
+
+	h1 {
+		max-width: 10em;
+		font-size: clamp(2.9rem, 9vw, 7.75rem);
+		font-weight: 800;
+		line-height: 0.94;
+		letter-spacing: -0.035em;
+	}
+
+	.full-stop {
+		display: inline-block;
+		width: 0.2em;
+		aspect-ratio: 1;
+		margin-left: 0.06em;
+		border-radius: 50%;
+		background:
+			radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.8) 0 8%, rgb(255 255 255 / 0) 28%),
+			var(--closed);
+		box-shadow: 0 0 40px rgb(62 196 139 / 0.6);
+	}
+
+	h2 {
+		max-width: 14em;
+		font-size: clamp(2.1rem, 5vw, 4rem);
+		line-height: 1;
+		letter-spacing: -0.025em;
+	}
+
+	h3 {
+		font-size: 1.4rem;
+		line-height: 1.15;
+		letter-spacing: -0.01em;
+	}
+
+	/* Top bar */
+	.top {
+		position: relative;
+		z-index: 2;
 		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
 		justify-content: space-between;
-		align-items: center;
+		gap: 10px 24px;
+		padding-block: 26px;
+		font: 500 0.78rem var(--mono);
+		font-stretch: 88%;
 	}
 
-	.nav-logo {
-		text-decoration: none;
-		color: #1a1a1a;
-		font-weight: 600;
-		font-size: 0.95rem;
-	}
-
-	.nav-links {
-		display: flex;
-		align-items: center;
-		gap: 24px;
-	}
-
-	.nav-link {
-		color: #707070;
-		text-decoration: none;
+	.brand {
+		position: relative;
+		font-weight: 700;
 		font-size: 0.9rem;
-		font-weight: 500;
+		letter-spacing: -0.01em;
+		text-decoration: none;
 	}
 
-	.nav-link:hover {
-		color: #1a1a1a;
+	.brand .bead {
+		position: absolute;
+		left: var(--thread-x);
+		top: 50%;
+		translate: -50% -50%;
+	}
+
+	.top nav,
+	footer nav {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px 22px;
+	}
+
+	.top nav a,
+	footer nav a {
+		padding-block: 6px;
+		color: var(--muted);
+		text-decoration-color: transparent;
+	}
+
+	.top nav a:hover,
+	footer nav a:hover {
+		color: var(--text);
+		text-decoration-color: var(--progress);
 	}
 
 	/* Hero */
 	.hero {
-		padding: 0 0 60px;
+		padding-block: clamp(40px, 8vw, 104px) 0;
 	}
 
-	h1 {
-		font-size: 2.5rem;
-		font-weight: 600;
-		color: #1a1a1a;
-		margin: 0 0 20px;
-		letter-spacing: -0.03em;
-		line-height: 1.15;
-	}
-
-	.nowrap {
-		white-space: nowrap;
+	.hero-cols {
+		display: grid;
+		grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+		gap: clamp(24px, 5vw, 72px);
+		align-items: end;
+		margin-top: clamp(28px, 4vw, 52px);
 	}
 
 	.lead {
-		font-size: 1.1rem;
-		color: #606060;
-		max-width: 600px;
-		margin: 0 0 40px;
-	}
-
-	.lead a {
-		color: #404040;
-		text-decoration: underline;
-		text-underline-offset: 2px;
-	}
-
-	.lead a:hover {
-		color: #1a1a1a;
-	}
-
-	.lead code {
-		background: #f0f0f0;
-		padding: 2px 6px;
-		font-size: 0.9rem;
-	}
-
-	/* Install block */
-	.install-block {
-		max-width: 100%;
-	}
-
-	.install-block.standalone {
-		margin: 32px 0;
-	}
-
-	.code-line {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		background: #fff;
-		border: 1px solid #d0d0d0;
-		padding: 14px 16px;
-		overflow: hidden;
-	}
-
-	code {
-		font-family: 'DM Mono', 'SF Mono', Monaco, monospace;
-		font-size: 0.85rem;
-		color: #303030;
-		flex: 1;
-		overflow-x: auto;
-		white-space: nowrap;
-	}
-
-	.copy-btn {
-		background: #1a1a1a;
-		color: #fff;
-		border: none;
-		padding: 8px 16px;
-		cursor: pointer;
-		font-size: 0.8rem;
-		font-weight: 500;
-		font-family: 'Instrument Sans', sans-serif;
-		white-space: nowrap;
-		transition: background 0.15s;
-		min-width: 70px;
-		text-align: center;
-	}
-
-	.copy-btn:hover {
-		background: #333;
-	}
-
-	.install-note {
-		font-size: 0.85rem;
-		color: #808080;
-		margin: 12px 0 0;
-	}
-
-	.install-note a {
-		color: #505050;
-		text-decoration: underline;
-		text-underline-offset: 2px;
-	}
-
-	.install-note a:hover {
-		color: #1a1a1a;
-	}
-
-	/* Film-roll gallery */
-	.filmroll-stage {
-		margin: 0 calc(-50vw + 50%) 48px;
-		width: 100vw;
-		position: relative;
-		left: 0;
-		background: #141414;
-		padding: 80px 0 70px;
-		overflow: clip;
-		display: flex;
-		flex-direction: column;
-		transition: padding 0.5s cubic-bezier(0.32, 0.72, 0, 1);
-	}
-
-	/* Top arc: page-bg ellipse carves convex curve into the top edge */
-	.filmroll-stage::before {
-		content: '';
-		position: absolute;
-		top: -50px;
-		left: -5%;
-		right: -5%;
-		height: 80px;
-		background: #fafafa;
-		border-radius: 0 0 50% 50%;
-		z-index: 2;
-		transition: opacity 0.4s ease;
-	}
-
-	/* Bottom arc: mirrored */
-	.filmroll-stage::after {
-		content: '';
-		position: absolute;
-		bottom: -50px;
-		left: -5%;
-		right: -5%;
-		height: 80px;
-		background: #fafafa;
-		border-radius: 50% 50% 0 0;
-		z-index: 2;
-		transition: opacity 0.4s ease;
-	}
-
-	/* Theater mode: expand to fullscreen */
-	.filmroll-stage.theater {
-		position: fixed;
-		inset: 0;
-		z-index: 100;
+		max-width: 36rem;
 		margin: 0;
-		width: 100vw;
-		height: 100vh;
-		height: 100dvh;
-		padding: 0;
-		overflow: hidden;
-		display: flex;
-		flex-direction: column;
-		transition: clip-path 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+		font-size: clamp(1.15rem, 1.6vw, 1.4rem);
+		line-height: 1.5;
 	}
 
-	.filmroll-stage.theater::before,
-	.filmroll-stage.theater::after {
+	.install-card {
+		position: relative;
+		z-index: 1;
+	}
+
+	.install-card pre {
+		border-radius: 10px 10px 0 0;
+		border-bottom: 0;
+	}
+
+	.install-meta {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 10px 16px;
+		padding: 10px 10px 10px 18px;
+		border: 1px solid var(--line);
+		border-radius: 0 0 10px 10px;
+		background: var(--ground-2);
+		color: var(--muted);
+		font-size: 0.92rem;
+	}
+
+	button {
+		padding: 9px 14px;
+		border: 1px solid var(--thread);
+		border-radius: 999px;
+		background: transparent;
+		color: var(--text);
+		font: 500 0.72rem var(--mono);
+		font-stretch: 88%;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		cursor: pointer;
+		transition:
+			background 0.15s,
+			color 0.15s;
+	}
+
+	button:hover {
+		background: var(--thread);
+		color: var(--ground);
+	}
+
+	/* Status rod: a horizontal branch off the strand */
+	.rod-wrap {
+		margin-top: clamp(56px, 9vw, 120px);
+	}
+
+	.rod {
+		--size: 30px;
+		position: relative;
+		display: grid;
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+		gap: 12px;
+		margin: 0 0 28px;
+		padding: 0;
+		list-style: none;
+	}
+
+	.rod::before {
+		content: '';
+		position: absolute;
+		left: var(--thread-x);
+		right: calc(-1 * var(--pad));
+		top: 15px;
+		height: 1.5px;
+		margin-top: -0.75px;
+		background: linear-gradient(90deg, var(--thread), rgb(205 187 154 / 0.15));
+	}
+
+	.rod li {
+		position: relative;
+		display: grid;
+		justify-items: start;
+		gap: 6px;
+	}
+
+	.rod .bead {
+		margin-bottom: 12px;
+	}
+
+	.rod-name {
+		font-size: clamp(1.05rem, 1.8vw, 1.5rem);
+		font-weight: 600;
+		font-variation-settings: 'SOFT' 100;
+		line-height: 1.1;
+	}
+
+	.rod code {
+		padding: 0;
+		background: none;
+		color: var(--c);
+		font-size: 0.72rem;
+	}
+
+	/* Screenshot plates. Wide ones cover the thread, as if it passes behind. */
+	.plate {
+		position: relative;
+		z-index: 1;
+		margin: 0;
+	}
+
+	.plate.wide {
+		margin-left: calc(-1 * var(--gutter));
+	}
+
+	.plate a {
+		display: block;
+		border-radius: 12px;
+	}
+
+	.plate img {
+		display: block;
+		width: 100%;
+		height: auto;
+		border-radius: 12px;
+		box-shadow:
+			0 0 0 1px rgb(255 255 255 / 0.14),
+			0 0 0 7px var(--ground-2),
+			0 0 0 8px var(--line),
+			0 50px 90px -30px #000;
+	}
+
+	figcaption {
+		margin-top: 22px;
+		padding-left: var(--gutter);
+		color: var(--muted);
+		font: 400 0.72rem var(--mono);
+		font-stretch: 88%;
+	}
+
+	.hero .plate {
+		margin-top: clamp(40px, 6vw, 72px);
+	}
+
+	/* Sections strung on the thread */
+	.strung {
+		position: relative;
+		padding-top: clamp(88px, 13vw, 184px);
+		scroll-margin-top: -40px;
+	}
+
+	.strung > header {
+		margin-bottom: clamp(32px, 5vw, 60px);
+	}
+
+	.mark {
+		--size: 22px;
+		position: absolute;
+		left: var(--thread-x);
+		translate: -50% -3px;
+	}
+
+	/* View switcher: radio inputs, no script */
+	.tabs {
+		--size: 20px;
+		position: relative;
+		display: grid;
+		grid-template-columns: repeat(5, minmax(0, 1fr));
+		max-width: 46rem;
+		margin: 0 0 36px;
+		padding: 0;
+		border: 0;
+	}
+
+	.tabs::before {
+		content: '';
+		position: absolute;
+		left: var(--thread-x);
+		right: 0;
+		top: 18px;
+		height: 1.5px;
+		margin-top: -0.75px;
+		background: var(--thread);
+		opacity: 0.5;
+	}
+
+	.tabs label {
+		position: relative;
+		display: grid;
+		justify-items: start;
+		gap: 12px;
+		padding: 8px 8px 8px 0;
+		border-radius: 6px;
+		color: var(--muted);
+		font: 500 0.78rem var(--mono);
+		font-stretch: 88%;
+		cursor: pointer;
+	}
+
+	.tabs input {
+		position: absolute;
 		opacity: 0;
 		pointer-events: none;
 	}
 
-	.filmroll-arc {
-		position: relative;
-		perspective: 2000px;
+	.tabs .bead {
+		background: var(--ground);
+		box-shadow:
+			inset 0 0 0 2px var(--c, var(--thread)),
+			0 0 0 4px var(--ground);
+		transition: scale 0.2s cubic-bezier(0.3, 1.6, 0.5, 1);
 	}
 
-	.filmroll-arc.theater-strip {
-		perspective: none;
-		flex-shrink: 0;
-		border-top: 1px solid rgba(255, 255, 255, 0.08);
+	.tabs label:hover {
+		color: var(--text);
 	}
 
-	/* Noise texture + radial glow */
-	.filmroll-arc::before {
-		content: '';
-		position: absolute;
-		inset: -40px -60px;
+	.tabs label:hover .bead {
+		scale: 1.15;
+	}
+
+	.tabs label:has(input:checked) {
+		color: var(--text);
+	}
+
+	.tabs input:checked + .bead {
+		scale: 1.3;
 		background:
-			radial-gradient(ellipse 80% 60% at 50% 40%, rgba(255, 255, 255, 0.04) 0%, transparent 70%),
-			url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-		pointer-events: none;
+			radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.85) 0 7%, rgb(255 255 255 / 0) 27%),
+			radial-gradient(
+				circle at 40% 35%,
+				color-mix(in oklab, var(--c, var(--thread)) 78%, white),
+				var(--c, var(--thread)) 48%,
+				color-mix(in oklab, var(--c, var(--thread)) 55%, black) 100%
+			);
+		box-shadow:
+			0 0 0 4px var(--ground),
+			0 0 26px color-mix(in oklab, var(--c, var(--thread)) 60%, transparent);
 	}
 
-	.filmroll-track {
-		display: flex;
-		gap: 12px;
-		overflow-x: auto;
-		scrollbar-width: none;
-		cursor: grab;
-		padding: 12px 60px;
-		scroll-behavior: auto;
-		transform: rotateX(4deg);
-		transform-origin: center bottom;
-		user-select: none;
-		-webkit-user-select: none;
-		transition: padding 0.4s ease, gap 0.4s ease;
+	.tabs label:has(input:focus-visible) {
+		outline: 2px solid var(--progress);
+		outline-offset: 3px;
 	}
 
-	.filmroll-track::-webkit-scrollbar {
-		display: none;
+	.panel + .panel {
+		margin-top: 72px;
 	}
 
-	.filmroll-track.grabbing {
-		cursor: grabbing;
-	}
-
-	/* Theater thumbnail strip */
-	.filmroll-track.theater-thumbs {
-		transform: none;
-		padding: 12px 24px;
-		gap: 8px;
-		justify-content: center;
-		cursor: default;
-		overflow-x: auto;
-	}
-
-	.frame-label {
-		display: block;
-		text-align: center;
-		padding: 0 10px 16px;
-		font-family: 'DM Mono', monospace;
-		font-size: 0.85rem;
-		color: rgba(255, 255, 255, 0.7);
-		pointer-events: none;
-		position: relative;
-		z-index: 3;
-	}
-
-	.filmroll-frame {
-		flex: 0 0 auto;
-		width: 280px;
-		overflow: hidden;
-		position: relative;
-		box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
-		transform: rotateY(var(--ry)) translateZ(var(--tz));
-		transition: width 0.4s cubic-bezier(0.32, 0.72, 0, 1),
-			box-shadow 0.25s,
-			opacity 0.3s;
-	}
-
-	.filmroll-frame:hover {
-		box-shadow: 0 8px 40px rgba(0, 0, 0, 0.45);
-	}
-
-	/* Theater thumbnail frames */
-	.theater-thumbs .filmroll-frame {
-		width: 100px;
-		flex: 0 0 100px;
-		box-shadow: none;
-		transform: none;
-		cursor: pointer;
-		opacity: 0.4;
-		border: 2px solid transparent;
-		border-radius: 4px;
-		transition: opacity 0.2s ease, border-color 0.25s ease, transform 0.2s ease;
-	}
-
-	.theater-thumbs .filmroll-frame:hover {
-		opacity: 0.7;
-		box-shadow: none;
-		transform: translateY(-2px);
-	}
-
-	.theater-thumbs .filmroll-frame.active-thumb {
-		opacity: 1;
-		border-color: rgba(255, 255, 255, 0.6);
-	}
-
-	.filmroll-frame img {
-		width: 100%;
-		display: block;
-		border: 1px solid rgba(255, 255, 255, 0.08);
-	}
-
-	/* Theater hero */
-	.theater-close {
-		position: absolute;
-		top: 12px;
-		right: 16px;
-		background: none;
-		border: none;
-		color: rgba(255, 255, 255, 0.5);
-		font-size: 2rem;
-		cursor: pointer;
-		z-index: 101;
-		line-height: 1;
-		padding: 4px 10px;
-		transition: color 0.15s;
-	}
-
-	.theater-close:hover {
-		color: #fff;
-	}
-
-	.theater-hero {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		padding: 48px 32px 12px;
-		min-height: 0;
-		overflow: hidden;
-	}
-
-	/* Hero image entrance -- {#key} re-mounts so animation replays on thumbnail switch */
-	.theater-hero-img {
-		max-width: min(1200px, 92vw);
-		max-height: calc(100vh - 180px);
-		max-height: calc(100dvh - 180px);
-		object-fit: contain;
-		box-shadow: 0 20px 80px rgba(0, 0, 0, 0.55);
-		border-radius: 8px;
-		animation: heroImageIn 0.38s cubic-bezier(0.32, 0.72, 0, 1) both;
-	}
-
-	@keyframes heroImageIn {
-		from {
-			opacity: 0;
-			transform: scale(0.94) translateY(8px);
-		}
-		to {
-			opacity: 1;
-			transform: scale(1) translateY(0);
-		}
-	}
-
-	.theater-label {
-		display: block;
-		margin-top: 10px;
-		font-family: 'DM Mono', monospace;
-		font-size: 0.8rem;
-		color: rgba(255, 255, 255, 0.55);
-		letter-spacing: 0.02em;
-	}
-
-	/* Hover preview (non-theater) */
-	.hover-preview {
-		display: flex;
-		justify-content: center;
-		padding: 32px 24px 0;
-		pointer-events: none;
-		animation: previewFadeIn 0.2s ease-out;
-	}
-
-	.hover-preview img {
-		display: block;
-		max-width: 900px;
-		width: 100%;
-		box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
-		border: 1px solid #e0e0e0;
-	}
-
-	@keyframes previewFadeIn {
-		from { opacity: 0; transform: scale(0.97); }
-		to { opacity: 1; transform: scale(1); }
-	}
-
-	/* Sections */
-	.section {
-		padding: 60px 0;
-		border-top: 1px solid #e0e0e0;
-	}
-
-	h2 {
-		font-size: 1.5rem;
-		font-weight: 600;
-		color: #1a1a1a;
-		margin: 0 0 8px;
-		letter-spacing: -0.02em;
-	}
-
-	.section-desc {
-		color: #707070;
-		margin: 0 0 32px;
-		font-size: 0.95rem;
-	}
-
-	/* Features grid */
-	.features-grid {
+	.panel-text {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 16px;
-	}
-
-	.feature-card {
-		background: #fff;
-		border: 1px solid #d0d0d0;
-		padding: 20px;
-	}
-
-	.feature-icon {
-		display: block;
-		font-size: 1.4rem;
-		margin-bottom: 12px;
-		color: #707070;
-	}
-
-	.feature-card h3 {
-		font-size: 0.95rem;
-		font-weight: 600;
-		color: #1a1a1a;
-		margin: 0 0 6px;
-	}
-
-	.feature-card p {
-		margin: 0;
-		font-size: 0.85rem;
-		color: #606060;
-		line-height: 1.5;
-	}
-
-	/* Columns flow */
-	.columns-flow {
-		display: flex;
-		align-items: stretch;
-		gap: 8px;
-		overflow-x: auto;
-		padding: 4px 0;
-	}
-
-	.column-card {
-		background: #fff;
-		border: 1px solid #d0d0d0;
-		padding: 16px;
-		min-width: 160px;
-		flex: 1;
-	}
-
-	.column-status {
-		display: inline-block;
-		font-family: 'DM Mono', monospace;
-		font-size: 0.75rem;
-		color: #808080;
-		background: #f5f5f5;
-		padding: 2px 8px;
-		margin-bottom: 8px;
-	}
-
-	.column-card strong {
-		display: block;
-		font-size: 0.95rem;
-		color: #1a1a1a;
-		margin-bottom: 4px;
-	}
-
-	.column-card p {
-		margin: 0;
-		font-size: 0.8rem;
-		color: #707070;
-		line-height: 1.4;
-	}
-
-	.flow-arrow {
-		display: flex;
-		align-items: center;
-		color: #c0c0c0;
-		font-size: 1.2rem;
-		flex-shrink: 0;
-	}
-
-	/* Architecture */
-	.arch-stack {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0;
+		grid-template-columns: 9rem minmax(0, 38rem);
+		gap: 8px 24px;
+		align-items: baseline;
 		margin-bottom: 32px;
 	}
 
-	.arch-layer {
-		background: #fff;
-		border: 1px solid #d0d0d0;
-		padding: 14px 20px;
-		width: 100%;
-		max-width: 500px;
+	.panel-text h3 {
+		color: var(--c);
+	}
+
+	.panel-text p {
+		margin: 0;
+	}
+
+	/* Without :has() every panel stays visible, stacked. */
+	@supports selector(:has(*)) {
+		.panel {
+			display: none;
+			margin-top: 0;
+		}
+
+		.viewer:has(label:nth-of-type(1) input:checked) .panel:nth-of-type(1),
+		.viewer:has(label:nth-of-type(2) input:checked) .panel:nth-of-type(2),
+		.viewer:has(label:nth-of-type(3) input:checked) .panel:nth-of-type(3),
+		.viewer:has(label:nth-of-type(4) input:checked) .panel:nth-of-type(4),
+		.viewer:has(label:nth-of-type(5) input:checked) .panel:nth-of-type(5) {
+			display: block;
+		}
+	}
+
+	.zen {
+		display: grid;
+		grid-template-columns: 14rem minmax(0, 40rem);
+		gap: 10px 32px;
+		align-items: baseline;
+		margin-top: clamp(48px, 7vw, 88px);
+		padding-top: 28px;
+		border-top: 1px solid var(--line);
+	}
+
+	.zen p {
+		margin: 0;
+	}
+
+	/* Fact lists */
+	.facts {
+		display: grid;
+		gap: 0;
+		margin: 0;
+	}
+
+	.facts > div {
+		padding: 22px 0;
+		border-top: 1px solid var(--line);
+	}
+
+	.facts dt {
+		margin-bottom: 6px;
+		font-size: 1.3rem;
+		font-weight: 650;
+		font-variation-settings: 'SOFT' 100;
+		line-height: 1.2;
+	}
+
+	.facts dd {
+		margin: 0;
+		color: var(--muted);
+	}
+
+	.facts.cols-3 {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		column-gap: clamp(24px, 4vw, 56px);
+	}
+
+	/* Agents */
+	.agents-cols {
+		display: grid;
+		grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+		gap: clamp(32px, 6vw, 88px);
+		align-items: start;
+	}
+
+	.providers {
+		--size: 14px;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 10px;
+		margin: 28px 0 36px;
+		padding: 0;
+		list-style: none;
+	}
+
+	.providers li {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 8px 16px 8px 14px;
+		border: 1px solid var(--line);
+		border-radius: 999px;
+		background: var(--ground-2);
+		font: 500 0.8rem var(--mono);
+		font-stretch: 88%;
+	}
+
+	.providers .bead {
+		box-shadow: 0 0 14px color-mix(in oklab, var(--c, var(--thread)) 50%, transparent);
+	}
+
+	.queue {
+		--size: 12px;
+		margin: 0;
+		border: 1px solid var(--line);
+		border-radius: 12px;
+		background: #0e0b08;
+		font: 400 0.74rem var(--mono);
+		font-stretch: 82%;
+		box-shadow: 0 40px 80px -40px #000;
+	}
+
+	.queue-head {
 		display: flex;
 		justify-content: space-between;
-		align-items: center;
-		gap: 16px;
+		padding: 14px 18px;
+		border-bottom: 1px solid var(--line);
+		color: var(--muted);
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
 	}
 
-	.arch-layer strong {
-		color: #1a1a1a;
-		font-size: 0.9rem;
-		white-space: nowrap;
-	}
-
-	.arch-layer span {
-		color: #707070;
-		font-size: 0.8rem;
-		text-align: right;
-	}
-
-	.arch-arrow {
-		color: #c0c0c0;
-		font-size: 1rem;
-		padding: 4px 0;
-	}
-
-	.arch-note {
-		margin-top: 24px;
-	}
-
-	.arch-note h3 {
-		font-size: 1rem;
-		font-weight: 600;
-		color: #1a1a1a;
-		margin: 0 0 12px;
-	}
-
-	.rw-grid {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 16px;
-	}
-
-	.rw-card {
-		background: #fff;
-		border: 1px solid #d0d0d0;
-		padding: 16px;
-	}
-
-	.rw-card strong {
-		display: block;
-		font-size: 0.9rem;
-		color: #1a1a1a;
-		margin-bottom: 6px;
-	}
-
-	.rw-card p {
+	.queue ul {
 		margin: 0;
-		font-size: 0.85rem;
-		color: #606060;
-		line-height: 1.5;
-	}
-
-	.rw-card code {
-		background: #f5f5f5;
-		padding: 2px 6px;
-		font-size: 0.8rem;
-		color: #505050;
-	}
-
-	/* Tech stack */
-	.stack-grid {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 16px;
-	}
-
-	.stack-item {
-		background: #fff;
-		border: 1px solid #d0d0d0;
-		padding: 16px;
-	}
-
-	.stack-item strong {
-		display: block;
-		font-size: 0.9rem;
-		color: #1a1a1a;
-		margin-bottom: 6px;
-	}
-
-	.stack-item p {
-		margin: 0;
-		font-size: 0.85rem;
-		color: #606060;
-		line-height: 1.5;
-	}
-
-	.stack-item code {
-		background: #f5f5f5;
-		padding: 2px 6px;
-		font-size: 0.8rem;
-		color: #505050;
-	}
-
-	/* Install steps */
-	.install-steps {
-		margin: 40px 0;
-	}
-
-	.install-steps h3 {
-		font-size: 1rem;
-		font-weight: 600;
-		color: #1a1a1a;
-		margin: 0 0 16px;
-	}
-
-	.steps-list {
+		padding: 6px 0;
 		list-style: none;
+	}
+
+	.queue li {
+		display: grid;
+		grid-template-columns: 12px 5.2em 5em minmax(0, 1fr);
+		gap: 14px;
+		align-items: center;
+		padding: 11px 18px;
+		color: var(--muted);
+	}
+
+	.queue code {
 		padding: 0;
+		background: none;
+		font-size: inherit;
+	}
+
+	.queue strong {
+		font-weight: 600;
+	}
+
+	.queue .bead {
+		box-shadow: none;
+	}
+
+	.queue .claimed {
+		--c: var(--progress);
+	}
+
+	.queue .claimed strong {
+		color: var(--progress);
+	}
+
+	.queue .skipped strong {
+		color: var(--blocked);
+	}
+
+	.queue .skipped .bead,
+	.queue .waiting .bead {
+		background: none;
+		box-shadow: inset 0 0 0 1.5px currentColor;
+	}
+
+	.queue .skipped .bead {
+		color: var(--blocked);
+	}
+
+	.queue figcaption {
 		margin: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
+		padding: 14px 18px;
+		border-top: 1px solid var(--line);
 	}
 
-	.steps-list li {
-		display: flex;
-		gap: 16px;
-		background: #fff;
-		border: 1px solid #e0e0e0;
-		padding: 16px;
+	/* Install */
+	.steps {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: clamp(20px, 3vw, 40px);
+		margin: 0 0 36px;
+		padding: 0;
+		list-style: none;
+		counter-reset: step;
 	}
 
-	.step-num {
-		width: 28px;
-		height: 28px;
-		background: #f0f0f0;
+	.steps li {
+		display: grid;
+		align-content: start;
+		gap: 14px;
+		counter-increment: step;
+	}
+
+	.steps h3::before {
+		content: counter(step);
+		display: inline-grid;
+		place-items: center;
+		width: 1.9em;
+		aspect-ratio: 1;
+		margin-right: 12px;
 		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 0.85rem;
-		font-weight: 600;
-		color: #606060;
-		flex-shrink: 0;
+		background: var(--closed);
+		color: var(--ground);
+		font: 700 0.8rem var(--mono);
+		vertical-align: 0.2em;
 	}
 
-	.step-content {
-		flex: 1;
-		min-width: 0;
-	}
-
-	.step-content strong {
-		display: block;
-		color: #1a1a1a;
-		font-size: 0.95rem;
-		margin-bottom: 4px;
-	}
-
-	.step-content p {
+	.steps p {
 		margin: 0;
-		font-size: 0.85rem;
-		color: #606060;
-		line-height: 1.5;
-	}
-
-	.step-content code {
-		background: #f5f5f5;
-		padding: 2px 6px;
-		font-size: 0.8rem;
-		color: #505050;
-	}
-
-	.step-content a {
-		color: #505050;
-		text-decoration: underline;
-		text-underline-offset: 2px;
-	}
-
-	.step-content a:hover {
-		color: #1a1a1a;
-	}
-
-	/* Commands block */
-	.commands-block {
-		margin-top: 32px;
-	}
-
-	.commands-block h3 {
+		color: var(--muted);
 		font-size: 1rem;
-		font-weight: 600;
-		color: #1a1a1a;
-		margin: 0 0 12px;
 	}
 
-	.commands-grid {
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
+	.usage {
+		margin-top: clamp(48px, 7vw, 80px);
 	}
 
-	.command-item {
-		display: flex;
-		align-items: center;
-		gap: 16px;
-		background: #fff;
-		border: 1px solid #e0e0e0;
-		padding: 12px 16px;
+	.usage dl {
+		margin: 20px 0 0;
 	}
 
-	.command-item code {
-		font-size: 0.85rem;
-		color: #1a1a1a;
-		font-weight: 500;
-		min-width: 160px;
+	.usage dl > div {
+		display: grid;
+		grid-template-columns: minmax(0, 24rem) minmax(0, 1fr);
+		gap: 4px 32px;
+		align-items: baseline;
+		padding: 14px 0;
+		border-top: 1px solid var(--line);
 	}
 
-	.command-item span {
-		font-size: 0.85rem;
-		color: #707070;
+	.usage dt code {
+		padding: 0;
+		background: none;
+		font-size: 0.8rem;
 	}
 
-	/* Footer */
+	.usage dd {
+		margin: 0;
+		color: var(--muted);
+		font-size: 1rem;
+	}
+
 	footer {
-		padding: 48px 0;
-		border-top: 1px solid #e0e0e0;
-		text-align: center;
-		font-size: 0.85rem;
+		position: relative;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px 32px;
+		margin-top: clamp(88px, 13vw, 184px);
+		padding-block: 36px 96px;
+		border-top: 1px solid var(--line);
+		font: 400 0.78rem var(--mono);
+		font-stretch: 88%;
 	}
 
 	footer p {
-		margin: 6px 0;
-		color: #808080;
+		margin: 0;
+		color: var(--muted);
 	}
 
-	footer a {
-		color: #505050;
-		text-decoration: none;
+	/* The strand ends at the knot: hide the thread below it. */
+	footer::after {
+		content: '';
+		position: absolute;
+		left: calc(var(--thread-x) - 4px);
+		top: 0;
+		bottom: 0;
+		z-index: 1;
+		width: 8px;
+		background: var(--ground);
 	}
 
-	footer a:hover {
-		color: #1a1a1a;
+	.knot {
+		--size: 12px;
+		position: absolute;
+		z-index: 2;
+		left: var(--thread-x);
+		top: 0;
+		translate: -50% -50%;
 	}
 
-	/* Responsive */
-	@media (max-width: 700px) {
-		header {
-			margin-bottom: 48px;
+	@media (max-width: 860px) {
+		.hero-cols,
+		.agents-cols,
+		.steps,
+		.facts.cols-3 {
+			grid-template-columns: minmax(0, 1fr);
 		}
 
-		h1 {
-			font-size: 1.8rem;
+		.hero-cols {
+			align-items: start;
 		}
 
-		.lead {
-			font-size: 1rem;
+		.panel-text,
+		.zen,
+		.usage dl > div {
+			grid-template-columns: minmax(0, 1fr);
 		}
 
-		.filmroll-stage {
-			padding: 70px 0 60px;
-			margin: 0 calc(-50vw + 50%) 32px;
+		/* On small screens the status beads sit on the strand itself. */
+		.rod {
+			--size: 22px;
+			grid-template-columns: minmax(0, 1fr);
+			gap: 18px;
 		}
 
-		.filmroll-track {
+		.rod::before {
+			display: none;
+		}
+
+		.rod li {
+			grid-template-columns: auto auto;
+			justify-content: start;
+			align-items: baseline;
 			gap: 12px;
-			padding: 12px 20px;
-			transform: none;
 		}
 
-		.filmroll-frame {
-			width: 60vw;
+		.rod .bead {
+			position: absolute;
+			left: var(--thread-x);
+			top: 50%;
+			margin: 0;
+			translate: -50% -50%;
 		}
 
-		.features-grid {
-			grid-template-columns: 1fr;
+		.rod-name {
+			font-size: 1.25rem;
 		}
 
-		.columns-flow {
-			flex-direction: column;
+		.tabs label {
+			font-size: 0.68rem;
 		}
 
-		.flow-arrow {
-			transform: rotate(90deg);
-			justify-content: center;
+		pre {
+			padding: 14px;
+			font-size: 0.69rem;
+			font-stretch: 75%;
 		}
 
-		.rw-grid {
-			grid-template-columns: 1fr;
+		.queue li {
+			grid-template-columns: 12px 5.2em minmax(0, 1fr);
 		}
 
-		.stack-grid {
-			grid-template-columns: 1fr;
+		.queue li span:last-child {
+			grid-column: 2 / -1;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		:global(html) {
+			scroll-behavior: auto;
 		}
 
-		.code-line {
-			flex-direction: column;
-			align-items: stretch;
-			gap: 10px;
+		.tabs .bead,
+		button {
+			transition: none;
+		}
+	}
+
+	@media (prefers-reduced-motion: no-preference) {
+		.rise {
+			animation: rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) var(--d, 0ms) backwards;
 		}
 
-		code {
-			text-align: left;
+		/* Beads slide along the rod into place, the far one first. */
+		.rod li {
+			animation: slide 0.9s cubic-bezier(0.2, 0.9, 0.25, 1) calc(500ms + (4 - var(--i)) * 90ms) backwards;
 		}
 
-		.copy-btn {
-			align-self: flex-start;
-		}
+		@supports (animation-timeline: view()) {
+			.page::after {
+				animation: draw linear both;
+				animation-timeline: scroll(root);
+			}
 
-		.theater-hero {
-			padding: 48px 8px 8px;
+			.reveal {
+				animation: rise linear both;
+				animation-timeline: view();
+				animation-range: entry 0% cover 22%;
+			}
 		}
+	}
 
-		.theater-hero-img {
-			max-height: calc(100vh - 140px);
-			max-height: calc(100dvh - 140px);
+	@keyframes rise {
+		from {
+			opacity: 0;
+			translate: 0 26px;
 		}
+	}
 
-		.theater-thumbs .filmroll-frame {
-			width: 56px;
-			flex: 0 0 56px;
+	@keyframes slide {
+		from {
+			opacity: 0;
+			translate: calc(-60px - var(--i) * 70px) 0;
 		}
+	}
 
-		.filmroll-track.theater-thumbs {
-			padding: 8px 12px;
-			gap: 6px;
+	@keyframes draw {
+		from {
+			scale: 1 0.04;
 		}
 	}
 </style>

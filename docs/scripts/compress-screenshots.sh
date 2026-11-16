@@ -9,6 +9,7 @@ DST="static/screenshots"
 
 FILES=(
   kanban-wide-light.png
+  table-view-light.png
   agent-kanban-light.png
   detail-panel-light.png
   keyboard-hints-light.png
