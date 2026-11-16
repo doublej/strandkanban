@@ -1,5 +1,5 @@
 import type { RequestHandler } from './$types';
-import { unstable_v2_prompt } from '@anthropic-ai/claude-agent-sdk';
+import { query, type SDKResultMessage } from '@anthropic-ai/claude-agent-sdk';
 import { log } from '$lib/server/logger';
 import { ok, wrap, ApiError } from '$lib/server/response';
 
@@ -22,13 +22,18 @@ STRICT RULES:
 
 Output the name only. No explanation. No alternatives.`;
 
+/** One-shot prompt: the SDK's final `result` message carries the reply text. */
+async function promptOnce(prompt: string, model: string): Promise<SDKResultMessage | undefined> {
+	for await (const msg of query({ prompt, options: { model, maxTurns: 1 } })) {
+		if (msg.type === 'result') return msg;
+	}
+}
+
 export const POST: RequestHandler = wrap(async () => {
 	try {
-		const result = await unstable_v2_prompt(PROMPT, {
-			model: 'claude-haiku-4-5-20251001',
-		});
+		const result = await promptOnce(PROMPT, 'claude-haiku-4-5-20251001');
 
-		if (result.subtype !== 'success' || !result.result) {
+		if (result?.subtype !== 'success' || !result.result) {
 			throw new ApiError('Failed to generate name', 500);
 		}
 

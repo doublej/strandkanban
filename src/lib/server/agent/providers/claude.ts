@@ -19,6 +19,8 @@ import type {
   TokenTotals,
 } from "./types";
 
+type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+
 const PERMISSION_MODES = ["default", "acceptEdits", "bypassPermissions", "plan"];
 
 /**
@@ -118,7 +120,7 @@ async function* toSdkMessages(input: AsyncIterable<UserTurn>, runId: string): As
     const hasImages = turn.images && turn.images.length > 0;
     if (hasImages) {
       const content: Array<
-        | { type: "image"; source: { type: "base64"; media_type: string; data: string } }
+        | { type: "image"; source: { type: "base64"; media_type: ImageMediaType; data: string } }
         | { type: "text"; text: string }
       > = [];
       for (const img of turn.images!) {
@@ -126,7 +128,8 @@ async function* toSdkMessages(input: AsyncIterable<UserTurn>, runId: string): As
           type: "image",
           source: {
             type: "base64",
-            media_type: img.mediaType,
+            // Browser file.type is any string; the API rejects what it doesn't support, as before.
+            media_type: img.mediaType as ImageMediaType,
             data: img.data,
           },
         });

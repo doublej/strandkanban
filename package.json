@@ -33,18 +33,18 @@
   },
   "devDependencies": {
     "@sveltejs/adapter-auto": "^3.0.0",
-    "@sveltejs/kit": "^2.0.0",
-    "@sveltejs/vite-plugin-svelte": "^4.0.0",
+    "@sveltejs/kit": "^2.70.4",
+    "@sveltejs/vite-plugin-svelte": "^6.2.4",
     "@types/better-sqlite3": "^7.6.13",
     "@types/web-push": "^3.6.4",
     "@vitejs/plugin-basic-ssl": "^2.3.0",
-    "svelte": "^5.0.0",
+    "svelte": "^5.57.3",
     "svelte-check": "^4.0.0",
     "typescript": "^5.0.0",
-    "vite": "^5.0.0"
+    "vite": "^7.3.8"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "0.1.77",
+    "@anthropic-ai/claude-agent-sdk": "0.3.325",
     "@types/js-yaml": "^4.0.9",
     "@xyflow/svelte": "^1.6.1",
     "beads-sdk": "../../node/beads-sdk",
@@ -54,6 +54,6 @@
     "lucide-svelte": "^0.561.0",
     "marked": "^17.0.1",
     "web-push": "^3.6.7",
-    "zod": "3.24.4"
+    "zod": "^4.6.6"
   }
 }
