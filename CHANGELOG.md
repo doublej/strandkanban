@@ -2,6 +2,8 @@
 
 ## [0.6.2] - 2026-11-16
 
+Needs Node 20.19+ (was 18+), because Vite 7 requires it. Running under Bun is unaffected.
+
 ### Fixed
 
 - The manager's `close_issue` tool and `POST /api/issues/:id/close` can close a ticket a worker has claimed. bd refuses that by default, so both now take `force`. Without it, bd's guards still apply: another actor's claim, open blockers, open children.

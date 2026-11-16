@@ -12,7 +12,7 @@ The name is literal. A strand is a string of beads.
 
 ## Status
 
-- strandkanban: version 0.6.0
+- strandkanban: version 0.6.2
 - Beads (`bd`): tested against version 1.3.4, needs version 1.3.4 or newer
 
 ## Quick start
@@ -58,8 +58,8 @@ The board has five columns: Backlog, In Progress, Hooked, Blocked, and Complete.
 
 ## Requirements
 
-- Node 18+ or Bun 1.0+
-- Beads CLI `bd` v1.0.0+
+- Node 20.19+ or Bun 1.0+
+- Beads CLI `bd` v1.3.4+
 - macOS or Linux for the normal install flow
 - Optional: `ANTHROPIC_API_KEY` for agent panes
 
