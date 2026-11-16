@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.6.1] - 2026-11-16
+
+Needs `bd` 1.3.4 or newer (was 1.2.1, which upstream has retracted). The launcher checks this on start.
+
+### Upgrading bd
+
+Every `bd` command strandkanban runs was re-tested on 1.3.4. No app changes were needed, but each server-mode workspace needs a one-time step after you upgrade `bd`:
+
+1. Back up: `bd export > .beads/backup/pre-1.3.4.jsonl`
+2. Migrate: `bd migrate schema`. Until you do, bd refuses every write with `refusing to auto-apply 1 pending schema migration to a shared server database`. Reads keep working.
+3. Repair blocked flags: `bd recompute-blocked`. Stores that took migration 0059 on Dolt 1.83 can have issues wrongly marked blocked and missing from `bd ready`.
+
+Embedded-mode workspaces migrate on their own. A workspace with a Dolt remote needs `bd migrate schema --force` on a single clone, then `bd dolt push`.
+
+### Fixed
+
+- Pane labels with two values on the same dimension no longer collide on their `#each` key.
+
 ## [0.6.0] - 2026-10-14
 
 Needs `bd` 1.2.1 or newer (was 1.0.0). The launcher checks this on start.
