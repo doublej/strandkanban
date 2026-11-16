@@ -70,7 +70,7 @@
 {#if showState}
 	<dt><label for="p-state">State</label></dt>
 	<dd class="wrap">
-		{#each parsed.states as s (s.dimension)}
+		{#each parsed.states as s (`${s.dimension}:${s.value}`)}
 			<span class="state"><span class="dim">{s.dimension}</span>{s.value}</span>
 		{/each}
 		{#if formShown}

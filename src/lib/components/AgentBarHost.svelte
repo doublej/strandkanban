@@ -37,6 +37,8 @@
 	}
 </script>
 
+<!-- agentPanes is a store object owned by the page, not a bindable prop; bindings target its fields -->
+<!-- svelte-ignore ownership_invalid_binding -->
 <AgentBar
 	wsConnected={agentPanes.wsConnected}
 	showActivityBar={agentPanes.showActivityBar}

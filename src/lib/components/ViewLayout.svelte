@@ -110,8 +110,8 @@
 			onselect={(issue) => ops.openEditPanel(issue)}
 			onselectionchange={(ids) => tableSelectedIds = ids}
 			oncreate={ops.openCreatePanel}
-			oncolumnschange={(cols) => settings.tableColumns = cols}
-			onsortchange={(s) => settings.tableSort = s}
+			oncolumnschange={(cols) => { settings.tableColumns = cols; }}
+			onsortchange={(s) => { settings.tableSort = s; }}
 			onbulkupdate={onbulkupdate}
 			onbulkdelete={onbulkdelete}
 			onupdate={(id, updates) => ops.updateIssue(id, updates)}
