@@ -1,4 +1,4 @@
-Fraunces (fraunces.woff2) and Martian Mono (martian-mono.woff2) are licensed
+Instrument Sans (instrument-sans.woff2) and DM Mono (dm-mono.woff2) are licensed
 under the SIL Open Font License 1.1: https://openfontlicense.org
-Fraunces: https://github.com/undercasetype/Fraunces
-Martian Mono: https://github.com/evilmartians/mono
+Instrument Sans: https://github.com/Instrument/instrument-sans
+DM Mono: https://github.com/googlefonts/dm-mono

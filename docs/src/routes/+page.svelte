@@ -14,49 +14,87 @@
 	}
 
 	const statuses = [
-		{ name: 'Backlog', status: 'open', tone: 'open' },
-		{ name: 'In Progress', status: 'in_progress', tone: 'progress' },
-		{ name: 'Hooked', status: 'hooked', tone: 'hooked' },
-		{ name: 'Blocked', status: 'blocked', tone: 'blocked' },
-		{ name: 'Complete', status: 'closed', tone: 'closed' }
+		{ name: 'Backlog', status: 'open' },
+		{ name: 'In Progress', status: 'in_progress' },
+		{ name: 'Hooked', status: 'hooked' },
+		{ name: 'Blocked', status: 'blocked' },
+		{ name: 'Complete', status: 'closed' }
 	];
 
-	const views = [
+	// Order here is the figure numbering on the page.
+	const figures = [
 		{
 			name: 'Board',
-			tone: 'open',
-			file: 'detail-panel-light.png',
-			alt: 'Board view with a ticket pane open next to the Backlog column',
-			desc: 'Drag a card to another column to change its status. Reorder cards inside a column to set priority. Edit titles, descriptions and comments in place.'
+			group: 'Board',
+			file: 'keyboard-hints-light.png',
+			alt: 'Board view with five columns of issue cards, each column header numbered 1 to 5',
+			desc: 'Drag a card to another column to change its status. Reorder cards inside a column to set priority. The numbers on the column headers are keyboard hints.'
 		},
 		{
 			name: 'Table',
-			tone: 'progress',
+			group: 'Views',
 			file: 'table-view-light.png',
 			alt: 'Table view with a filter sidebar and sortable columns',
 			desc: 'Sortable, configurable columns with inline field editing. Select several rows for bulk actions.'
 		},
 		{
 			name: 'Tree',
-			tone: 'hooked',
+			group: 'Views',
+			file: 'tree-view-light.png',
+			alt: 'Tree view with one line per issue and collapsed branches',
+			desc: 'Issues nested under their parents, one line each.'
+		},
+		{
+			name: 'Tree, expanded',
+			group: 'Views',
 			file: 'tree-expanded-light.png',
 			alt: 'Tree view with child issues nested under their parents',
-			desc: 'Issues nested under their parents. Expand or collapse a branch.'
+			desc: 'Expand or collapse a branch to show or hide its child issues.'
 		},
 		{
 			name: 'Graph',
-			tone: 'blocked',
+			group: 'Views',
 			file: 'graph-view-light.png',
 			alt: 'Dependency graph view listing which issue blocks which',
 			desc: 'See what blocks what. The flow view draws dependencies as an interactive graph, with grouped and timeline layouts.'
 		},
 		{
 			name: 'Stats',
-			tone: 'closed',
+			group: 'Views',
 			file: 'stats-view-light.png',
 			alt: 'Stats view with bar charts per status, priority and type',
 			desc: 'Issue counts by status, priority and type, next to created versus closed.'
+		},
+		{
+			name: 'Ticket pane',
+			group: 'Board',
+			file: 'detail-panel-light.png',
+			alt: 'Board view with a ticket pane open next to the Backlog column',
+			desc: 'Open a card to edit its title, description and comments in place. Relations and attachments sit in the same pane.'
+		},
+		{
+			name: 'Board, wide',
+			group: 'Board',
+			file: 'kanban-wide-light.png',
+			alt: 'The whole board, dimmed, with 22 issues across five columns',
+			desc: 'The whole board on a wide screen: 22 issues across five columns.'
+		},
+		{
+			name: 'Agent pane',
+			group: 'Agents',
+			file: 'agent-kanban-light.png',
+			alt: 'The board with five columns of issue cards and an agent pane open in the corner',
+			desc: 'The board, with an agent pane open bottom right. The agent moves a ticket to In Progress and the card follows.'
 		}
+	];
+
+	const facts = [
+		{ term: 'Keyboard', desc: 'Drive the whole board with arrow keys or vim-style <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd>.' },
+		{ term: 'Live updates', desc: 'The board updates when the CLI or an agent changes an issue. No refresh.' },
+		{ term: 'Dependencies', desc: 'Link issues as parent, child or blocker, and see what blocks what.' },
+		{ term: 'Search and filters', desc: 'Filter by text, priority, type, label, time and whether an issue is actionable.' },
+		{ term: 'Notifications', desc: 'Browser push and desktop notifications when issues change.' },
+		{ term: 'Deep links', desc: '<code>strand://issue-id</code> jumps straight to an issue on a running board.' }
 	];
 
 	const queue = [
@@ -74,21 +112,44 @@
 		{ cmd: 'strand zen proj-123,proj-456', desc: 'Open focus review for selected issues' },
 		{ cmd: 'strand reap', desc: 'Clean up stale dolt sql-server processes from old sessions' }
 	];
+
+	const pad = (n: number) => String(n).padStart(2, '0');
 </script>
 
 <svelte:head>
 	<title>strandkanban: a Kanban board for Beads issues</title>
 </svelte:head>
 
+{#snippet plate(i: number)}
+	{@const f = figures[i]}
+	<figure class="fig" id="fig-{pad(i + 1)}">
+		<figcaption>
+			<span class="fig-no">Fig. {pad(i + 1)}</span>
+			<strong>{f.name}</strong>
+			<span class="fig-desc">{f.desc}</span>
+			<span class="fig-hint">Swipe to pan, tap for full size</span>
+		</figcaption>
+		<a class="shot" href="{base}/screenshots/{f.file}" aria-label="{f.name}, full size">
+			<img
+				src="{base}/screenshots/{f.file}"
+				alt={f.alt}
+				width="1600"
+				height="900"
+				loading={i === 0 ? 'eager' : 'lazy'}
+				fetchpriority={i === 0 ? 'high' : 'auto'}
+			/>
+		</a>
+	</figure>
+{/snippet}
+
 <a class="skip" href="#main">Skip to content</a>
 
 <div class="page">
 	<header class="top">
-		<a class="brand" href="{base}/">
-			<span class="bead" style="--c: var(--open)" aria-hidden="true"></span>strandkanban
-		</a>
+		<a class="brand" href="{base}/">strandkanban</a>
 		<nav aria-label="Page sections">
 			<a href="#views">Views</a>
+			<a href="#board">Board</a>
 			<a href="#agents">Agents</a>
 			<a href="#install">Install</a>
 			<a href={repo}>GitHub</a>
@@ -97,246 +158,221 @@
 
 	<main id="main">
 		<section class="hero" aria-labelledby="hero-title">
-			<p class="label rise" style="--d: 0ms">Kanban board for the Beads issue tracker</p>
-			<h1 id="hero-title" class="rise" style="--d: 80ms">
-				Beads issues, on a live board<span class="full-stop" aria-hidden="true"></span>
-			</h1>
+			<h1 id="hero-title">Kanban board for the Beads issue tracker</h1>
 
-			<div class="hero-cols">
-				<p class="lead rise" style="--d: 180ms">
-					strandkanban puts the issues from your repo's <code>.beads/</code> database on a
-					drag-and-drop board. Every edit goes through the <a href={beads}>Beads</a>
-					<code>bd</code> CLI, so the CLI, your agents and the board always work from the same data.
-					Your issues never leave your repo.
-				</p>
+			<div class="grid">
+				<div class="hero-text">
+					<p class="lead">
+						strandkanban puts the issues from your repo's <code>.beads/</code> database on a
+						drag-and-drop board. Every edit goes through the <a href={beads}>Beads</a>
+						<code>bd</code> CLI, so the CLI, your agents and the board always work from the same data.
+						Your issues never leave your repo.
+					</p>
 
-				<div class="install-card rise" style="--d: 260ms">
-					<pre><code
-							><span class="prompt" aria-hidden="true">$ </span>{installCommand}
+					<div class="install">
+						<pre><code
+								><span class="prompt" aria-hidden="true">$ </span>{installCommand}
 <span class="prompt" aria-hidden="true">$ </span>strand /path/to/project</code
-						></pre>
-					<div class="install-meta">
-						<span>Needs <code>bd</code> 1.3.4+ and Node 20.19+ or Bun 1.0+</span>
-						<button type="button" onclick={copyInstall}>
-							<span aria-live="polite">{copied ? 'Copied' : 'Copy install'}</span>
-						</button>
+							></pre>
+						<div class="install-meta">
+							<span>Needs <code>bd</code> 1.3.4+ and Node 20.19+ or Bun 1.0+</span>
+							<button type="button" onclick={copyInstall}>
+								<span aria-live="polite">{copied ? 'Copied' : 'Copy install'}</span>
+							</button>
+						</div>
 					</div>
 				</div>
+
+				<nav class="index" aria-labelledby="index-label">
+					<p class="label" id="index-label">Screenshots</p>
+					<ol>
+						{#each figures as f, i}
+							<li>
+								<a href="#fig-{pad(i + 1)}">
+									<span class="index-no">{pad(i + 1)}</span>
+									<span class="index-name">{f.name}</span>
+									<span class="index-group">{f.group}</span>
+								</a>
+							</li>
+						{/each}
+					</ol>
+				</nav>
 			</div>
 
-			<div class="rod-wrap">
-				<p class="label" id="rod-label">Five columns, five Beads statuses</p>
-				<ol class="rod" aria-labelledby="rod-label">
+			{@render plate(0)}
+
+			<div class="flow">
+				<ol aria-label="Five columns, five Beads statuses">
 					{#each statuses as s, i}
-						<li style="--c: var(--{s.tone}); --i: {i}">
-							<span class="bead" aria-hidden="true"></span>
-							<span class="rod-name">{s.name}</span>
+						<li>
+							<span class="flow-no">{i + 1}</span>
+							<span class="flow-name">{s.name}</span>
 							<code>{s.status}</code>
 						</li>
 					{/each}
 				</ol>
-				<p class="aside">The name is literal. A strand is a string of beads.</p>
-			</div>
-
-			<figure class="plate wide">
-				<a href="{base}/screenshots/agent-kanban-light.png">
-					<img
-						src="{base}/screenshots/agent-kanban-light.png"
-						alt="The board with five columns of issue cards and an agent pane open in the corner"
-						width="1600"
-						height="900"
-						fetchpriority="high"
-					/>
-				</a>
-				<figcaption>The board, with an agent pane open bottom right.</figcaption>
-			</figure>
-		</section>
-
-		<section id="views" class="strung" style="--c: var(--progress)" aria-labelledby="views-title">
-			<header class="reveal">
-				<span class="bead mark" aria-hidden="true"></span>
-				<p class="label">01 / Views</p>
-				<h2 id="views-title">Five views of the same issues</h2>
-			</header>
-
-			<div class="viewer">
-				<fieldset class="tabs">
-					<legend class="sr-only">Choose a view</legend>
-					{#each views as view, i}
-						<label style="--c: var(--{view.tone})">
-							<input type="radio" name="view" value={view.name} checked={i === 0} />
-							<span class="bead" aria-hidden="true"></span>
-							<span class="tab-name">{view.name}</span>
-						</label>
-					{/each}
-				</fieldset>
-
-				{#each views as view}
-					<article class="panel" style="--c: var(--{view.tone})">
-						<div class="panel-text">
-							<h3>{view.name}</h3>
-							<p>{view.desc}</p>
-						</div>
-						<figure class="plate wide">
-							<a href="{base}/screenshots/{view.file}">
-								<img
-									src="{base}/screenshots/{view.file}"
-									alt={view.alt}
-									width="1600"
-									height="900"
-									loading="lazy"
-								/>
-							</a>
-						</figure>
-					</article>
-				{/each}
-			</div>
-
-			<div class="zen reveal">
-				<h3>Zen focus review</h3>
-				<p>
-					A full-screen review of a list of issues, one at a time. Press <kbd>z</kbd> on a selected
-					card, or run <code>strand zen proj-123,proj-456</code>. Cycle with <kbd>←</kbd>
-					<kbd>→</kbd> or <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd>, open the detail pane
-					with <kbd>Enter</kbd>, leave with <kbd>Esc</kbd>.
+				<p class="note">
+					Five columns, five Beads statuses. The name is literal: a strand is a string of beads.
 				</p>
 			</div>
 		</section>
 
-		<section id="board" class="strung" style="--c: var(--hooked)" aria-labelledby="board-title">
-			<header class="reveal">
-				<span class="bead mark" aria-hidden="true"></span>
+		<section id="views" aria-labelledby="views-title">
+			<header class="grid sec-head">
+				<p class="label">01 / Views</p>
+				<h2 id="views-title">Five views of the same issues</h2>
+			</header>
+
+			{@render plate(1)}
+			{@render plate(2)}
+			{@render plate(3)}
+			{@render plate(4)}
+			{@render plate(5)}
+
+			<div class="grid block">
+				<p class="label">Not pictured</p>
+				<div class="prose">
+					<h3>Zen focus review</h3>
+					<p>
+						A full-screen review of a list of issues, one at a time. Press <kbd>z</kbd> on a selected
+						card, or run <code>strand zen proj-123,proj-456</code>. Cycle with <kbd>←</kbd>
+						<kbd>→</kbd> or <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd>, open the detail pane
+						with <kbd>Enter</kbd>, leave with <kbd>Esc</kbd>.
+					</p>
+				</div>
+			</div>
+		</section>
+
+		<section id="board" aria-labelledby="board-title">
+			<header class="grid sec-head">
 				<p class="label">02 / Board</p>
 				<h2 id="board-title">Working the board</h2>
 			</header>
 
-			<dl class="facts cols-3 reveal">
-				<div>
-					<dt>Keyboard</dt>
-					<dd>Drive the whole board with arrow keys or vim-style <kbd>h</kbd> <kbd>j</kbd> <kbd>k</kbd> <kbd>l</kbd>.</dd>
-				</div>
-				<div>
-					<dt>Live updates</dt>
-					<dd>The board updates when the CLI or an agent changes an issue. No refresh.</dd>
-				</div>
-				<div>
-					<dt>Dependencies</dt>
-					<dd>Link issues as parent, child or blocker, and see what blocks what.</dd>
-				</div>
-				<div>
-					<dt>Search and filters</dt>
-					<dd>Filter by text, priority, type, label, time and whether an issue is actionable.</dd>
-				</div>
-				<div>
-					<dt>Notifications</dt>
-					<dd>Browser push and desktop notifications when issues change.</dd>
-				</div>
-				<div>
-					<dt>Deep links</dt>
-					<dd><code>strand://issue-id</code> jumps straight to an issue on a running board.</dd>
-				</div>
-			</dl>
+			<div class="grid block">
+				<p class="label">Features</p>
+				<dl class="facts">
+					{#each facts as fact}
+						<div>
+							<dt>{fact.term}</dt>
+							<dd>{@html fact.desc}</dd>
+						</div>
+					{/each}
+				</dl>
+			</div>
+
+			{@render plate(6)}
+			{@render plate(7)}
 		</section>
 
-		<section id="agents" class="strung" style="--c: var(--blocked)" aria-labelledby="agents-title">
-			<header class="reveal">
-				<span class="bead mark" aria-hidden="true"></span>
+		<section id="agents" aria-labelledby="agents-title">
+			<header class="grid sec-head">
 				<p class="label">03 / Agents</p>
 				<h2 id="agents-title">Agents next to the board</h2>
 			</header>
 
-			<div class="agents-cols">
-				<div class="reveal">
-					<p class="lead">
+			<div class="grid block">
+				<p class="label">Providers</p>
+				<div class="prose">
+					<p>
 						Run agent sessions in panes beside the board and hand them tickets. Pick the provider
 						in Settings.
 					</p>
 					<ul class="providers" aria-label="Agent providers">
-						<li><span class="bead" style="--c: var(--progress)" aria-hidden="true"></span>Claude</li>
-						<li><span class="bead" style="--c: var(--closed)" aria-hidden="true"></span>Codex</li>
-						<li><span class="bead" style="--c: var(--open)" aria-hidden="true"></span>OpenCode</li>
+						<li>Claude</li>
+						<li>Codex</li>
+						<li>OpenCode</li>
 					</ul>
-					<dl class="facts">
-						<div>
-							<dt>Manager queue</dt>
-							<dd>
-								Runs several workers at once, up to a cap you set in Settings (default 3). It skips
-								tickets that <code>bd blocked</code> lists instead of waiting behind them.
-							</dd>
-						</div>
-						<div>
-							<dt>Leased claims</dt>
-							<dd>
-								A worker claims its ticket with a lease and a heartbeat. A claim whose worker has
-								stopped is reclaimed after 10 minutes.
-							</dd>
-						</div>
-						<div>
-							<dt>Panes fit the provider</dt>
-							<dd>
-								Controls a provider does not have stay hidden. Codex workers reach Beads through a
-								built-in MCP bridge and never write to <code>~/.codex/config.toml</code>.
-							</dd>
-						</div>
-					</dl>
 				</div>
+			</div>
 
-				<figure class="queue reveal">
-					<div class="queue-head">
-						<span>manager queue</span>
-						<span>cap 3</span>
+			<div class="grid block">
+				<p class="label">Manager</p>
+				<dl class="facts stacked">
+					<div>
+						<dt>Manager queue</dt>
+						<dd>
+							Runs several workers at once, up to a cap you set in Settings (default 3). It skips
+							tickets that <code>bd blocked</code> lists instead of waiting behind them.
+						</dd>
 					</div>
-					<ul>
-						{#each queue as row}
-							<li class={row.state}>
-								<span class="bead" aria-hidden="true"></span>
-								<code>{row.id}</code>
-								<strong>{row.state}</strong>
-								<span>{row.note}</span>
-							</li>
-						{/each}
-					</ul>
+					<div>
+						<dt>Leased claims</dt>
+						<dd>
+							A worker claims its ticket with a lease and a heartbeat. A claim whose worker has
+							stopped is reclaimed after 10 minutes.
+						</dd>
+					</div>
+					<div>
+						<dt>Panes fit the provider</dt>
+						<dd>
+							Controls a provider does not have stay hidden. Codex workers reach Beads through a
+							built-in MCP bridge and never write to <code>~/.codex/config.toml</code>.
+						</dd>
+					</div>
+				</dl>
+
+				<figure class="queue">
+					<table>
+						<caption>manager queue, cap 3</caption>
+						<tbody>
+							{#each queue as row}
+								<tr class={row.state}>
+									<th scope="row">{row.id}</th>
+									<td>{row.state}</td>
+									<td>{row.note}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
 					<figcaption>Illustration: five queued tickets with a cap of 3.</figcaption>
 				</figure>
 			</div>
+
+			{@render plate(8)}
 		</section>
 
-		<section id="install" class="strung" style="--c: var(--closed)" aria-labelledby="install-title">
-			<header class="reveal">
-				<span class="bead mark" aria-hidden="true"></span>
+		<section id="install" aria-labelledby="install-title">
+			<header class="grid sec-head">
 				<p class="label">04 / Install</p>
 				<h2 id="install-title">Three commands to a board</h2>
 			</header>
 
-			<ol class="steps reveal">
-				<li>
-					<h3>Install Beads</h3>
-					<pre><code><span class="prompt" aria-hidden="true">$ </span>brew install beads</code></pre>
-					<p>strandkanban needs <code>bd</code> 1.3.4 or newer.</p>
-				</li>
-				<li>
-					<h3>Install strandkanban</h3>
-					<pre><code><span class="prompt" aria-hidden="true">$ </span>{installCommand}</code></pre>
-					<p>Needs Node 20.19+ or Bun 1.0+, on macOS or Linux.</p>
-				</li>
-				<li>
-					<h3>Start a board</h3>
-					<pre><code><span class="prompt" aria-hidden="true">$ </span>strand /path/to/project</code></pre>
-					<p>
-						The launcher checks <code>bd</code>, offers to run <code>bd init</code> when there is no
-						<code>.beads/</code>, picks a free port and starts the agent server.
-					</p>
-				</li>
-			</ol>
+			<div class="grid block">
+				<p class="label">Setup</p>
+				<ol class="steps">
+					<li>
+						<h3>Install Beads</h3>
+						<pre><code><span class="prompt" aria-hidden="true">$ </span>brew install beads</code></pre>
+						<p>strandkanban needs <code>bd</code> 1.3.4 or newer.</p>
+					</li>
+					<li>
+						<h3>Install strandkanban</h3>
+						<pre><code><span class="prompt" aria-hidden="true">$ </span>{installCommand}</code></pre>
+						<p>Needs Node 20.19+ or Bun 1.0+, on macOS or Linux.</p>
+					</li>
+					<li>
+						<h3>Start a board</h3>
+						<pre><code><span class="prompt" aria-hidden="true">$ </span>strand /path/to/project</code></pre>
+						<p>
+							The launcher checks <code>bd</code>, offers to run <code>bd init</code> when there is no
+							<code>.beads/</code>, picks a free port and starts the agent server.
+						</p>
+					</li>
+				</ol>
+			</div>
 
-			<p class="aside reveal">
-				To try it once without installing: <code>npx github:doublej/strandkanban /path/to/project</code>.
-				Agent panes need an <code>ANTHROPIC_API_KEY</code>; the rest of the board works without one.
-			</p>
+			<div class="grid block">
+				<p class="label">Without installing</p>
+				<p class="prose">
+					To try it once: <code>npx github:doublej/strandkanban /path/to/project</code>. Agent panes
+					need an <code>ANTHROPIC_API_KEY</code>; the rest of the board works without one.
+				</p>
+			</div>
 
-			<div class="usage reveal">
-				<h3>Daily use</h3>
-				<dl>
+			<div class="grid block">
+				<p class="label">Daily use</p>
+				<dl class="commands">
 					{#each commands as c}
 						<div>
 							<dt><code>{c.cmd}</code></dt>
@@ -349,7 +385,6 @@
 	</main>
 
 	<footer>
-		<span class="bead knot" aria-hidden="true"></span>
 		<p>strandkanban is built on <a href={beads}>Beads</a>.</p>
 		<nav aria-label="Project links">
 			<a href={repo}>GitHub</a>
@@ -367,963 +402,776 @@
 	}
 
 	:global(html) {
-		scroll-behavior: smooth;
-		-webkit-text-size-adjust: 100%;
+		scroll-padding-top: 24px;
 	}
 
 	:global(body) {
-		--ground: #15110d;
-		--ground-2: #1e1812;
-		--ground-3: #2a2219;
-		--line: #40362a;
-		--thread: #cdbb9a;
-		--text: #f3ead9;
-		--muted: #b9ac95;
-		--open: #5b8cff;
-		--progress: #f2a33a;
-		--hooked: #a97bff;
-		--blocked: #f0584a;
-		--closed: #3ec48b;
-		--serif: 'Fraunces', Georgia, 'Times New Roman', serif;
-		--mono: 'Martian Mono', ui-monospace, Menlo, Consolas, monospace;
+		--bg: #fafafa;
+		--paper: #ffffff;
+		--ink: #141414;
+		--mute: #666666;
+		--rule: #dcdcdc;
+		--edge: #c4c4c4;
+		--sans: 'Instrument Sans', 'Helvetica Neue', sans-serif;
+		--mono: 'DM Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
 		margin: 0;
-		color: var(--text);
-		background:
-			radial-gradient(90rem 50rem at 100% -10%, rgb(242 163 58 / 0.09), transparent 60%),
-			radial-gradient(70rem 50rem at -20% 45%, rgb(91 140 255 / 0.06), transparent 60%),
-			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .95 0 0 0 0 .85 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E"),
-			var(--ground);
-		font-family: var(--serif);
-		font-size: 1.125rem;
-		line-height: 1.6;
-		font-variation-settings: 'SOFT' 50;
+		background: var(--bg);
+		color: var(--ink);
+		font-family: var(--sans);
+		font-size: 15px;
+		line-height: 1.5;
 		-webkit-font-smoothing: antialiased;
-		overflow-x: hidden;
+		text-rendering: optimizeLegibility;
 	}
 
-	:global(:focus-visible) {
-		outline: 2px solid var(--progress);
-		outline-offset: 3px;
-		border-radius: 3px;
+	:global(::selection) {
+		background: var(--ink);
+		color: var(--bg);
 	}
 
 	.page {
-		--pad: clamp(16px, 4vw, 48px);
-		--gutter: clamp(30px, 6vw, 92px);
-		--thread-x: calc(9px - var(--gutter));
-		position: relative;
-		max-width: 1320px;
-		margin-inline: auto;
-		padding-inline: calc(var(--pad) + var(--gutter)) var(--pad);
-	}
-
-	/* The strand: one thread down the page, every section a bead on it. */
-	.page::before,
-	.page::after {
-		content: '';
-		position: absolute;
-		top: 0;
-		bottom: 0;
-		left: calc(var(--pad) + 9px);
-		width: 1.5px;
-		margin-left: -0.75px;
-		background: var(--thread);
-	}
-
-	.page::before {
-		opacity: 0.22;
-	}
-
-	.page::after {
-		transform-origin: top;
-	}
-
-	.bead {
-		display: inline-block;
-		flex: none;
-		width: var(--size, 18px);
-		aspect-ratio: 1;
-		border-radius: 50%;
-		background:
-			radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.85) 0 7%, rgb(255 255 255 / 0) 27%),
-			radial-gradient(
-				circle at 40% 35%,
-				color-mix(in oklab, var(--c, var(--thread)) 78%, white),
-				var(--c, var(--thread)) 48%,
-				color-mix(in oklab, var(--c, var(--thread)) 55%, black) 100%
-			);
-		box-shadow:
-			0 0 0 4px var(--ground),
-			0 0 26px color-mix(in oklab, var(--c, var(--thread)) 50%, transparent);
-	}
-
-	.skip {
-		position: absolute;
-		left: 12px;
-		top: -100px;
-		z-index: 10;
-		padding: 10px 14px;
-		background: var(--text);
-		color: var(--ground);
-		font: 500 0.8rem var(--mono);
-	}
-
-	.skip:focus {
-		top: 12px;
-	}
-
-	.sr-only {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip-path: inset(50%);
-		white-space: nowrap;
+		max-width: 1680px;
+		margin: 0 auto;
+		padding: 0 clamp(16px, 2.3vw, 40px);
 	}
 
 	a {
 		color: inherit;
 		text-decoration: underline;
-		text-decoration-color: var(--thread);
 		text-decoration-thickness: 1px;
-		text-underline-offset: 0.22em;
+		text-underline-offset: 3px;
 	}
 
 	a:hover {
-		text-decoration-color: var(--progress);
 		text-decoration-thickness: 2px;
 	}
 
-	code,
-	kbd,
-	pre {
-		font-family: var(--mono);
-		font-stretch: 82%;
-		font-size: 0.78em;
+	:global(:focus-visible) {
+		outline: 2px solid var(--ink);
+		outline-offset: 2px;
 	}
 
-	:not(pre) > code {
-		padding: 0.15em 0.4em;
-		border-radius: 4px;
-		background: var(--ground-3);
-		color: var(--text);
-		overflow-wrap: anywhere;
-	}
-
-	kbd {
-		display: inline-block;
-		min-width: 1.9em;
-		padding: 0.1em 0.45em;
-		border: 1px solid var(--line);
-		border-bottom-width: 3px;
-		border-radius: 6px;
-		background: var(--ground-2);
-		text-align: center;
-		line-height: 1.5;
-	}
-
-	pre {
+	p {
 		margin: 0;
-		padding: 16px 18px;
-		white-space: pre-wrap;
-		overflow-wrap: anywhere;
-		border: 1px solid var(--line);
-		border-radius: 10px;
-		background: #0e0b08;
-		color: var(--text);
-		font-size: 0.8rem;
-		line-height: 1.9;
 	}
 
-	.prompt {
-		color: var(--thread);
-		opacity: 0.6;
-		user-select: none;
+	.skip {
+		position: absolute;
+		left: -9999px;
+	}
+
+	.skip:focus {
+		left: 16px;
+		top: 16px;
+		z-index: 10;
+		background: var(--ink);
+		color: var(--bg);
+		padding: 8px 12px;
+	}
+
+	/* Mono metadata: labels, figure numbers, nav */
+	.label,
+	.top,
+	.fig-no,
+	.fig-hint,
+	.index,
+	.flow-no,
+	.note,
+	footer {
+		font-family: var(--mono);
+		font-size: 12px;
+		line-height: 1.5;
+		letter-spacing: 0.01em;
 	}
 
 	.label {
-		margin: 0 0 18px;
-		color: var(--muted);
-		font: 500 0.72rem / 1.4 var(--mono);
-		font-stretch: 88%;
-		letter-spacing: 0.1em;
+		color: var(--mute);
 		text-transform: uppercase;
+		letter-spacing: 0.06em;
 	}
 
-	.aside {
-		max-width: 44rem;
-		color: var(--muted);
-		font-size: 1rem;
+	code,
+	:global(.facts code) {
+		font-family: var(--mono);
+		font-size: 0.9em;
 	}
 
-	h1,
-	h2,
-	h3 {
-		margin: 0;
-		font-weight: 700;
-		font-variation-settings: 'SOFT' 100;
-		text-wrap: balance;
+	:global(kbd) {
+		font-family: var(--mono);
+		font-size: 0.8em;
+		padding: 1px 5px;
+		border: 1px solid var(--edge);
+		border-bottom-width: 2px;
+		border-radius: 3px;
+		background: var(--paper);
 	}
 
-	h1 {
-		max-width: 10em;
-		font-size: clamp(2.9rem, 9vw, 7.75rem);
-		font-weight: 800;
-		line-height: 0.94;
-		letter-spacing: -0.035em;
+	/* 12 columns: label in 1-2, content from 3 */
+	.grid {
+		display: grid;
+		grid-template-columns: repeat(12, minmax(0, 1fr));
+		column-gap: 24px;
 	}
 
-	.full-stop {
-		display: inline-block;
-		width: 0.2em;
-		aspect-ratio: 1;
-		margin-left: 0.06em;
-		border-radius: 50%;
-		background:
-			radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.8) 0 8%, rgb(255 255 255 / 0) 28%),
-			var(--closed);
-		box-shadow: 0 0 40px rgb(62 196 139 / 0.6);
-	}
-
-	h2 {
-		max-width: 14em;
-		font-size: clamp(2.1rem, 5vw, 4rem);
-		line-height: 1;
-		letter-spacing: -0.025em;
-	}
-
-	h3 {
-		font-size: 1.4rem;
-		line-height: 1.15;
-		letter-spacing: -0.01em;
+	.grid > .label {
+		grid-column: 1 / span 2;
+		padding-top: 2px;
 	}
 
 	/* Top bar */
 	.top {
-		position: relative;
-		z-index: 2;
 		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
 		justify-content: space-between;
-		gap: 10px 24px;
-		padding-block: 26px;
-		font: 500 0.78rem var(--mono);
-		font-stretch: 88%;
+		align-items: baseline;
+		gap: 16px;
+		padding: 18px 0 14px;
+		border-bottom: 1px solid var(--ink);
 	}
 
-	.brand {
-		position: relative;
-		font-weight: 700;
-		font-size: 0.9rem;
-		letter-spacing: -0.01em;
+	.top a {
 		text-decoration: none;
 	}
 
-	.brand .bead {
-		position: absolute;
-		left: var(--thread-x);
-		top: 50%;
-		translate: -50% -50%;
+	.top a:hover {
+		text-decoration: underline;
+	}
+
+	.brand {
+		font-family: var(--sans);
+		font-size: 15px;
+		font-weight: 600;
+		letter-spacing: -0.01em;
 	}
 
 	.top nav,
 	footer nav {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 6px 22px;
-	}
-
-	.top nav a,
-	footer nav a {
-		padding-block: 6px;
-		color: var(--muted);
-		text-decoration-color: transparent;
-	}
-
-	.top nav a:hover,
-	footer nav a:hover {
-		color: var(--text);
-		text-decoration-color: var(--progress);
+		gap: 4px 22px;
 	}
 
 	/* Hero */
 	.hero {
-		padding-block: clamp(40px, 8vw, 104px) 0;
+		padding-top: clamp(40px, 5vw, 76px);
 	}
 
-	.hero-cols {
-		display: grid;
-		grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-		gap: clamp(24px, 5vw, 72px);
-		align-items: end;
-		margin-top: clamp(28px, 4vw, 52px);
+	.hero .fig {
+		margin-top: clamp(48px, 4.5vw, 64px);
+	}
+
+	h1 {
+		margin: 0 0 clamp(28px, 3.5vw, 52px);
+		max-width: 13em;
+		font-size: clamp(2.3rem, 5.6vw, 5.25rem);
+		font-weight: 600;
+		line-height: 0.98;
+		letter-spacing: -0.045em;
+		text-wrap: balance;
+	}
+
+	.hero-text {
+		grid-column: 1 / span 5;
 	}
 
 	.lead {
-		max-width: 36rem;
+		max-width: 46ch;
+		margin-bottom: 28px;
+	}
+
+	.lead code,
+	.prose code,
+	.steps p code {
+		background: #efefef;
+		padding: 1px 4px;
+	}
+
+	pre {
 		margin: 0;
-		font-size: clamp(1.15rem, 1.6vw, 1.4rem);
-		line-height: 1.5;
+		overflow-x: auto;
+		font-family: var(--mono);
+		font-size: 13px;
+		line-height: 1.7;
 	}
 
-	.install-card {
-		position: relative;
-		z-index: 1;
+	pre code {
+		font-size: inherit;
 	}
 
-	.install-card pre {
-		border-radius: 10px 10px 0 0;
-		border-bottom: 0;
+	.prompt {
+		color: var(--mute);
+		user-select: none;
+	}
+
+	.install {
+		max-width: 520px;
+		border: 1px solid var(--ink);
+		background: var(--paper);
+	}
+
+	.install pre {
+		padding: 14px 16px;
 	}
 
 	.install-meta {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: center;
 		justify-content: space-between;
-		gap: 10px 16px;
-		padding: 10px 10px 10px 18px;
-		border: 1px solid var(--line);
-		border-radius: 0 0 10px 10px;
-		background: var(--ground-2);
-		color: var(--muted);
-		font-size: 0.92rem;
+		align-items: center;
+		gap: 8px 16px;
+		padding: 8px 8px 8px 16px;
+		border-top: 1px solid var(--rule);
+		font-size: 13px;
+		color: var(--mute);
 	}
 
 	button {
-		padding: 9px 14px;
-		border: 1px solid var(--thread);
-		border-radius: 999px;
-		background: transparent;
-		color: var(--text);
-		font: 500 0.72rem var(--mono);
-		font-stretch: 88%;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
+		font-family: var(--mono);
+		font-size: 12px;
+		padding: 5px 10px;
+		border: 1px solid var(--ink);
+		border-radius: 0;
+		background: var(--ink);
+		color: var(--bg);
 		cursor: pointer;
-		transition:
-			background 0.15s,
-			color 0.15s;
 	}
 
 	button:hover {
-		background: var(--thread);
-		color: var(--ground);
+		background: var(--paper);
+		color: var(--ink);
 	}
 
-	/* Status rod: a horizontal branch off the strand */
-	.rod-wrap {
-		margin-top: clamp(56px, 9vw, 120px);
+	/* Screenshot index */
+	.index {
+		grid-column: 9 / span 4;
 	}
 
-	.rod {
-		--size: 30px;
-		position: relative;
-		display: grid;
-		grid-template-columns: repeat(5, minmax(0, 1fr));
-		gap: 12px;
-		margin: 0 0 28px;
+	.index .label {
+		padding-bottom: 8px;
+		border-bottom: 1px solid var(--ink);
+	}
+
+	.index ol {
+		margin: 0;
 		padding: 0;
 		list-style: none;
 	}
 
-	.rod::before {
-		content: '';
-		position: absolute;
-		left: var(--thread-x);
-		right: calc(-1 * var(--pad));
-		top: 15px;
-		height: 1.5px;
-		margin-top: -0.75px;
-		background: linear-gradient(90deg, var(--thread), rgb(205 187 154 / 0.15));
-	}
-
-	.rod li {
-		position: relative;
+	.index a {
 		display: grid;
-		justify-items: start;
-		gap: 6px;
+		grid-template-columns: 3.5ch 1fr auto;
+		gap: 12px;
+		padding: 5px 0;
+		border-bottom: 1px solid var(--rule);
+		text-decoration: none;
 	}
 
-	.rod .bead {
-		margin-bottom: 12px;
+	.index a:hover {
+		background: var(--ink);
+		color: var(--bg);
+		box-shadow: 0 0 0 0 var(--ink), -8px 0 0 var(--ink), 8px 0 0 var(--ink);
 	}
 
-	.rod-name {
-		font-size: clamp(1.05rem, 1.8vw, 1.5rem);
+	.index-no,
+	.index-group {
+		color: var(--mute);
+	}
+
+	.index a:hover .index-no,
+	.index a:hover .index-group {
+		color: inherit;
+	}
+
+	/* Figures: the screenshots are the page */
+	.fig {
+		margin: clamp(56px, 7vw, 104px) 0 0;
+		scroll-margin-top: 24px;
+	}
+
+	.fig figcaption {
+		display: grid;
+		grid-template-columns: repeat(12, minmax(0, 1fr));
+		column-gap: 24px;
+		align-items: baseline;
+		padding: 10px 0 14px;
+		border-top: 1px solid var(--ink);
+	}
+
+	.fig-no {
+		grid-column: 1 / span 2;
+		color: var(--mute);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+	}
+
+	.fig figcaption strong {
+		grid-column: 3 / span 2;
 		font-weight: 600;
-		font-variation-settings: 'SOFT' 100;
-		line-height: 1.1;
 	}
 
-	.rod code {
-		padding: 0;
-		background: none;
-		color: var(--c);
-		font-size: 0.72rem;
+	.fig-desc {
+		grid-column: 5 / span 5;
+		max-width: 60ch;
+		font-size: 14px;
 	}
 
-	/* Screenshot plates. Wide ones cover the thread, as if it passes behind. */
-	.plate {
-		position: relative;
-		z-index: 1;
-		margin: 0;
+	.fig-hint {
+		display: none;
+		color: var(--mute);
 	}
 
-	.plate.wide {
-		margin-left: calc(-1 * var(--gutter));
-	}
-
-	.plate a {
+	.shot {
 		display: block;
-		border-radius: 12px;
+		border: 1px solid var(--edge);
+		background: var(--paper);
+		cursor: zoom-in;
 	}
 
-	.plate img {
+	.shot img {
 		display: block;
 		width: 100%;
 		height: auto;
-		border-radius: 12px;
-		box-shadow:
-			0 0 0 1px rgb(255 255 255 / 0.14),
-			0 0 0 7px var(--ground-2),
-			0 0 0 8px var(--line),
-			0 50px 90px -30px #000;
 	}
 
-	figcaption {
-		margin-top: 22px;
-		padding-left: var(--gutter);
-		color: var(--muted);
-		font: 400 0.72rem var(--mono);
-		font-stretch: 88%;
-	}
-
-	.hero .plate {
-		margin-top: clamp(40px, 6vw, 72px);
-	}
-
-	/* Sections strung on the thread */
-	.strung {
-		position: relative;
-		padding-top: clamp(88px, 13vw, 184px);
-		scroll-margin-top: -40px;
-	}
-
-	.strung > header {
-		margin-bottom: clamp(32px, 5vw, 60px);
-	}
-
-	.mark {
-		--size: 22px;
-		position: absolute;
-		left: var(--thread-x);
-		translate: -50% -3px;
-	}
-
-	/* View switcher: radio inputs, no script */
-	.tabs {
-		--size: 20px;
-		position: relative;
+	/* Status strip: five cells under the five board columns of Fig. 01 */
+	.flow ol {
 		display: grid;
 		grid-template-columns: repeat(5, minmax(0, 1fr));
-		max-width: 46rem;
-		margin: 0 0 36px;
-		padding: 0;
-		border: 0;
-	}
-
-	.tabs::before {
-		content: '';
-		position: absolute;
-		left: var(--thread-x);
-		right: 0;
-		top: 18px;
-		height: 1.5px;
-		margin-top: -0.75px;
-		background: var(--thread);
-		opacity: 0.5;
-	}
-
-	.tabs label {
-		position: relative;
-		display: grid;
-		justify-items: start;
-		gap: 12px;
-		padding: 8px 8px 8px 0;
-		border-radius: 6px;
-		color: var(--muted);
-		font: 500 0.78rem var(--mono);
-		font-stretch: 88%;
-		cursor: pointer;
-	}
-
-	.tabs input {
-		position: absolute;
-		opacity: 0;
-		pointer-events: none;
-	}
-
-	.tabs .bead {
-		background: var(--ground);
-		box-shadow:
-			inset 0 0 0 2px var(--c, var(--thread)),
-			0 0 0 4px var(--ground);
-		transition: scale 0.2s cubic-bezier(0.3, 1.6, 0.5, 1);
-	}
-
-	.tabs label:hover {
-		color: var(--text);
-	}
-
-	.tabs label:hover .bead {
-		scale: 1.15;
-	}
-
-	.tabs label:has(input:checked) {
-		color: var(--text);
-	}
-
-	.tabs input:checked + .bead {
-		scale: 1.3;
-		background:
-			radial-gradient(circle at 34% 30%, rgb(255 255 255 / 0.85) 0 7%, rgb(255 255 255 / 0) 27%),
-			radial-gradient(
-				circle at 40% 35%,
-				color-mix(in oklab, var(--c, var(--thread)) 78%, white),
-				var(--c, var(--thread)) 48%,
-				color-mix(in oklab, var(--c, var(--thread)) 55%, black) 100%
-			);
-		box-shadow:
-			0 0 0 4px var(--ground),
-			0 0 26px color-mix(in oklab, var(--c, var(--thread)) 60%, transparent);
-	}
-
-	.tabs label:has(input:focus-visible) {
-		outline: 2px solid var(--progress);
-		outline-offset: 3px;
-	}
-
-	.panel + .panel {
-		margin-top: 72px;
-	}
-
-	.panel-text {
-		display: grid;
-		grid-template-columns: 9rem minmax(0, 38rem);
-		gap: 8px 24px;
-		align-items: baseline;
-		margin-bottom: 32px;
-	}
-
-	.panel-text h3 {
-		color: var(--c);
-	}
-
-	.panel-text p {
 		margin: 0;
-	}
-
-	/* Without :has() every panel stays visible, stacked. */
-	@supports selector(:has(*)) {
-		.panel {
-			display: none;
-			margin-top: 0;
-		}
-
-		.viewer:has(label:nth-of-type(1) input:checked) .panel:nth-of-type(1),
-		.viewer:has(label:nth-of-type(2) input:checked) .panel:nth-of-type(2),
-		.viewer:has(label:nth-of-type(3) input:checked) .panel:nth-of-type(3),
-		.viewer:has(label:nth-of-type(4) input:checked) .panel:nth-of-type(4),
-		.viewer:has(label:nth-of-type(5) input:checked) .panel:nth-of-type(5) {
-			display: block;
-		}
-	}
-
-	.zen {
-		display: grid;
-		grid-template-columns: 14rem minmax(0, 40rem);
-		gap: 10px 32px;
-		align-items: baseline;
-		margin-top: clamp(48px, 7vw, 88px);
-		padding-top: 28px;
-		border-top: 1px solid var(--line);
-	}
-
-	.zen p {
-		margin: 0;
-	}
-
-	/* Fact lists */
-	.facts {
-		display: grid;
-		gap: 0;
-		margin: 0;
-	}
-
-	.facts > div {
-		padding: 22px 0;
-		border-top: 1px solid var(--line);
-	}
-
-	.facts dt {
-		margin-bottom: 6px;
-		font-size: 1.3rem;
-		font-weight: 650;
-		font-variation-settings: 'SOFT' 100;
-		line-height: 1.2;
-	}
-
-	.facts dd {
-		margin: 0;
-		color: var(--muted);
-	}
-
-	.facts.cols-3 {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		column-gap: clamp(24px, 4vw, 56px);
-	}
-
-	/* Agents */
-	.agents-cols {
-		display: grid;
-		grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-		gap: clamp(32px, 6vw, 88px);
-		align-items: start;
-	}
-
-	.providers {
-		--size: 14px;
-		display: flex;
-		flex-wrap: wrap;
-		gap: 10px;
-		margin: 28px 0 36px;
 		padding: 0;
 		list-style: none;
+		border-bottom: 1px solid var(--rule);
 	}
 
-	.providers li {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 8px 16px 8px 14px;
-		border: 1px solid var(--line);
-		border-radius: 999px;
-		background: var(--ground-2);
-		font: 500 0.8rem var(--mono);
-		font-stretch: 88%;
-	}
-
-	.providers .bead {
-		box-shadow: 0 0 14px color-mix(in oklab, var(--c, var(--thread)) 50%, transparent);
-	}
-
-	.queue {
-		--size: 12px;
-		margin: 0;
-		border: 1px solid var(--line);
-		border-radius: 12px;
-		background: #0e0b08;
-		font: 400 0.74rem var(--mono);
-		font-stretch: 82%;
-		box-shadow: 0 40px 80px -40px #000;
-	}
-
-	.queue-head {
-		display: flex;
-		justify-content: space-between;
-		padding: 14px 18px;
-		border-bottom: 1px solid var(--line);
-		color: var(--muted);
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-
-	.queue ul {
-		margin: 0;
-		padding: 6px 0;
-		list-style: none;
-	}
-
-	.queue li {
+	.flow li {
 		display: grid;
-		grid-template-columns: 12px 5.2em 5em minmax(0, 1fr);
-		gap: 14px;
-		align-items: center;
-		padding: 11px 18px;
-		color: var(--muted);
+		grid-template-columns: 2.5ch 1fr;
+		gap: 0 8px;
+		padding: 12px 12px 12px 0;
 	}
 
-	.queue code {
-		padding: 0;
-		background: none;
-		font-size: inherit;
+	.flow li + li {
+		padding-left: 12px;
+		border-left: 1px solid var(--rule);
 	}
 
-	.queue strong {
+	.flow-no {
+		grid-row: span 2;
+		color: var(--mute);
+		padding-top: 2px;
+	}
+
+	.flow-name {
 		font-weight: 600;
 	}
 
-	.queue .bead {
-		box-shadow: none;
+	.flow code {
+		font-size: 12px;
+		color: var(--mute);
 	}
 
-	.queue .claimed {
-		--c: var(--progress);
+	.note {
+		margin-top: 10px;
+		color: var(--mute);
 	}
 
-	.queue .claimed strong {
-		color: var(--progress);
+	/* Sections */
+	section:not(.hero) {
+		margin-top: clamp(112px, 15vw, 232px);
+		scroll-margin-top: 24px;
 	}
 
-	.queue .skipped strong {
-		color: var(--blocked);
+	.sec-head {
+		padding-top: 12px;
+		border-top: 3px solid var(--ink);
 	}
 
-	.queue .skipped .bead,
-	.queue .waiting .bead {
-		background: none;
-		box-shadow: inset 0 0 0 1.5px currentColor;
+	h2 {
+		grid-column: 3 / span 8;
+		margin: 0;
+		font-size: clamp(1.7rem, 3.3vw, 3rem);
+		font-weight: 600;
+		line-height: 1.02;
+		letter-spacing: -0.035em;
 	}
 
-	.queue .skipped .bead {
-		color: var(--blocked);
+	h3 {
+		margin: 0 0 6px;
+		font-size: 15px;
+		font-weight: 600;
+	}
+
+	.block {
+		margin-top: clamp(40px, 5vw, 72px);
+		padding-top: 10px;
+		border-top: 1px solid var(--rule);
+	}
+
+	.sec-head + .block {
+		margin-top: clamp(32px, 4vw, 56px);
+	}
+
+	.prose {
+		grid-column: 3 / span 5;
+		max-width: 58ch;
+		font-size: 14px;
+	}
+
+	.prose p + ul {
+		margin-top: 12px;
+	}
+
+	/* Dense fact lists */
+	.facts {
+		grid-column: 3 / span 10;
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 22px 24px;
+		margin: 0;
+		font-size: 14px;
+	}
+
+	.facts.stacked {
+		grid-column: 3 / span 5;
+		grid-template-columns: 1fr;
+	}
+
+	.facts dt,
+	.commands dt {
+		font-weight: 600;
+	}
+
+	.facts dd,
+	.commands dd {
+		margin: 0;
+	}
+
+	.facts dd {
+		max-width: 44ch;
+		color: #3a3a3a;
+	}
+
+	.providers {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		font-family: var(--mono);
+		font-size: 12px;
+	}
+
+	.providers li {
+		padding: 2px 8px;
+		border: 1px solid var(--ink);
+	}
+
+	/* Queue illustration */
+	.queue {
+		grid-column: 9 / span 4;
+		margin: 0;
+		font-family: var(--mono);
+		font-size: 12px;
+	}
+
+	.queue table {
+		width: 100%;
+		border-collapse: collapse;
+		background: var(--paper);
+		border: 1px solid var(--ink);
+	}
+
+	.queue caption {
+		padding: 0 0 6px;
+		text-align: left;
+		color: var(--mute);
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+	}
+
+	.queue th,
+	.queue td {
+		padding: 6px 10px;
+		border-top: 1px solid var(--rule);
+		text-align: left;
+		font-weight: 400;
+		vertical-align: baseline;
+	}
+
+	.queue tr:first-child > * {
+		border-top: 0;
+	}
+
+	.queue th {
+		white-space: nowrap;
+	}
+
+	.queue .claimed th::before,
+	.queue .skipped th::before,
+	.queue .waiting th::before {
+		content: '';
+		display: inline-block;
+		width: 7px;
+		height: 7px;
+		margin-right: 8px;
+		border: 1px solid var(--ink);
+	}
+
+	.queue .claimed th::before {
+		background: var(--ink);
+	}
+
+	.queue .skipped,
+	.queue .waiting {
+		color: var(--mute);
+	}
+
+	.queue .skipped th {
+		text-decoration: line-through;
 	}
 
 	.queue figcaption {
-		margin: 0;
-		padding: 14px 18px;
-		border-top: 1px solid var(--line);
+		margin-top: 8px;
+		color: var(--mute);
 	}
 
 	/* Install */
 	.steps {
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		gap: clamp(20px, 3vw, 40px);
-		margin: 0 0 36px;
+		grid-column: 3 / span 10;
+		margin: 0;
 		padding: 0;
 		list-style: none;
 		counter-reset: step;
+		font-size: 14px;
 	}
 
 	.steps li {
-		display: grid;
-		align-content: start;
-		gap: 14px;
 		counter-increment: step;
+		display: grid;
+		grid-template-columns: repeat(10, minmax(0, 1fr));
+		column-gap: 24px;
+		align-items: start;
+		padding: 12px 0;
+		border-bottom: 1px solid var(--rule);
+	}
+
+	.steps li:first-child {
+		padding-top: 0;
+	}
+
+	.steps h3 {
+		grid-column: span 2;
+		margin: 0;
+		padding-top: 9px;
 	}
 
 	.steps h3::before {
-		content: counter(step);
-		display: inline-grid;
-		place-items: center;
-		width: 1.9em;
-		aspect-ratio: 1;
-		margin-right: 12px;
-		border-radius: 50%;
-		background: var(--closed);
-		color: var(--ground);
-		font: 700 0.8rem var(--mono);
-		vertical-align: 0.2em;
+		content: counter(step) '  ';
+		font-family: var(--mono);
+		font-size: 12px;
+		font-weight: 400;
+		color: var(--mute);
+		white-space: pre;
+	}
+
+	.steps pre {
+		grid-column: span 4;
+		padding: 8px 12px;
+		border: 1px solid var(--ink);
+		background: var(--paper);
 	}
 
 	.steps p {
+		grid-column: span 4;
+		max-width: 44ch;
+		padding-top: 9px;
+		color: #3a3a3a;
+	}
+
+	.commands {
+		grid-column: 3 / span 10;
 		margin: 0;
-		color: var(--muted);
-		font-size: 1rem;
+		font-size: 14px;
 	}
 
-	.usage {
-		margin-top: clamp(48px, 7vw, 80px);
-	}
-
-	.usage dl {
-		margin: 20px 0 0;
-	}
-
-	.usage dl > div {
+	.commands div {
 		display: grid;
-		grid-template-columns: minmax(0, 24rem) minmax(0, 1fr);
-		gap: 4px 32px;
-		align-items: baseline;
-		padding: 14px 0;
-		border-top: 1px solid var(--line);
+		grid-template-columns: repeat(10, minmax(0, 1fr));
+		column-gap: 24px;
+		padding: 7px 0;
+		border-bottom: 1px solid var(--rule);
 	}
 
-	.usage dt code {
-		padding: 0;
-		background: none;
-		font-size: 0.8rem;
+	.commands div:first-child {
+		padding-top: 0;
 	}
 
-	.usage dd {
-		margin: 0;
-		color: var(--muted);
-		font-size: 1rem;
+	.commands dt {
+		grid-column: span 4;
+		font-weight: 400;
+		overflow-wrap: anywhere;
 	}
 
+	.commands dt code {
+		font-size: 13px;
+	}
+
+	.commands dd {
+		grid-column: span 6;
+		color: #3a3a3a;
+	}
+
+	/* Footer */
 	footer {
-		position: relative;
 		display: flex;
 		flex-wrap: wrap;
-		align-items: center;
 		justify-content: space-between;
-		gap: 12px 32px;
-		margin-top: clamp(88px, 13vw, 184px);
-		padding-block: 36px 96px;
-		border-top: 1px solid var(--line);
-		font: 400 0.78rem var(--mono);
-		font-stretch: 88%;
+		gap: 8px 24px;
+		margin-top: clamp(112px, 15vw, 232px);
+		padding: 14px 0 40px;
+		border-top: 1px solid var(--ink);
 	}
 
-	footer p {
-		margin: 0;
-		color: var(--muted);
+	@media (max-width: 1100px) {
+		.fig figcaption strong {
+			grid-column: 3 / span 3;
+		}
+
+		.fig-desc {
+			grid-column: 6 / span 7;
+		}
+
+		.hero-text {
+			grid-column: 1 / span 7;
+		}
+
+		.prose,
+		.facts.stacked {
+			grid-column: 3 / span 6;
+		}
+
+		.facts:not(.stacked) {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+
+		.queue {
+			grid-column: 3 / span 10;
+			max-width: 440px;
+			margin-top: 32px;
+		}
+
+		.steps li {
+			display: block;
+		}
+
+		.steps h3,
+		.steps p {
+			padding-top: 0;
+		}
+
+		.steps pre {
+			max-width: 520px;
+			margin: 8px 0 10px;
+		}
 	}
 
-	/* The strand ends at the knot: hide the thread below it. */
-	footer::after {
-		content: '';
-		position: absolute;
-		left: calc(var(--thread-x) - 4px);
-		top: 0;
-		bottom: 0;
-		z-index: 1;
-		width: 8px;
-		background: var(--ground);
-	}
-
-	.knot {
-		--size: 12px;
-		position: absolute;
-		z-index: 2;
-		left: var(--thread-x);
-		top: 0;
-		translate: -50% -50%;
-	}
-
-	@media (max-width: 860px) {
-		.hero-cols,
-		.agents-cols,
-		.steps,
-		.facts.cols-3 {
-			grid-template-columns: minmax(0, 1fr);
+	@media (max-width: 760px) {
+		.grid,
+		.fig figcaption {
+			display: block;
 		}
 
-		.hero-cols {
-			align-items: start;
+		.grid > .label {
+			margin-bottom: 10px;
 		}
 
-		.panel-text,
-		.zen,
-		.usage dl > div {
-			grid-template-columns: minmax(0, 1fr);
+		.top {
+			flex-direction: column;
+			gap: 6px;
 		}
 
-		/* On small screens the status beads sit on the strand itself. */
-		.rod {
-			--size: 22px;
-			grid-template-columns: minmax(0, 1fr);
-			gap: 18px;
-		}
-
-		.rod::before {
-			display: none;
-		}
-
-		.rod li {
-			grid-template-columns: auto auto;
-			justify-content: start;
-			align-items: baseline;
-			gap: 12px;
-		}
-
-		.rod .bead {
-			position: absolute;
-			left: var(--thread-x);
-			top: 50%;
-			margin: 0;
-			translate: -50% -50%;
-		}
-
-		.rod-name {
-			font-size: 1.25rem;
-		}
-
-		.tabs label {
-			font-size: 0.68rem;
+		.top nav {
+			gap: 4px 18px;
 		}
 
 		pre {
-			padding: 14px;
-			font-size: 0.69rem;
-			font-stretch: 75%;
+			font-size: 12px;
 		}
 
-		.queue li {
-			grid-template-columns: 12px 5.2em minmax(0, 1fr);
+		.install pre {
+			padding: 12px;
 		}
 
-		.queue li span:last-child {
-			grid-column: 2 / -1;
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		:global(html) {
-			scroll-behavior: auto;
+		.install-meta {
+			padding-left: 12px;
 		}
 
-		.tabs .bead,
-		button {
-			transition: none;
+		.index {
+			margin-top: 40px;
+		}
+
+		.fig figcaption strong,
+		.fig-desc,
+		.fig-hint {
+			display: block;
+		}
+
+		.fig figcaption strong {
+			margin-top: 2px;
+		}
+
+		.fig-hint {
+			margin-top: 8px;
+		}
+
+		/* A 1600px capture is unreadable at 360px, so keep it legible and let it pan. */
+		.shot {
+			overflow-x: auto;
+			overscroll-behavior-x: contain;
+		}
+
+		.shot img {
+			width: 1100px;
+			max-width: none;
+		}
+
+		.flow ol {
+			grid-template-columns: 1fr;
+		}
+
+		.flow li,
+		.flow li + li {
+			grid-template-columns: 2.5ch 1fr auto;
+			align-items: baseline;
+			padding: 7px 0;
+			border-left: 0;
+			border-top: 1px solid var(--rule);
+		}
+
+		.flow li:first-child {
+			border-top: 0;
+		}
+
+		.flow-no {
+			grid-row: auto;
+			padding-top: 0;
+		}
+
+		.facts,
+		.facts:not(.stacked) {
+			grid-template-columns: 1fr;
+		}
+
+
+		.commands div {
+			display: block;
 		}
 	}
 
 	@media (prefers-reduced-motion: no-preference) {
-		.rise {
-			animation: rise 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) var(--d, 0ms) backwards;
-		}
-
-		/* Beads slide along the rod into place, the far one first. */
-		.rod li {
-			animation: slide 0.9s cubic-bezier(0.2, 0.9, 0.25, 1) calc(500ms + (4 - var(--i)) * 90ms) backwards;
-		}
-
-		@supports (animation-timeline: view()) {
-			.page::after {
-				animation: draw linear both;
-				animation-timeline: scroll(root);
-			}
-
-			.reveal {
-				animation: rise linear both;
-				animation-timeline: view();
-				animation-range: entry 0% cover 22%;
-			}
-		}
-	}
-
-	@keyframes rise {
-		from {
-			opacity: 0;
-			translate: 0 26px;
-		}
-	}
-
-	@keyframes slide {
-		from {
-			opacity: 0;
-			translate: calc(-60px - var(--i) * 70px) 0;
-		}
-	}
-
-	@keyframes draw {
-		from {
-			scale: 1 0.04;
+		:global(html) {
+			scroll-behavior: smooth;
 		}
 	}
 </style>
